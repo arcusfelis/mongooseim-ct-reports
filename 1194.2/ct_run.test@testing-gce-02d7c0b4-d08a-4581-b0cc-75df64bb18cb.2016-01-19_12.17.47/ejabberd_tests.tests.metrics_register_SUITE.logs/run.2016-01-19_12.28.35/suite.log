@@ -1,0 +1,57 @@
+=== Suite started at 2016-01-19 12:28:35
+=== Starting test, 2 test cases
+=cases         2
+=user          travis
+=host          testing-gce-02d7c0b4-d08a-4581-b0cc-75df64bb18cb
+=hosts         testing-gce-02d7c0b4-d08a-4581-b0cc-75df64bb18cb 
+=emulator_vsn  6.4
+=emulator      beam
+=otp_release   17
+=started       2016-01-19 12:28:35
+=case          metrics_register_SUITE:init_per_suite
+=logfile       metrics_register_suite.init_per_suite.html
+=started       2016-01-19 12:28:35
+=ended         2016-01-19 12:28:35
+=result        ok
+=elapsed       0.003175
+=case          metrics_register_SUITE:init_per_group
+=logfile       metrics_register_suite.init_per_group.html
+=group_props   [{name,registration},sequence]
+=started       2016-01-19 12:28:35
+=ended         2016-01-19 12:28:35
+=result        ok
+=elapsed       1.0e-6
+=case          metrics_register_SUITE:register
+=logfile       metrics_register_suite.register.html
+=started       2016-01-19 12:28:35
+=ended         2016-01-19 12:28:35
+=result        ok
+=elapsed       0.250588
+=case          metrics_register_SUITE:unregister
+=logfile       metrics_register_suite.unregister.html
+=started       2016-01-19 12:28:35
+=ended         2016-01-19 12:28:36
+=result        ok
+=elapsed       0.460196
+=case          metrics_register_SUITE:end_per_group
+=logfile       metrics_register_suite.end_per_group.html
+=group_props   [{name,registration},sequence]
+=started       2016-01-19 12:28:36
+=ended         2016-01-19 12:28:36
+=result        ok
+=elapsed       1.0e-6
+=group_time    1.496s
+=case          metrics_register_SUITE:end_per_suite
+=logfile       metrics_register_suite.end_per_suite.html
+=started       2016-01-19 12:28:36
+=ended         2016-01-19 12:28:36
+=result        ok
+=elapsed       0.00176
+=group_time    1.593s
+=== TEST COMPLETE, 2 ok, 0 failed of 2 test cases
+
+=finished      2016-01-19 12:28:36
+=failed        0
+=successful    2
+=user_skipped  0
+=auto_skipped  0
