@@ -1,0 +1,289 @@
+=== Suite started at 2016-01-19 14:25:47
+=== Starting test, 12 test cases
+=cases         12
+=user          travis
+=host          testing-gce-76a56e4e-5152-409f-8fdc-f7747e4ad822
+=hosts         testing-gce-76a56e4e-5152-409f-8fdc-f7747e4ad822 
+=emulator_vsn  6.4
+=emulator      beam
+=otp_release   17
+=started       2016-01-19 14:25:47
+=case          s2s_SUITE:init_per_suite
+=logfile       s2s_suite.init_per_suite.html
+=started       2016-01-19 14:25:47
+=ended         2016-01-19 14:25:59
+=result        ok
+=elapsed       12.32112
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.html
+=group_props   [{name,both_plain},sequence]
+=started       2016-01-19 14:25:59
+=ended         2016-01-19 14:25:59
+=result        ok
+=elapsed       0.009346
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.html
+=started       2016-01-19 14:25:59
+=ended         2016-01-19 14:26:01
+=result        ok
+=elapsed       1.272167
+=case          s2s_SUITE:nonexistent_user
+=logfile       s2s_suite.nonexistent_user.html
+=started       2016-01-19 14:26:01
+=ended         2016-01-19 14:26:02
+=result        ok
+=elapsed       0.922338
+=case          s2s_SUITE:unknown_domain
+=logfile       s2s_suite.unknown_domain.html
+=started       2016-01-19 14:26:02
+=ended         2016-01-19 14:26:03
+=result        ok
+=elapsed       1.092658
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.html
+=group_props   [{name,both_plain},sequence]
+=started       2016-01-19 14:26:03
+=ended         2016-01-19 14:26:03
+=result        ok
+=elapsed       1.0e-6
+=group_time    3.406s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213563.247.html
+=group_props   [{name,both_tls_optional}]
+=started       2016-01-19 14:26:03
+=ended         2016-01-19 14:26:03
+=result        ok
+=elapsed       0.004091
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.213563.279.html
+=started       2016-01-19 14:26:03
+=ended         2016-01-19 14:26:04
+=result        ok
+=elapsed       1.277571
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213564.585.html
+=group_props   [{name,both_tls_optional}]
+=started       2016-01-19 14:26:04
+=ended         2016-01-19 14:26:04
+=result        ok
+=elapsed       2.0e-6
+=group_time    1.337s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213564.612.html
+=group_props   [{name,both_tls_required}]
+=started       2016-01-19 14:26:04
+=ended         2016-01-19 14:26:04
+=result        ok
+=elapsed       0.004263
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.213564.644.html
+=started       2016-01-19 14:26:04
+=ended         2016-01-19 14:26:05
+=result        ok
+=elapsed       1.259606
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213565.931.html
+=group_props   [{name,both_tls_required}]
+=started       2016-01-19 14:26:05
+=ended         2016-01-19 14:26:05
+=result        ok
+=elapsed       1.0e-6
+=group_time    1.320s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213565.959.html
+=group_props   [{name,node1_tls_optional_node2_tls_required}]
+=started       2016-01-19 14:26:05
+=ended         2016-01-19 14:26:05
+=result        ok
+=elapsed       0.011235
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.213565.998.html
+=started       2016-01-19 14:26:05
+=ended         2016-01-19 14:26:07
+=result        ok
+=elapsed       1.255969
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213567.281.html
+=group_props   [{name,node1_tls_optional_node2_tls_required}]
+=started       2016-01-19 14:26:07
+=ended         2016-01-19 14:26:07
+=result        ok
+=elapsed       1.0e-6
+=group_time    1.322s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213567.308.html
+=group_props   [{name,node1_tls_required_node2_tls_optional}]
+=started       2016-01-19 14:26:07
+=ended         2016-01-19 14:26:07
+=result        ok
+=elapsed       0.006021
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.213567.341.html
+=started       2016-01-19 14:26:07
+=ended         2016-01-19 14:26:08
+=result        ok
+=elapsed       1.258176
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213568.627.html
+=group_props   [{name,node1_tls_required_node2_tls_optional}]
+=started       2016-01-19 14:26:08
+=ended         2016-01-19 14:26:08
+=result        ok
+=elapsed       1.0e-6
+=group_time    1.319s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213568.654.html
+=group_props   [{name,node1_tls_required_trusted_node2_tls_optional}]
+=started       2016-01-19 14:26:08
+=ended         2016-01-19 14:26:08
+=result        ok
+=elapsed       0.010329
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.213568.691.html
+=started       2016-01-19 14:26:08
+=ended         2016-01-19 14:26:19
+=result        failed: {timeout_when_waiting_for_stanza,
+                           [{escalus_client,wait_for_stanza,
+                                [{client,<<"alice@localhost2/res1">>,
+                                     escalus_tcp,#Port<0.20695>,false,false,
+                                     <0.9116.1>,
+                                     [{event_manager,<0.9115.1>},
+                                      {server,<<"localhost2">>},
+                                      {username,<<"alice">>},
+                                      {resource,<<"res1">>}]},
+                                 10000],
+                                [{file,"src/escalus_client.erl"},{line,117}]},
+                            {s2s_SUITE,'-simple_message/1-fun-0-',2,
+                                [{file,"s2s_SUITE.erl"},{line,165}]},
+                            {escalus_story,story,3,
+                                [{file,"src/escalus_story.erl"},{line,40}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1026}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{escalus_client,
+                                                                            wait_for_stanza,
+                                                                            117},
+                                                                           {s2s_SUITE,
+                                                                            '-simple_message/1-fun-0-',
+                                                                            165},
+                                                                           {escalus_story,
+                                                                            story,
+                                                                            40},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1026},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED test case 8 of 12 ***
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213579.659.html
+=group_props   [{name,node1_tls_required_trusted_node2_tls_optional}]
+=started       2016-01-19 14:26:19
+=ended         2016-01-19 14:26:19
+=result        ok
+=elapsed       1.0e-6
+=group_time    11.005s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213579.685.html
+=group_props   [{name,node1_tls_false_node2_tls_optional}]
+=started       2016-01-19 14:26:19
+=ended         2016-01-19 14:26:19
+=result        ok
+=elapsed       0.001602
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.213579.712.html
+=started       2016-01-19 14:26:19
+=ended         2016-01-19 14:26:20
+=result        ok
+=elapsed       1.019821
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213580.759.html
+=group_props   [{name,node1_tls_false_node2_tls_optional}]
+=started       2016-01-19 14:26:20
+=ended         2016-01-19 14:26:20
+=result        ok
+=elapsed       1.0e-6
+=group_time    1.074s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213580.785.html
+=group_props   [{name,node1_tls_optional_node2_tls_false}]
+=started       2016-01-19 14:26:20
+=ended         2016-01-19 14:26:20
+=result        ok
+=elapsed       0.00325
+=case          s2s_SUITE:simple_message
+=logfile       s2s_suite.simple_message.213580.814.html
+=started       2016-01-19 14:26:20
+=ended         2016-01-19 14:26:21
+=result        ok
+=elapsed       0.938468
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213581.779.html
+=group_props   [{name,node1_tls_optional_node2_tls_false}]
+=started       2016-01-19 14:26:21
+=ended         2016-01-19 14:26:21
+=result        ok
+=elapsed       1.0e-6
+=group_time    0.994s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213581.812.html
+=group_props   [{name,node1_tls_false_node2_tls_required}]
+=started       2016-01-19 14:26:21
+=ended         2016-01-19 14:26:21
+=result        ok
+=elapsed       0.002558
+=case          s2s_SUITE:timeout_waiting_for_message
+=logfile       s2s_suite.timeout_waiting_for_message.html
+=started       2016-01-19 14:26:21
+=ended         2016-01-19 14:26:32
+=result        ok
+=elapsed       10.921537
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213592.787.html
+=group_props   [{name,node1_tls_false_node2_tls_required}]
+=started       2016-01-19 14:26:32
+=ended         2016-01-19 14:26:32
+=result        ok
+=elapsed       2.0e-6
+=group_time    10.975s
+=case          s2s_SUITE:init_per_group
+=logfile       s2s_suite.init_per_group.213592.813.html
+=group_props   [{name,node1_tls_required_node2_tls_false}]
+=started       2016-01-19 14:26:32
+=ended         2016-01-19 14:26:32
+=result        ok
+=elapsed       0.002328
+=case          s2s_SUITE:timeout_waiting_for_message
+=logfile       s2s_suite.timeout_waiting_for_message.213592.841.html
+=started       2016-01-19 14:26:32
+=ended         2016-01-19 14:26:43
+=result        ok
+=elapsed       10.9326
+=case          s2s_SUITE:end_per_group
+=logfile       s2s_suite.end_per_group.213603.800.html
+=group_props   [{name,node1_tls_required_node2_tls_false}]
+=started       2016-01-19 14:26:43
+=ended         2016-01-19 14:26:43
+=result        ok
+=elapsed       1.0e-6
+=group_time    10.987s
+=case          s2s_SUITE:end_per_suite
+=logfile       s2s_suite.end_per_suite.html
+=started       2016-01-19 14:26:43
+=ended         2016-01-19 14:26:58
+=result        ok
+=elapsed       15.064628
+=group_time    56.405s
+=== TEST COMPLETE, 11 ok, 1 failed of 12 test cases
+
+=finished      2016-01-19 14:26:58
+=failed        1
+=successful    11
+=user_skipped  0
+=auto_skipped  0
