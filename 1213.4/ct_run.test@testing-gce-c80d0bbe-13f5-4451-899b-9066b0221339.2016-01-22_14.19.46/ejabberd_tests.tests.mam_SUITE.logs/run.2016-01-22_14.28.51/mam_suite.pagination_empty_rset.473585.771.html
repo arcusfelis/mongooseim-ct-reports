@@ -1,0 +1,268 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Test mam_SUITE:pagination_empty_rset result</title>
+<meta http-equiv="cache-control" content="no-cache">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<link rel="stylesheet" href="../../ct_default.css" type="text/css">
+<script type="text/javascript" src="../../jquery-latest.js"></script>
+<script type="text/javascript" src="../../jquery.tablesorter.min.js"></script>
+</head>
+<body>
+
+<a name="top"></a><pre>
+=== Test case: <a href="mam_suite.src.html#pagination_empty_rset-1">mam_SUITE:pagination_empty_rset/1</a> (click for source code)
+
+=== Config value:
+
+    [{basic_group,rsm},
+     {configuration,odbc_mnesia_cache},
+     {all_messages,
+         [{forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61TID3G1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:40Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #1">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61TK6QO1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:40Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #2">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61TKLCO1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:40Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #3">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61TL1Q81">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:40Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #4">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61TLFN01">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:40Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #5">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61TLU2G1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:40Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #6">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61V75OG1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #7">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61V7OH01">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #8">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61V8KQ81">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #9">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61V9RF81">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #10">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61VABOG1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #11">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61VAP201">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #12">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61VB7HO1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #13">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61VCIPG1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #14">>},
+          {forwarded_message,<<"alicE@localhost">>,
+              <<"alicE@localhost/res1">>,<<"all_messages">>,
+              <<"AAFD61VCV0G1">>,<<"alice@localhost/res1">>,
+              <<"2016-01-22T14:39:41Z">>,<<"bOb@localhost/res1">>,<<"chat">>,
+              <<"Message #15">>}]},
+     {watchdog,<0.13076.1>},
+     {escalus_user_db,{module,escalus_ejabberd}},
+     {preset,"odbc_pgsql_mnesia"},
+     {tc_logfile,
+         "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-c80d0bbe-13f5-4451-899b-9066b0221339.2016-01-22_14.19.46/ejabberd_tests.tests.mam_SUITE.logs/run.2016-01-22_14.28.51/mam_suite.pagination_empty_rset.473585.771.html"},
+     {tc_group_properties,[{name,odbc_mnesia_cache_rsm}]},
+     {tc_group_path,[]},
+     {data_dir,
+         "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/tests/mam_SUITE_data/"},
+     {priv_dir,
+         "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-c80d0bbe-13f5-4451-899b-9066b0221339.2016-01-22_14.19.46/ejabberd_tests.tests.mam_SUITE.logs/run.2016-01-22_14.28.51/log_private/"},
+     {escalus_users,
+         [{alice,
+              [{username,<<"alicE">>},
+               {server,<<"localhost">>},
+               {password,<<"makota">>}]},
+          {bob,
+              [{username,<<"bOb">>},
+               {server,<<"localhost">>},
+               {password,<<"makrolika">>}]}]}]
+
+=== Current directory is "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-c80d0bbe-13f5-4451-899b-9066b0221339.2016-01-22_14.19.46"
+
+=== Started at 2016-01-22 14:39:45
+
+<br />
+<div class="ct_internal"><b>*** CT 2016-01-22 14:39:45.779 *** mongooseim@localhost</b>
+<a href="../../mongooseim@localhost.log.html#L141">mongooseim@localhost#141</a>
+
+</div>
+<div class="ct_internal"><b>*** CT 2016-01-22 14:39:45.780 *** ejabberd2@localhost</b>
+<a href="../../ejabberd2@localhost.log.html#L40">ejabberd2@localhost#40</a>
+
+</div>
+Could not find element with_rsm in Config.
+
+Could not find element muc_rsm in Config.
+
+<a name="end"></a>
+
+
+=== Ended at 2016-01-22 14:39:46
+=== successfully completed test case
+=== returned value = [{escalus_event_mgr,<0.13228.1>},
+                      {tc_name,pagination_empty_rset},
+                      {escalus_cleaner,<0.13227.1>},
+                      {watchdog,<0.13226.1>},
+                      {basic_group,rsm},
+                      {configuration,odbc_mnesia_cache},
+                      {all_messages,
+                          [{forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61TID3G1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:40Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #1">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61TK6QO1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:40Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #2">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61TKLCO1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:40Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #3">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61TL1Q81">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:40Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #4">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61TLFN01">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:40Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #5">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61TLU2G1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:40Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #6">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61V75OG1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #7">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61V7OH01">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #8">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61V8KQ81">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #9">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61V9RF81">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #10">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61VABOG1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #11">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61VAP201">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #12">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61VB7HO1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #13">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61VCIPG1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #14">>},
+                           {forwarded_message,<<"alicE@localhost">>,
+                               <<"alicE@localhost/res1">>,<<"all_messages">>,
+                               <<"AAFD61VCV0G1">>,<<"alice@localhost/res1">>,
+                               <<"2016-01-22T14:39:41Z">>,
+                               <<"bOb@localhost/res1">>,<<"chat">>,
+                               <<"Message #15">>}]},
+                      {escalus_user_db,{module,escalus_ejabberd}},
+                      {preset,"odbc_pgsql_mnesia"},
+                      {tc_logfile,
+                          "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-c80d0bbe-13f5-4451-899b-9066b0221339.2016-01-22_14.19.46/ejabberd_tests.tests.mam_SUITE.logs/run.2016-01-22_14.28.51/mam_suite.pagination_empty_rset.473585.771.html"},
+                      {tc_group_properties,[{name,odbc_mnesia_cache_rsm}]},
+                      {tc_group_path,[]},
+                      {data_dir,
+                          "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/tests/mam_SUITE_data/"},
+                      {priv_dir,
+                          "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-c80d0bbe-13f5-4451-899b-9066b0221339.2016-01-22_14.19.46/ejabberd_tests.tests.mam_SUITE.logs/run.2016-01-22_14.28.51/log_private/"},
+                      {escalus_users,
+                          [{alice,
+                               [{username,<<"alicE">>},
+                                {server,<<"localhost">>},
+                                {password,<<"makota">>}]},
+                           {bob,
+                               [{username,<<"bOb">>},
+                                {server,<<"localhost">>},
+                                {password,<<"makrolika">>}]}]}]
+</pre>
+<center>
+<br /><hr /><p>
+<a href="../../../all_runs.html">Test run history
+</a>  |  <a href="../../../index.html">Top level test index
+</a>
+</p>
+<div class="copyright">Copyright &copy; 2016 <a href="http://www.erlang.org">Open Telecom Platform</a><br />
+Updated: <!date>Fri Jan 22 2016 14:39:45<!/date><br />
+</div>
+</center>
+</body>
+</html>
