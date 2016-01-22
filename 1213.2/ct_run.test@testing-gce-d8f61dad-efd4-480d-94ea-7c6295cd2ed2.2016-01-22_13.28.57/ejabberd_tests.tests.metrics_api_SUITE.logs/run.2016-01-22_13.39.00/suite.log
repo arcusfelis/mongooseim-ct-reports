@@ -1,0 +1,165 @@
+=== Suite started at 2016-01-22 13:39:00
+=== Starting test, 11 test cases
+=cases         11
+=user          travis
+=host          testing-gce-d8f61dad-efd4-480d-94ea-7c6295cd2ed2
+=hosts         testing-gce-d8f61dad-efd4-480d-94ea-7c6295cd2ed2 
+=emulator_vsn  6.4
+=emulator      beam
+=otp_release   17
+=started       2016-01-22 13:39:00
+=case          metrics_api_SUITE:init_per_suite
+=logfile       metrics_api_suite.init_per_suite.html
+=started       2016-01-22 13:39:00
+=ended         2016-01-22 13:39:00
+=result        ok
+=elapsed       0.014385
+=case          metrics_api_SUITE:init_per_group
+=logfile       metrics_api_suite.init_per_group.html
+=group_props   [{name,metrics}]
+=started       2016-01-22 13:39:00
+=ended         2016-01-22 13:39:01
+=result        ok
+=elapsed       0.502682
+=case          metrics_api_SUITE:message_flow
+=logfile       metrics_api_suite.message_flow.html
+=started       2016-01-22 13:39:01
+=ended         2016-01-22 13:39:01
+=result        ok
+=elapsed       0.093442
+=case          metrics_api_SUITE:end_per_group
+=logfile       metrics_api_suite.end_per_group.html
+=group_props   [{name,metrics}]
+=started       2016-01-22 13:39:01
+=ended         2016-01-22 13:39:02
+=result        ok
+=elapsed       0.925386
+=group_time    0.654s
+=case          metrics_api_SUITE:init_per_group
+=logfile       metrics_api_suite.init_per_group.469942.453.html
+=group_props   [{name,stories}]
+=started       2016-01-22 13:39:02
+=ended         2016-01-22 13:39:02
+=result        ok
+=elapsed       0.510125
+=case          metrics_api_SUITE:one_client_just_logs_in
+=logfile       metrics_api_suite.one_client_just_logs_in.html
+=started       2016-01-22 13:39:02
+=ended         2016-01-22 13:39:03
+=result        ok
+=elapsed       0.93162
+=case          metrics_api_SUITE:two_clients_just_log_in
+=logfile       metrics_api_suite.two_clients_just_log_in.html
+=started       2016-01-22 13:39:03
+=ended         2016-01-22 13:39:05
+=result        ok
+=elapsed       1.248815
+=case          metrics_api_SUITE:one_message_sent
+=logfile       metrics_api_suite.one_message_sent.html
+=started       2016-01-22 13:39:05
+=ended         2016-01-22 13:39:06
+=result        ok
+=elapsed       0.998018
+=case          metrics_api_SUITE:one_direct_presence_sent
+=logfile       metrics_api_suite.one_direct_presence_sent.html
+=started       2016-01-22 13:39:06
+=ended         2016-01-22 13:39:07
+=result        ok
+=elapsed       1.081119
+=case          metrics_api_SUITE:one_iq_sent
+=logfile       metrics_api_suite.one_iq_sent.html
+=started       2016-01-22 13:39:07
+=ended         2016-01-22 13:39:08
+=result        ok
+=elapsed       0.676329
+=case          metrics_api_SUITE:one_message_error
+=logfile       metrics_api_suite.one_message_error.html
+=started       2016-01-22 13:39:08
+=ended         2016-01-22 13:39:08
+=result        ok
+=elapsed       0.634655
+=case          metrics_api_SUITE:one_iq_error
+=logfile       metrics_api_suite.one_iq_error.html
+=started       2016-01-22 13:39:08
+=ended         2016-01-22 13:39:09
+=result        ok
+=elapsed       0.626087
+=case          metrics_api_SUITE:one_presence_error
+=logfile       metrics_api_suite.one_presence_error.html
+=started       2016-01-22 13:39:09
+=ended         2016-01-22 13:39:10
+=result        ok
+=elapsed       0.62483
+=case          metrics_api_SUITE:end_per_group
+=logfile       metrics_api_suite.end_per_group.469950.33.html
+=group_props   [{name,stories}]
+=started       2016-01-22 13:39:10
+=ended         2016-01-22 13:39:10
+=result        ok
+=elapsed       0.921632
+=group_time    7.580s
+=case          metrics_api_SUITE:init_per_group
+=logfile       metrics_api_suite.init_per_group.469950.980.html
+=group_props   [{name,global}]
+=started       2016-01-22 13:39:10
+=ended         2016-01-22 13:39:11
+=result        ok
+=elapsed       0.501646
+=case          metrics_api_SUITE:session_counters
+=logfile       metrics_api_suite.session_counters.html
+=started       2016-01-22 13:39:11
+=ended         2016-01-22 13:39:12
+=result        ok
+=elapsed       1.381302
+=case          metrics_api_SUITE:node_uptime
+=logfile       metrics_api_suite.node_uptime.html
+=started       2016-01-22 13:39:12
+=ended         2016-01-22 13:39:12
+=result        failed: {{badmatch,644},
+                        [{metrics_api_SUITE,fetch_global_counter_value,2,
+                             [{file,"metrics_api_SUITE.erl"},{line,249}]},
+                         {metrics_api_SUITE,node_uptime,1,
+                             [{file,"metrics_api_SUITE.erl"},{line,199}]},
+                         {test_server,ts_tc,3,
+                             [{file,"test_server.erl"},{line,1429}]},
+                         {test_server,run_test_case_eval1,6,
+                             [{file,"test_server.erl"},{line,1026}]},
+                         {test_server,run_test_case_eval,9,
+                             [{file,"test_server.erl"},{line,968}]}]}, [{metrics_api_SUITE,
+                                                                         fetch_global_counter_value,
+                                                                         249},
+                                                                        {metrics_api_SUITE,
+                                                                         node_uptime,
+                                                                         199},
+                                                                        {test_server,
+                                                                         ts_tc,
+                                                                         1429},
+                                                                        {test_server,
+                                                                         run_test_case_eval1,
+                                                                         1026},
+                                                                        {test_server,
+                                                                         run_test_case_eval,
+                                                                         968}]
+=== *** FAILED test case 11 of 11 ***
+=case          metrics_api_SUITE:end_per_group
+=logfile       metrics_api_suite.end_per_group.469952.969.html
+=group_props   [{name,global}]
+=started       2016-01-22 13:39:12
+=ended         2016-01-22 13:39:13
+=result        ok
+=elapsed       0.921256
+=group_time    1.989s
+=case          metrics_api_SUITE:end_per_suite
+=logfile       metrics_api_suite.end_per_suite.html
+=started       2016-01-22 13:39:13
+=ended         2016-01-22 13:39:13
+=result        ok
+=elapsed       0.037953
+=group_time    13.135s
+=== TEST COMPLETE, 10 ok, 1 failed of 11 test cases
+
+=finished      2016-01-22 13:39:13
+=failed        1
+=successful    10
+=user_skipped  0
+=auto_skipped  0
