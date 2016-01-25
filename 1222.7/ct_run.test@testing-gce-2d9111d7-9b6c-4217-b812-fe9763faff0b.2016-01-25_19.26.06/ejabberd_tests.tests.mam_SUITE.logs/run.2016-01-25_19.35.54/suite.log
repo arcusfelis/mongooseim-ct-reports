@@ -1,0 +1,1018 @@
+=== Suite started at 2016-01-25 19:35:54
+=== Starting test, 73 test cases
+=cases         73
+=user          travis
+=host          testing-gce-2d9111d7-9b6c-4217-b812-fe9763faff0b
+=hosts         testing-gce-2d9111d7-9b6c-4217-b812-fe9763faff0b 
+=emulator_vsn  6.4
+=emulator      beam
+=otp_release   17
+=started       2016-01-25 19:35:54
+=case          mam_SUITE:init_per_suite
+=logfile       mam_suite.init_per_suite.html
+=started       2016-01-25 19:35:54
+=ended         2016-01-25 19:35:54
+=result        ok
+=elapsed       0.001761
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.html
+=group_props   [{name,riak_timed_yz_buckets_mam}]
+=started       2016-01-25 19:35:54
+=ended         2016-01-25 19:35:54
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:mam_service_discovery
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #1 {mam_SUITE,mam_service_discovery} ***
+=== 
+=case          mam_SUITE:simple_archive_request
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #2 {mam_SUITE,simple_archive_request} ***
+=== 
+=case          mam_SUITE:range_archive_request
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #3 {mam_SUITE,range_archive_request} ***
+=== 
+=case          mam_SUITE:range_archive_request_not_empty
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #4 {mam_SUITE,range_archive_request_not_empty} ***
+=== 
+=case          mam_SUITE:limit_archive_request
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #5 {mam_SUITE,limit_archive_request} ***
+=== 
+=case          mam_SUITE:prefs_set_request
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #6 {mam_SUITE,prefs_set_request} ***
+=== 
+=case          mam_SUITE:prefs_set_cdata_request
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #7 {mam_SUITE,prefs_set_cdata_request} ***
+=== 
+=case          mam_SUITE:iq_spoofing
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #8 {mam_SUITE,iq_spoofing} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_mam"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750554.879.html
+=group_props   [{name,riak_timed_yz_buckets_mam_purge}]
+=started       2016-01-25 19:35:54
+=ended         2016-01-25 19:35:54
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:purge_single_message
+=group_props   [{name,"riak_timed_yz_buckets_mam_purge"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #9 {mam_SUITE,purge_single_message} ***
+=== 
+=case          mam_SUITE:purge_multiple_messages
+=group_props   [{name,"riak_timed_yz_buckets_mam_purge"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #10 {mam_SUITE,purge_multiple_messages} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_mam_purge"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750554.910.html
+=group_props   [{name,riak_timed_yz_buckets_muc}]
+=started       2016-01-25 19:35:54
+=ended         2016-01-25 19:35:54
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:muc_service_discovery
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #11 {mam_SUITE,muc_service_discovery} ***
+=== 
+=case          mam_SUITE:muc_archive_request
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #12 {mam_SUITE,muc_archive_request} ***
+=== 
+=case          mam_SUITE:muc_archive_purge
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #13 {mam_SUITE,muc_archive_purge} ***
+=== 
+=case          mam_SUITE:muc_multiple_devices
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #14 {mam_SUITE,muc_multiple_devices} ***
+=== 
+=case          mam_SUITE:muc_private_message
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #15 {mam_SUITE,muc_private_message} ***
+=== 
+=case          mam_SUITE:muc_querying_for_all_messages
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #16 {mam_SUITE,muc_querying_for_all_messages} ***
+=== 
+=case          mam_SUITE:muc_querying_for_all_messages_with_jid
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #17 {mam_SUITE,muc_querying_for_all_messages_with_jid} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_muc"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750554.945.html
+=group_props   [{name,riak_timed_yz_buckets_muc_with_pm}]
+=started       2016-01-25 19:35:54
+=ended         2016-01-25 19:35:54
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:muc_service_discovery
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #18 {mam_SUITE,muc_service_discovery} ***
+=== 
+=case          mam_SUITE:muc_archive_request
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #19 {mam_SUITE,muc_archive_request} ***
+=== 
+=case          mam_SUITE:muc_archive_purge
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #20 {mam_SUITE,muc_archive_purge} ***
+=== 
+=case          mam_SUITE:muc_multiple_devices
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #21 {mam_SUITE,muc_multiple_devices} ***
+=== 
+=case          mam_SUITE:muc_private_message
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #22 {mam_SUITE,muc_private_message} ***
+=== 
+=case          mam_SUITE:muc_querying_for_all_messages
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #23 {mam_SUITE,muc_querying_for_all_messages} ***
+=== 
+=case          mam_SUITE:muc_querying_for_all_messages_with_jid
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #24 {mam_SUITE,muc_querying_for_all_messages_with_jid} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_muc_with_pm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750554.980.html
+=group_props   [{name,riak_timed_yz_buckets_rsm}]
+=started       2016-01-25 19:35:54
+=ended         2016-01-25 19:35:54
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:pagination_first5
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #25 {mam_SUITE,pagination_first5} ***
+=== 
+=case          mam_SUITE:pagination_last5
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #26 {mam_SUITE,pagination_last5} ***
+=== 
+=case          mam_SUITE:pagination_before10
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #27 {mam_SUITE,pagination_before10} ***
+=== 
+=case          mam_SUITE:pagination_after10
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #28 {mam_SUITE,pagination_after10} ***
+=== 
+=case          mam_SUITE:pagination_empty_rset
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #29 {mam_SUITE,pagination_empty_rset} ***
+=== 
+=case          mam_SUITE:pagination_last_after_id5
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #30 {mam_SUITE,pagination_last_after_id5} ***
+=== 
+=case          mam_SUITE:pagination_last_after_id5_before_id11
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #31 {mam_SUITE,pagination_last_after_id5_before_id11} ***
+=== 
+=case          mam_SUITE:pagination_simple_before10
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #32 {mam_SUITE,pagination_simple_before10} ***
+=== 
+=case          mam_SUITE:pagination_first5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #33 {mam_SUITE,pagination_first5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_last5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #34 {mam_SUITE,pagination_last5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_offset5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:54
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #35 {mam_SUITE,pagination_offset5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_first25_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #36 {mam_SUITE,pagination_first25_opt_count_all} ***
+=== 
+=case          mam_SUITE:pagination_last25_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #37 {mam_SUITE,pagination_last25_opt_count_all} ***
+=== 
+=case          mam_SUITE:pagination_offset5_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #38 {mam_SUITE,pagination_offset5_opt_count_all} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750555.18.html
+=group_props   [{name,riak_timed_yz_buckets_with_rsm}]
+=started       2016-01-25 19:35:55
+=ended         2016-01-25 19:35:55
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:pagination_first5
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #39 {mam_SUITE,pagination_first5} ***
+=== 
+=case          mam_SUITE:pagination_last5
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #40 {mam_SUITE,pagination_last5} ***
+=== 
+=case          mam_SUITE:pagination_before10
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #41 {mam_SUITE,pagination_before10} ***
+=== 
+=case          mam_SUITE:pagination_after10
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #42 {mam_SUITE,pagination_after10} ***
+=== 
+=case          mam_SUITE:pagination_empty_rset
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #43 {mam_SUITE,pagination_empty_rset} ***
+=== 
+=case          mam_SUITE:pagination_last_after_id5
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #44 {mam_SUITE,pagination_last_after_id5} ***
+=== 
+=case          mam_SUITE:pagination_last_after_id5_before_id11
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #45 {mam_SUITE,pagination_last_after_id5_before_id11} ***
+=== 
+=case          mam_SUITE:pagination_simple_before10
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #46 {mam_SUITE,pagination_simple_before10} ***
+=== 
+=case          mam_SUITE:pagination_first5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #47 {mam_SUITE,pagination_first5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_last5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #48 {mam_SUITE,pagination_last5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_offset5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #49 {mam_SUITE,pagination_offset5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_first25_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #50 {mam_SUITE,pagination_first25_opt_count_all} ***
+=== 
+=case          mam_SUITE:pagination_last25_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #51 {mam_SUITE,pagination_last25_opt_count_all} ***
+=== 
+=case          mam_SUITE:pagination_offset5_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #52 {mam_SUITE,pagination_offset5_opt_count_all} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_with_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750555.61.html
+=group_props   [{name,riak_timed_yz_buckets_muc_rsm}]
+=started       2016-01-25 19:35:55
+=ended         2016-01-25 19:35:55
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:pagination_first5
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #53 {mam_SUITE,pagination_first5} ***
+=== 
+=case          mam_SUITE:pagination_last5
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #54 {mam_SUITE,pagination_last5} ***
+=== 
+=case          mam_SUITE:pagination_before10
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #55 {mam_SUITE,pagination_before10} ***
+=== 
+=case          mam_SUITE:pagination_after10
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #56 {mam_SUITE,pagination_after10} ***
+=== 
+=case          mam_SUITE:pagination_empty_rset
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #57 {mam_SUITE,pagination_empty_rset} ***
+=== 
+=case          mam_SUITE:pagination_last_after_id5
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #58 {mam_SUITE,pagination_last_after_id5} ***
+=== 
+=case          mam_SUITE:pagination_last_after_id5_before_id11
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #59 {mam_SUITE,pagination_last_after_id5_before_id11} ***
+=== 
+=case          mam_SUITE:pagination_simple_before10
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #60 {mam_SUITE,pagination_simple_before10} ***
+=== 
+=case          mam_SUITE:pagination_first5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #61 {mam_SUITE,pagination_first5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_last5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #62 {mam_SUITE,pagination_last5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_offset5_opt_count
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #63 {mam_SUITE,pagination_offset5_opt_count} ***
+=== 
+=case          mam_SUITE:pagination_first25_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #64 {mam_SUITE,pagination_first25_opt_count_all} ***
+=== 
+=case          mam_SUITE:pagination_last25_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #65 {mam_SUITE,pagination_last25_opt_count_all} ***
+=== 
+=case          mam_SUITE:pagination_offset5_opt_count_all
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #66 {mam_SUITE,pagination_offset5_opt_count_all} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_muc_rsm"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750555.98.html
+=group_props   [{name,riak_timed_yz_buckets_bootstrapped}]
+=started       2016-01-25 19:35:55
+=ended         2016-01-25 19:35:55
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:purge_old_single_message
+=group_props   [{name,"riak_timed_yz_buckets_bootstrapped"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #67 {mam_SUITE,purge_old_single_message} ***
+=== 
+=case          mam_SUITE:querying_for_all_messages_with_jid
+=group_props   [{name,"riak_timed_yz_buckets_bootstrapped"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #68 {mam_SUITE,querying_for_all_messages_with_jid} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_bootstrapped"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750555.129.html
+=group_props   [{name,riak_timed_yz_buckets_archived}]
+=started       2016-01-25 19:35:55
+=ended         2016-01-25 19:35:55
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:archived
+=group_props   [{name,"riak_timed_yz_buckets_archived"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #69 {mam_SUITE,archived} ***
+=== 
+=case          mam_SUITE:strip_archived
+=group_props   [{name,"riak_timed_yz_buckets_archived"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #70 {mam_SUITE,strip_archived} ***
+=== 
+=case          mam_SUITE:filter_forwarded
+=group_props   [{name,"riak_timed_yz_buckets_archived"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #71 {mam_SUITE,filter_forwarded} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_archived"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750555.165.html
+=group_props   [{name,riak_timed_yz_buckets_policy_violation}]
+=started       2016-01-25 19:35:55
+=ended         2016-01-25 19:35:55
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:policy_violation
+=group_props   [{name,"riak_timed_yz_buckets_policy_violation"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #72 {mam_SUITE,policy_violation} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_policy_violation"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:init_per_group
+=logfile       mam_suite.init_per_group.750555.197.html
+=group_props   [{name,riak_timed_yz_buckets_offline_message}]
+=started       2016-01-25 19:35:55
+=ended         2016-01-25 19:35:55
+=result        failed: {function_clause,
+                           [{lists,foreach,
+                                [#Fun<escalus_ejabberd.1.24911657>,
+                                 {by_name,[alice,bob]}],
+                                [{file,"lists.erl"},{line,1335}]},
+                            {escalus_ejabberd,create_users,2,
+                                [{file,"src/escalus_ejabberd.erl"},
+                                 {line,214}]},
+                            {mam_SUITE,do_init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,311}]},
+                            {mam_SUITE,init_per_group,2,
+                                [{file,"mam_SUITE.erl"},{line,306}]},
+                            {test_server,ts_tc,3,
+                                [{file,"test_server.erl"},{line,1429}]},
+                            {test_server,run_test_case_eval1,6,
+                                [{file,"test_server.erl"},{line,1099}]},
+                            {test_server,run_test_case_eval,9,
+                                [{file,"test_server.erl"},{line,968}]}]}, [{lists,
+                                                                            foreach,
+                                                                            1335},
+                                                                           {escalus_ejabberd,
+                                                                            create_users,
+                                                                            214},
+                                                                           {mam_SUITE,
+                                                                            do_init_per_group,
+                                                                            311},
+                                                                           {mam_SUITE,
+                                                                            init_per_group,
+                                                                            306},
+                                                                           {test_server,
+                                                                            ts_tc,
+                                                                            1429},
+                                                                           {test_server,
+                                                                            run_test_case_eval1,
+                                                                            1099},
+                                                                           {test_server,
+                                                                            run_test_case_eval,
+                                                                            968}]
+=== *** FAILED {mam_SUITE,init_per_group} ***
+=== 
+=case          mam_SUITE:offline_message
+=group_props   [{name,"riak_timed_yz_buckets_offline_message"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping test case #73 {mam_SUITE,offline_message} ***
+=== 
+=case          mam_SUITE:end_per_group
+=group_props   [{name,"riak_timed_yz_buckets_offline_message"}]
+=started       2016-01-25 19:35:55
+=result        auto_skipped: init_per_group failed
+=== *** Skipping {mam_SUITE,end_per_group} ***
+=case          mam_SUITE:end_per_suite
+=logfile       mam_suite.end_per_suite.html
+=started       2016-01-25 19:35:55
+=ended         2016-01-25 19:35:55
+=result        ok
+=elapsed       0.001246
+=group_time    0.443s
+=== TEST COMPLETE, 0 ok, 0 failed, 73 skipped of 73 test cases
+
+=finished      2016-01-25 19:35:55
+=failed        0
+=successful    0
+=user_skipped  0
+=auto_skipped  73
