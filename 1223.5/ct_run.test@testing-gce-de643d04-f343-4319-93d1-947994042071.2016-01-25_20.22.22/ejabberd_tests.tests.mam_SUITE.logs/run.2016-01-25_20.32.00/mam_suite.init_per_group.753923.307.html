@@ -1,0 +1,81 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Test mam_SUITE:init_per_group result</title>
+<meta http-equiv="cache-control" content="no-cache">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<link rel="stylesheet" href="../../ct_default.css" type="text/css">
+<script type="text/javascript" src="../../jquery-latest.js"></script>
+<script type="text/javascript" src="../../jquery.tablesorter.min.js"></script>
+</head>
+<body>
+
+<a name="top"></a><pre>
+=== Config function: <a href="mam_suite.src.html#init_per_group-1">mam_SUITE:init_per_group/2</a> (click for source code)
+
+=== Group properties: [{name,odbc_mnesia_with_rsm}]
+
+=== Config value:
+
+    [{escalus_user_db,{module,escalus_ejabberd}},
+     {watchdog,<0.15949.0>},
+     {preset,"pgsql_mnesia"},
+     {tc_logfile,"/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-de643d04-f343-4319-93d1-947994042071.2016-01-25_20.22.22/ejabberd_tests.tests.mam_SUITE.logs/run.2016-01-25_20.32.00/mam_suite.init_per_group.753923.307.html"},
+     {tc_group_properties,[{name,odbc_mnesia_with_rsm}]},
+     {tc_group_path,[]},
+     {data_dir,"/home/travis/build/esl/MongooseIM/test/ejabberd_tests/tests/mam_SUITE_data/"},
+     {priv_dir,"/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-de643d04-f343-4319-93d1-947994042071.2016-01-25_20.22.22/ejabberd_tests.tests.mam_SUITE.logs/run.2016-01-25_20.32.00/log_private/"}]
+
+=== Current directory is "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-de643d04-f343-4319-93d1-947994042071.2016-01-25_20.22.22"
+
+=== Started at 2016-01-25 20:32:03
+
+<br />
+
+<div class="default"><b>*** User 2016-01-25 20:32:03.315 ***</b>
+Init per group odbc_mnesia_with_rsm; configuration odbc_mnesia; basic group with_rsm
+</div>
+
+<div class="ct_error_notify"><b>*** CT Error Notification 2016-01-25 20:32:03.317 ***</b>
+mam_SUITE:init_per_group failed
+Reason: function_clause
+
+<a href="#end">Full error description and stacktrace</a>
+</div>
+<a name="end"></a>
+
+
+=== Ended at 2016-01-25 20:32:03
+=== location [{lists,foreach,1335},
+              {escalus_ejabberd,create_users,214},
+              {mam_SUITE,do_init_per_group,<a href="mam_suite.src.html#311">311</a>},
+              {mam_SUITE,init_per_group,<a href="mam_suite.src.html#306">306</a>},
+              {test_server,ts_tc,1429},
+              {test_server,run_test_case_eval1,1099},
+              {test_server,run_test_case_eval,968}]
+=== reason = no function clause matching 
+                 lists:foreach(#Fun<escalus_ejabberd.1.24911657>,
+                               {by_name,[alice,bob]}) (lists.erl, line 1335)
+  in function  escalus_ejabberd:create_users/2 (src/escalus_ejabberd.erl, line 214)
+  in call from mam_SUITE:do_init_per_group/2 (mam_SUITE.erl, line 311)
+  in call from mam_SUITE:init_per_group/2 (mam_SUITE.erl, line 306)
+  in call from test_server:ts_tc/3 (test_server.erl, line 1429)
+  in call from test_server:run_test_case_eval1/6 (test_server.erl, line 1099)
+  in call from test_server:run_test_case_eval/9 (test_server.erl, line 968)
+=== 
+*** init_per_group failed.
+    Skipping all cases.
+</pre>
+<center>
+<br /><hr /><p>
+<a href="../../../all_runs.html">Test run history
+</a>  |  <a href="../../../index.html">Top level test index
+</a>
+</p>
+<div class="copyright">Copyright &copy; 2016 <a href="http://www.erlang.org">Open Telecom Platform</a><br />
+Updated: <!date>Mon Jan 25 2016 20:32:03<!/date><br />
+</div>
+</center>
+</body>
+</html>
