@@ -1,0 +1,589 @@
+=== Suite started at 2016-01-25 21:09:02
+=== Starting test, 11 test cases
+=cases         11
+=user          travis
+=host          testing-gce-345e0c25-337b-44cd-99d6-32828c192e46
+=hosts         testing-gce-345e0c25-337b-44cd-99d6-32828c192e46 
+=emulator_vsn  5.10.4
+=emulator      beam
+=otp_release   R16B03
+=started       2016-01-25 21:09:02
+=case          oauth_SUITE:init_per_suite
+=logfile       oauth_suite.init_per_suite.html
+=started       2016-01-25 21:09:02
+=ended         2016-01-25 21:09:02
+=result        ok
+=elapsed       0.005926
+=case          oauth_SUITE:init_per_group
+=logfile       oauth_suite.init_per_group.html
+=group_props   [{name,token_login},sequence]
+=started       2016-01-25 21:09:02
+=ended         2016-01-25 21:09:03
+=result        ok
+=elapsed       0.504886
+=case          oauth_SUITE:request_tokens_test
+=logfile       oauth_suite.request_tokens_test.html
+=started       2016-01-25 21:09:03
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:03
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 1 of 11 ***
+=case          oauth_SUITE:login_access_token_test
+=logfile       oauth_suite.login_access_token_test.html
+=started       2016-01-25 21:09:03
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:03
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 2 of 11 ***
+=case          oauth_SUITE:login_refresh_token_test
+=logfile       oauth_suite.login_refresh_token_test.html
+=started       2016-01-25 21:09:03
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:03
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 3 of 11 ***
+=case          oauth_SUITE:login_with_other_users_token
+=logfile       oauth_suite.login_with_other_users_token.html
+=started       2016-01-25 21:09:03
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:03
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 4 of 11 ***
+=case          oauth_SUITE:login_with_malformed_token
+=logfile       oauth_suite.login_with_malformed_token.html
+=started       2016-01-25 21:09:03
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:03
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 5 of 11 ***
+=case          oauth_SUITE:end_per_group
+=logfile       oauth_suite.end_per_group.html
+=group_props   [{name,token_login},sequence]
+=started       2016-01-25 21:09:03
+=ended         2016-01-25 21:09:04
+=result        ok
+=elapsed       0.922965
+=group_time    0.669s
+=case          oauth_SUITE:init_per_group
+=logfile       oauth_suite.init_per_group.756144.319.html
+=group_props   [{name,token_revocation},sequence]
+=started       2016-01-25 21:09:04
+=ended         2016-01-25 21:09:04
+=result        ok
+=elapsed       0.504827
+=case          oauth_SUITE:login_with_revoked_token_test
+=logfile       oauth_suite.login_with_revoked_token_test.html
+=started       2016-01-25 21:09:04
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:04
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 6 of 11 ***
+=case          oauth_SUITE:token_revocation_test
+=logfile       oauth_suite.token_revocation_test.html
+=started       2016-01-25 21:09:04
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:04
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 7 of 11 ***
+=case          oauth_SUITE:end_per_group
+=logfile       oauth_suite.end_per_group.756144.911.html
+=group_props   [{name,token_revocation},sequence]
+=started       2016-01-25 21:09:04
+=ended         2016-01-25 21:09:05
+=result        ok
+=elapsed       0.92388
+=group_time    0.592s
+=case          oauth_SUITE:init_per_group
+=logfile       oauth_suite.init_per_group.756145.867.html
+=group_props   [{name,provision_token}]
+=started       2016-01-25 21:09:05
+=ended         2016-01-25 21:09:06
+=result        ok
+=elapsed       0.504467
+=case          oauth_SUITE:provision_token_login
+=logfile       oauth_suite.provision_token_login.html
+=started       2016-01-25 21:09:06
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:06
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 8 of 11 ***
+=case          oauth_SUITE:end_per_group
+=logfile       oauth_suite.end_per_group.756146.425.html
+=group_props   [{name,provision_token}]
+=started       2016-01-25 21:09:06
+=ended         2016-01-25 21:09:07
+=result        ok
+=elapsed       0.922581
+=group_time    0.558s
+=case          oauth_SUITE:init_per_group
+=logfile       oauth_suite.init_per_group.756147.373.html
+=group_props   [{name,commands}]
+=started       2016-01-25 21:09:07
+=ended         2016-01-25 21:09:07
+=result        ok
+=elapsed       0.50287
+=case          oauth_SUITE:revoke_token_cmd_when_no_token
+=logfile       oauth_suite.revoke_token_cmd_when_no_token.html
+=started       2016-01-25 21:09:07
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:07
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 9 of 11 ***
+=case          oauth_SUITE:revoke_token_cmd
+=logfile       oauth_suite.revoke_token_cmd.html
+=started       2016-01-25 21:09:07
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:07
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 10 of 11 ***
+=case          oauth_SUITE:end_per_group
+=logfile       oauth_suite.end_per_group.756147.956.html
+=group_props   [{name,commands}]
+=started       2016-01-25 21:09:07
+=ended         2016-01-25 21:09:08
+=result        ok
+=elapsed       0.921917
+=group_time    0.583s
+=case          oauth_SUITE:init_per_group
+=logfile       oauth_suite.init_per_group.756148.903.html
+=group_props   [{name,cleanup}]
+=started       2016-01-25 21:09:08
+=ended         2016-01-25 21:09:09
+=result        ok
+=elapsed       0.503166
+=case          oauth_SUITE:token_removed_on_user_removal
+=logfile       oauth_suite.token_removed_on_user_removal.html
+=started       2016-01-25 21:09:09
+=== ERROR! init_per_testcase crashed!
+	Location: [{oauth_SUITE,clean_token_db,<a href="oauth_suite.src.html#362">362</a>},
+              {oauth_SUITE,init_per_testcase,<a href="oauth_suite.src.html#99">99</a>},
+              {test_server,do_init_per_testcase,1168},
+              {test_server,run_test_case_eval1,951},
+              {test_server,run_test_case_eval,925}]
+	Reason: {{badmatch,
+                     {badrpc,
+                         {'EXIT',
+                             {aborted,
+                                 {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                 [{oauth_SUITE,clean_token_db,0,
+                      [{file,"oauth_SUITE.erl"},{line,362}]},
+                  {oauth_SUITE,init_per_testcase,2,
+                      [{file,"oauth_SUITE.erl"},{line,99}]},
+                  {test_server,do_init_per_testcase,2,
+                      [{file,"test_server.erl"},{line,1168}]},
+                  {test_server,run_test_case_eval1,6,
+                      [{file,"test_server.erl"},{line,951}]},
+                  {test_server,run_test_case_eval,9,
+                      [{file,"test_server.erl"},{line,925}]}]}
+
+=ended         2016-01-25 21:09:09
+=result        auto_skipped: {failed,
+                              {oauth_SUITE,init_per_testcase,
+                               {{badmatch,
+                                 {badrpc,
+                                  {'EXIT',
+                                   {aborted,
+                                    {no_exists,[sql_pool,<<"localhost">>]}}}}},
+                                [{oauth_SUITE,clean_token_db,0,
+                                  [{file,"oauth_SUITE.erl"},{line,362}]},
+                                 {oauth_SUITE,init_per_testcase,2,
+                                  [{file,"oauth_SUITE.erl"},{line,99}]},
+                                 {test_server,do_init_per_testcase,2,
+                                  [{file,"test_server.erl"},{line,1168}]},
+                                 {test_server,run_test_case_eval1,6,
+                                  [{file,"test_server.erl"},{line,951}]},
+                                 {test_server,run_test_case_eval,9,
+                                  [{file,"test_server.erl"},{line,925}]}]}}}
+=== *** SKIPPED test case 11 of 11 ***
+=case          oauth_SUITE:end_per_group
+=logfile       oauth_suite.end_per_group.756149.459.html
+=group_props   [{name,cleanup}]
+=started       2016-01-25 21:09:09
+=ended         2016-01-25 21:09:09
+=result        ok
+=elapsed       0.462693
+=group_time    0.556s
+=case          oauth_SUITE:end_per_suite
+=logfile       oauth_suite.end_per_suite.html
+=started       2016-01-25 21:09:09
+=ended         2016-01-25 21:09:10
+=result        ok
+=elapsed       0.034501
+=group_time    7.327s
+=== TEST COMPLETE, 0 ok, 0 failed, 11 skipped of 11 test cases
+
+=finished      2016-01-25 21:09:10
+=failed        0
+=successful    0
+=user_skipped  0
+=auto_skipped  11
