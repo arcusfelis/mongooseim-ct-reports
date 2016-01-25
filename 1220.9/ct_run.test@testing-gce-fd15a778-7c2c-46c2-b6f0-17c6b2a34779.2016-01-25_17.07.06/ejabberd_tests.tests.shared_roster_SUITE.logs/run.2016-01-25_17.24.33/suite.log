@@ -1,0 +1,69 @@
+=== Suite started at 2016-01-25 17:24:33
+=== Starting test, 4 test cases
+=cases         4
+=user          travis
+=host          testing-gce-fd15a778-7c2c-46c2-b6f0-17c6b2a34779
+=hosts         testing-gce-fd15a778-7c2c-46c2-b6f0-17c6b2a34779 
+=emulator_vsn  5.10.4
+=emulator      beam
+=otp_release   R16B03
+=started       2016-01-25 17:24:33
+=case          shared_roster_SUITE:init_per_suite
+=logfile       shared_roster_suite.init_per_suite.html
+=started       2016-01-25 17:24:33
+=ended         2016-01-25 17:24:33
+=result        ok
+=elapsed       0.004856
+=case          shared_roster_SUITE:init_per_group
+=logfile       shared_roster_suite.init_per_group.html
+=group_props   [{name,shared_roster},sequence]
+=started       2016-01-25 17:24:33
+=ended         2016-01-25 17:24:34
+=result        ok
+=elapsed       0.501965
+=case          shared_roster_SUITE:receive_presences
+=logfile       shared_roster_suite.receive_presences.html
+=started       2016-01-25 17:24:34
+=ended         2016-01-25 17:24:34
+=result        skipped: no_shared_roster_available
+=== *** SKIPPED test case 1 of 4 ***
+=case          shared_roster_SUITE:get_contacts
+=logfile       shared_roster_suite.get_contacts.html
+=started       2016-01-25 17:24:34
+=ended         2016-01-25 17:24:34
+=result        skipped: no_shared_roster_available
+=== *** SKIPPED test case 2 of 4 ***
+=case          shared_roster_SUITE:delete_user
+=logfile       shared_roster_suite.delete_user.html
+=started       2016-01-25 17:24:34
+=ended         2016-01-25 17:24:34
+=result        skipped: no_shared_roster_available
+=== *** SKIPPED test case 3 of 4 ***
+=case          shared_roster_SUITE:add_user
+=logfile       shared_roster_suite.add_user.html
+=started       2016-01-25 17:24:34
+=ended         2016-01-25 17:24:34
+=result        skipped: no_shared_roster_available
+=== *** SKIPPED test case 4 of 4 ***
+=case          shared_roster_SUITE:end_per_group
+=logfile       shared_roster_suite.end_per_group.html
+=group_props   [{name,shared_roster},sequence]
+=started       2016-01-25 17:24:34
+=ended         2016-01-25 17:24:35
+=result        ok
+=elapsed       0.918732
+=group_time    0.629s
+=case          shared_roster_SUITE:end_per_suite
+=logfile       shared_roster_suite.end_per_suite.html
+=started       2016-01-25 17:24:35
+=ended         2016-01-25 17:24:35
+=result        ok
+=elapsed       0.001755
+=group_time    1.648s
+=== TEST COMPLETE, 0 ok, 0 failed, 4 skipped of 4 test cases
+
+=finished      2016-01-25 17:24:35
+=failed        0
+=successful    0
+=user_skipped  4
+=auto_skipped  0
