@@ -1,0 +1,403 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/ejabberd_receiver.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_receiver.erl by COVER 2016-01-26 at 09:55:09
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_receiver.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Socket receiver for C2S and S2S connections
+        |  %%% Created : 10 Nov 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_receiver).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  
+        |  %% API
+        |  -export([start_link/4,
+        |           start/3,
+        |           start/4,
+        |           change_shaper/2,
+        |           reset_stream/1,
+        |           starttls/2,
+        |           compress/2,
+        |           become_controller/2,
+        |           close/1]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(state, {socket,
+        |                  sock_mod,
+        |                  shaper_state,
+        |                  c2s_pid,
+        |                  max_stanza_size,
+        |                  parser,
+        |                  timeout}).
+        |  -type state() :: #state{}.
+        |  
+        |  -define(HIBERNATE_TIMEOUT, 90000).
+        |  -define(GEN_FSM, p1_fsm).
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  %%--------------------------------------------------------------------
+        |  %% Function: start_link() -&gt; {ok,Pid} | ignore | {error,Error}
+        |  %% Description: Starts the server
+        |  %%--------------------------------------------------------------------
+        |  -spec start_link(_,_,_,_) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(Socket, SockMod, Shaper, MaxStanzaSize) -&gt;
+<font color=red>     0..|      gen_server:start_link(</font>
+        |        ?MODULE, [Socket, SockMod, Shaper, MaxStanzaSize], []).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: start() -&gt; {ok,Pid} | ignore | {error,Error}
+        |  %% Description: Starts the server
+        |  %%--------------------------------------------------------------------
+        |  start(Socket, SockMod, Shaper) -&gt;
+<font color=red>     0..|      start(Socket, SockMod, Shaper, infinity).</font>
+        |  
+        |  start(Socket, SockMod, Shaper, MaxStanzaSize) -&gt;
+<font color=red>     0..|      {ok, Pid} = supervisor:start_child(</font>
+        |                    ejabberd_receiver_sup,
+        |                    [Socket, SockMod, Shaper, MaxStanzaSize]),
+<font color=red>     0..|      Pid.</font>
+        |  
+        |  -spec change_shaper(atom() | pid() | {atom(),_} | {'via',_,_},_) -&gt; 'ok'.
+        |  change_shaper(Pid, Shaper) -&gt;
+<font color=red>     0..|      gen_server:cast(Pid, {change_shaper, Shaper}).</font>
+        |  
+        |  reset_stream(Pid) -&gt;
+<font color=red>     0..|      gen_server:call(Pid, reset_stream).</font>
+        |  
+        |  starttls(Pid, TLSSocket) -&gt;
+<font color=red>     0..|      gen_server:call(Pid, {starttls, TLSSocket}).</font>
+        |  
+        |  compress(Pid, ZlibSocket) -&gt;
+<font color=red>     0..|      gen_server:call(Pid, {compress, ZlibSocket}).</font>
+        |  
+        |  become_controller(Pid, C2SPid) -&gt;
+<font color=red>     0..|      gen_server:call(Pid, {become_controller, C2SPid}).</font>
+        |  
+        |  -spec close(atom() | pid() | {atom(),_} | {'via',_,_}) -&gt; 'ok'.
+        |  close(Pid) -&gt;
+<font color=red>     0..|      gen_server:cast(Pid, close).</font>
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  -spec init([any(),...]) -&gt; {'ok',state()}.
+        |  init([Socket, SockMod, Shaper, MaxStanzaSize]) -&gt;
+<font color=red>     0..|      ShaperState = shaper:new(Shaper),</font>
+<font color=red>     0..|      Timeout = case SockMod of</font>
+        |                    ssl -&gt;
+<font color=red>     0..|                        20;</font>
+        |                    _ -&gt;
+<font color=red>     0..|                        infinity</font>
+        |                end,
+<font color=red>     0..|      {ok, #state{socket = Socket,</font>
+        |                  sock_mod = SockMod,
+        |                  shaper_state = ShaperState,
+        |                  max_stanza_size = MaxStanzaSize,
+        |                  timeout = Timeout}}.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call({starttls, TLSSocket}, _From, #state{parser = Parser} = State) -&gt;
+<font color=red>     0..|      NewParser = reset_parser(Parser),</font>
+<font color=red>     0..|      NewState = State#state{socket = TLSSocket,</font>
+        |  			   sock_mod = ejabberd_tls,
+        |  			   parser = NewParser},
+<font color=red>     0..|      case ejabberd_tls:recv_data(TLSSocket, "") of</font>
+        |          {ok, TLSData} -&gt;
+<font color=red>     0..|              {reply, ok, process_data(TLSData, NewState), ?HIBERNATE_TIMEOUT};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {stop, normal, ok, NewState}</font>
+        |      end;
+        |  handle_call({compress, ZlibSocket}, _From, #state{parser = Parser, c2s_pid = C2SPid} = State) -&gt;
+<font color=red>     0..|      NewParser = reset_parser(Parser),</font>
+<font color=red>     0..|      NewState = State#state{socket = ZlibSocket,</font>
+        |  			   sock_mod = ejabberd_zlib,
+        |  			   parser = NewParser},
+<font color=red>     0..|      case ejabberd_zlib:recv_data(ZlibSocket, "") of</font>
+        |  	{ok, ZlibData} -&gt;
+<font color=red>     0..|  	    {reply, ok, process_data(ZlibData, NewState), ?HIBERNATE_TIMEOUT};</font>
+        |  	{error, inflate_size_exceeded} -&gt;
+<font color=red>     0..|  	    ?GEN_FSM:send_event(C2SPid, {xmlstreamerror, &lt;&lt;"XML stanza is too big"&gt;&gt;}),</font>
+<font color=red>     0..|  	    {reply, ok, NewState, ?HIBERNATE_TIMEOUT};</font>
+        |  	{error, inflate_error} -&gt;
+<font color=red>     0..|  	    {stop, normal, ok, NewState}</font>
+        |      end;
+        |  handle_call(reset_stream, _From, #state{ parser = Parser } = State) -&gt;
+<font color=red>     0..|      NewParser = reset_parser(Parser),</font>
+<font color=red>     0..|      {reply, ok, State#state{parser = NewParser}, ?HIBERNATE_TIMEOUT};</font>
+        |  handle_call({become_controller, C2SPid}, _From, State) -&gt;
+<font color=red>     0..|      Parser = reset_parser(State#state.parser),</font>
+<font color=red>     0..|      NewState = State#state{c2s_pid = C2SPid, parser = Parser},</font>
+<font color=red>     0..|      activate_socket(NewState),</font>
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, NewState, ?HIBERNATE_TIMEOUT};</font>
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, State, ?HIBERNATE_TIMEOUT}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_cast({change_shaper, Shaper}, State) -&gt;
+<font color=red>     0..|      NewShaperState = shaper:new(Shaper),</font>
+<font color=red>     0..|      {noreply, State#state{shaper_state = NewShaperState}, ?HIBERNATE_TIMEOUT};</font>
+        |  handle_cast(close, State) -&gt;
+<font color=red>     0..|      {stop, normal, State};</font>
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State, ?HIBERNATE_TIMEOUT}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info({Tag, _TCPSocket, Data},
+        |  	    #state{socket = Socket,
+        |  		   c2s_pid = C2SPid,
+        |  		   sock_mod = SockMod} = State)
+        |    when (Tag == tcp) or (Tag == ssl) -&gt;
+<font color=red>     0..|      case SockMod of</font>
+        |  	ejabberd_tls -&gt;
+<font color=red>     0..|          mongoose_metrics:update([data, xmpp, received, encrypted_size], size(Data)),</font>
+<font color=red>     0..|  	    case ejabberd_tls:recv_data(Socket, Data) of</font>
+        |  		{ok, TLSData} -&gt;
+<font color=red>     0..|  		    {noreply, process_data(TLSData, State),</font>
+        |  		     ?HIBERNATE_TIMEOUT};
+        |  		{error, _Reason} -&gt;
+<font color=red>     0..|  		    {stop, normal, State}</font>
+        |  	    end;
+        |  	ejabberd_zlib -&gt;
+<font color=red>     0..|          mongoose_metrics:update([data, xmpp, received, compressed_size], size(Data)),</font>
+<font color=red>     0..|  	    case ejabberd_zlib:recv_data(Socket, Data) of</font>
+        |  		{ok, ZlibData} -&gt;
+<font color=red>     0..|  		    {noreply, process_data(ZlibData, State),</font>
+        |  		     ?HIBERNATE_TIMEOUT};
+        |  		{error, inflate_size_exceeded} -&gt;
+<font color=red>     0..|  		    ?GEN_FSM:send_event(C2SPid, {xmlstreamerror, &lt;&lt;"XML stanza is too big"&gt;&gt;}),</font>
+<font color=red>     0..|  		    {noreply, State, ?HIBERNATE_TIMEOUT};</font>
+        |  		{error, inflate_error} -&gt;
+<font color=red>     0..|  		    {stop, normal, State}</font>
+        |  	    end;
+        |  	_ -&gt;
+<font color=red>     0..|  	    {noreply, process_data(Data, State), ?HIBERNATE_TIMEOUT}</font>
+        |      end;
+        |  handle_info({Tag, _TCPSocket}, State)
+        |    when (Tag == tcp_closed) or (Tag == ssl_closed) -&gt;
+<font color=red>     0..|      {stop, normal, State};</font>
+        |  handle_info({Tag, _TCPSocket, Reason}, State)
+        |    when (Tag == tcp_error) or (Tag == ssl_error) -&gt;
+<font color=red>     0..|      case Reason of</font>
+        |          timeout -&gt;
+<font color=red>     0..|              {noreply, State, ?HIBERNATE_TIMEOUT};</font>
+        |          _ -&gt;
+<font color=red>     0..|              {stop, normal, State}</font>
+        |      end;
+        |  handle_info({timeout, _Ref, activate}, State) -&gt;
+<font color=red>     0..|      activate_socket(State),</font>
+<font color=red>     0..|      {noreply, State, ?HIBERNATE_TIMEOUT};</font>
+        |  handle_info(timeout, State) -&gt;
+<font color=red>     0..|      proc_lib:hibernate(gen_server, enter_loop, [?MODULE, [], State]),</font>
+<font color=red>     0..|      {noreply, State, ?HIBERNATE_TIMEOUT};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State, ?HIBERNATE_TIMEOUT}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, #state{parser = Parser,
+        |  			  c2s_pid = C2SPid} = State) -&gt;
+<font color=red>     0..|      free_parser(Parser),</font>
+<font color=red>     0..|      if</font>
+        |          C2SPid /= undefined -&gt;
+<font color=red>     0..|              gen_fsm:send_event(C2SPid, closed);</font>
+        |          true -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      catch (State#state.sock_mod):close(State#state.socket),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec activate_socket(state()) -&gt; 'ok' | {'tcp_closed',_}.
+        |  activate_socket(#state{socket = Socket,
+        |                         sock_mod = SockMod}) -&gt;
+<font color=red>     0..|      PeerName =</font>
+        |          case SockMod of
+        |              gen_tcp -&gt;
+<font color=red>     0..|                  inet:setopts(Socket, [{active, once}]),</font>
+<font color=red>     0..|                  inet:peername(Socket);</font>
+        |              _ -&gt;
+<font color=red>     0..|                  SockMod:setopts(Socket, [{active, once}]),</font>
+<font color=red>     0..|                  SockMod:peername(Socket)</font>
+        |          end,
+<font color=red>     0..|      case PeerName of</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              self() ! {tcp_closed, Socket};</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  %% @doc Data processing for connectors directly generating xmlel in
+        |  %% Erlang data structure.
+        |  %% WARNING: Shaper does not work with Erlang data structure.
+        |  -spec process_data(binary() | maybe_improper_list(), state()) -&gt; state().
+        |  process_data([], State) -&gt;
+<font color=red>     0..|      activate_socket(State),</font>
+<font color=red>     0..|      State;</font>
+        |  process_data([Element|Els], #state{c2s_pid = C2SPid} = State)
+        |    when element(1, Element) == xmlel;
+        |         element(1, Element) == xmlstreamstart;
+        |        element(1, Element) == xmlstreamelement;
+        |         element(1, Element) == xmlstreamend -&gt;
+<font color=red>     0..|      if</font>
+        |          C2SPid == undefined -&gt;
+<font color=red>     0..|              State;</font>
+        |          true -&gt;
+<font color=red>     0..|              catch gen_fsm:send_event(C2SPid, element_wrapper(Element)),</font>
+<font color=red>     0..|              process_data(Els, State)</font>
+        |      end;
+        |  %% Data processing for connectors receivind data as string.
+        |  process_data(Data, #state{parser = Parser,
+        |                            shaper_state = ShaperState,
+        |                            max_stanza_size = MaxSize,
+        |                            c2s_pid = C2SPid} = State) -&gt;
+<font color=red>     0..|      ?DEBUG("Received XML on stream = \"~s\"", [Data]),</font>
+<font color=red>     0..|      Size = size(Data),</font>
+<font color=red>     0..|      mongoose_metrics:update([data, xmpp, received, xml_stanza_size], Size),</font>
+        |  
+<font color=red>     0..|      maybe_run_keep_alive_hook(Size, State),</font>
+<font color=red>     0..|      case exml_stream:parse(Parser, Data) of</font>
+        |          {ok, NewParser, Elems} -&gt;
+<font color=red>     0..|              {NewShaperState, Pause} = shaper:update(ShaperState, Size),</font>
+<font color=red>     0..|              ValidElems = replace_too_big_elems_with_stream_error(Elems, MaxSize),</font>
+<font color=red>     0..|              [gen_fsm:send_event(C2SPid, wrap_if_xmlel(E)) || E &lt;- ValidElems],</font>
+<font color=red>     0..|              maybe_pause(Pause, State),</font>
+<font color=red>     0..|              State#state{parser = NewParser,</font>
+        |                          shaper_state = NewShaperState};
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {NewShaperState, Pause} = shaper:update(ShaperState, Size),</font>
+<font color=red>     0..|              gen_fsm:send_event(C2SPid, {xmlstreamerror, Reason}),</font>
+<font color=red>     0..|              maybe_pause(Pause, State),</font>
+<font color=red>     0..|              State#state{shaper_state = NewShaperState}</font>
+        |      end.
+        |  
+<font color=red>     0..|  wrap_if_xmlel(#xmlel{} = E) -&gt; {xmlstreamelement, E};</font>
+<font color=red>     0..|  wrap_if_xmlel(E) -&gt; E.</font>
+        |  
+        |  replace_too_big_elems_with_stream_error(Elems,MaxSize) -&gt;
+<font color=red>     0..|      lists:map(fun(Elem) -&gt;</font>
+<font color=red>     0..|                            case exml:xml_size(Elem) &gt; MaxSize of</font>
+<font color=red>     0..|                                true  -&gt; {xmlstreamerror, "XML stanza is too big"};</font>
+<font color=red>     0..|                                false -&gt; Elem</font>
+        |                            end
+        |                    end, Elems).
+        |  
+        |  maybe_pause(_, #state{c2s_pid = undefined}) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  maybe_pause(Pause, _State) when Pause &gt; 0 -&gt;
+<font color=red>     0..|      erlang:start_timer(Pause, self(), activate);</font>
+        |  maybe_pause(_, State) -&gt;
+<font color=red>     0..|      activate_socket(State).</font>
+        |  
+        |  maybe_run_keep_alive_hook(Size, #state{c2s_pid = C2SPid})
+        |    when Size &lt; 3, is_pid(C2SPid) -&gt;
+        |      %% yes it can happen that the data is shorter than 3 bytes and contain some part of xml
+        |      %% but this will not harm the keep_alive_hook
+<font color=red>     0..|      gen_fsm:send_all_state_event(C2SPid, keep_alive_packet);</font>
+        |  maybe_run_keep_alive_hook(_, _) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% @doc Element coming from XML parser are wrapped inside xmlstreamelement
+        |  %% When we receive directly xmlel tuple (from a socket module
+        |  %% speaking directly Erlang XML), we wrap it inside the same
+        |  %% xmlstreamelement coming from the XML parser.
+        |  -spec element_wrapper(jlib:xmlel() | tuple()) -&gt; tuple().
+        |  element_wrapper(#xmlel{} = XMLElement) -&gt;
+<font color=red>     0..|      {xmlstreamelement, XMLElement};</font>
+        |  element_wrapper(Element) -&gt;
+<font color=red>     0..|      Element.</font>
+        |  
+        |  reset_parser(undefined) -&gt;
+<font color=red>     0..|      {ok, NewParser} = exml_stream:new_parser(),</font>
+<font color=red>     0..|      NewParser;</font>
+        |  reset_parser(Parser) -&gt;
+<font color=red>     0..|      {ok, NewParser} = exml_stream:reset_parser(Parser),</font>
+<font color=red>     0..|      NewParser.</font>
+        |  
+        |  free_parser(undefined) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  free_parser(Parser) -&gt;
+<font color=red>     0..|      exml_stream:free_parser(Parser).</font>
+</pre>
+</body>
+</html>

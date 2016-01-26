@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/randoms.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/randoms.erl by COVER 2016-01-26 at 09:55:01
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : randoms.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Random generation number wrapper
+        |  %%% Created : 13 Dec 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  -module(randoms).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([get_string/0]).
+        |  
+        |  -export([start_link/0, init/1]).
+        |  
+        |  -define(PROC_NAME, random_generator).
+        |  
+        |  -spec start_link() -&gt; {ok, pid()}.
+        |  start_link() -&gt;
+<font color=red>     0..|      proc_lib:start_link(?MODULE, init, [self()]).</font>
+        |  
+        |  -spec get_string() -&gt; string().
+        |  get_string() -&gt;
+<font color=red>     0..|      ?PROC_NAME ! {self(), get_random, 65536*65536},</font>
+<font color=red>     0..|      receive</font>
+        |          {random, R} -&gt;
+<font color=red>     0..|              integer_to_list(R)</font>
+        |      end.
+        |  
+        |  -spec init(pid()) -&gt; no_return().
+        |  init(Parent) -&gt;
+<font color=red>     0..|      true = register(?PROC_NAME, self()),</font>
+        |  
+<font color=red>     0..|      {A1, A2, A3} = now(),</font>
+<font color=red>     0..|      random:seed(A1,A2,A3),</font>
+        |  
+<font color=red>     0..|      proc_lib:init_ack(Parent, {ok, self()}),</font>
+        |  
+<font color=red>     0..|      loop().</font>
+        |  
+        |  -spec loop() -&gt; no_return().
+        |  loop() -&gt;
+<font color=red>     0..|      receive</font>
+        |          {From, get_random, N} -&gt;
+<font color=red>     0..|              From ! {random, random:uniform(N)},</font>
+<font color=red>     0..|              loop();</font>
+        |          _ -&gt;
+<font color=red>     0..|              loop()</font>
+        |      end.
+</pre>
+</body>
+</html>

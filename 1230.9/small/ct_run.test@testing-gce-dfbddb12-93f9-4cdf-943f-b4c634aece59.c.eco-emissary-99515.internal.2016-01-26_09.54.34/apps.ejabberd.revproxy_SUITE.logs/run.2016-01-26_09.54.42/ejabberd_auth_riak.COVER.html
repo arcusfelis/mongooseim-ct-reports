@@ -1,0 +1,283 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/ejabberd_auth_riak.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_auth_riak.erl by COVER 2016-01-26 at 09:55:06
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2015 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(ejabberd_auth_riak).
+        |  
+        |  -behaviour(ejabberd_gen_auth).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% API
+        |  -export([start/1,
+        |           stop/1,
+        |           store_type/1,
+        |           login/2,
+        |           set_password/3,
+        |           check_password/3,
+        |           check_password/5,
+        |           try_register/3,
+        |           dirty_get_registered_users/0,
+        |           get_vh_registered_users/1,
+        |           get_vh_registered_users/2,
+        |           get_vh_registered_users_number/1,
+        |           get_vh_registered_users_number/2,
+        |           get_password/2,
+        |           get_password_s/2,
+        |           get_password/3,
+        |           does_user_exist/2,
+        |           remove_user/2,
+        |           remove_user/3,
+        |           plain_password_required/0]).
+        |  
+        |  -export([bucket_type/1]).
+        |  
+        |  -spec start(ejabberd:lserver()) -&gt; ok.
+        |  start(_Host) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec stop(ejabberd:lserver()) -&gt; ok.
+        |  stop(_Host) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec store_type(ejabberd:lserver()) -&gt; plain | scram.
+        |  store_type(Host) -&gt;
+<font color=red>     0..|      case scram:enabled(Host) of</font>
+<font color=red>     0..|          false -&gt; plain;</font>
+<font color=red>     0..|          true -&gt; scram</font>
+        |      end.
+        |  
+        |  -spec set_password(ejabberd:luser(),ejabberd:lserver(), binary())
+        |          -&gt; ok | {error, not_allowed | invalid_jid}.
+        |  set_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case prepare_password(LServer, Password) of</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, invalid_password};</font>
+        |          Password -&gt;
+<font color=red>     0..|              User = mongoose_riak:fetch_type(bucket_type(LServer), LUser),</font>
+<font color=red>     0..|              do_set_password(User, LUser, LServer, Password)</font>
+        |      end.
+        |  
+        |  -spec check_password(ejabberd:luser(), ejabberd:lserver(), binary()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case do_get_password(LUser, LServer) of</font>
+        |          false -&gt;
+<font color=red>     0..|              false;</font>
+        |          #scram{} = Scram -&gt;
+<font color=red>     0..|              scram:check_password(Password, Scram);</font>
+        |          Password when is_binary(Password) -&gt;
+<font color=red>     0..|              Password /= &lt;&lt;""&gt;&gt;;</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  -spec check_password(ejabberd:luser(),
+        |                       ejabberd:lserver(),
+        |                       binary(),
+        |                       binary(),
+        |                       fun()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password, Digest, DigestGen) -&gt;
+<font color=red>     0..|      case do_get_password(LUser, LServer) of</font>
+        |          false -&gt;
+<font color=red>     0..|              false;</font>
+        |          #scram{} = Scram -&gt;
+<font color=red>     0..|              scram:check_digest(Scram, Digest, DigestGen, Password);</font>
+        |          PassRiak when is_binary(PassRiak) -&gt;
+<font color=red>     0..|              ejabberd_auth:check_digest(Digest, DigestGen, Password, PassRiak)</font>
+        |      end.
+        |  
+        |  -spec try_register(User :: ejabberd:luser(),
+        |                     Server :: ejabberd:lserver(),
+        |                     Password :: binary()
+        |                    ) -&gt; ok | {error, term()}.
+        |  try_register(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      try_register_if_does_not_exist(LUser, LServer, Password).</font>
+        |  
+        |  -spec dirty_get_registered_users() -&gt; [ejabberd:simple_bare_jid()].
+        |  dirty_get_registered_users() -&gt;
+<font color=red>     0..|      Servers = ejabberd_config:get_vh_by_auth_method(riak),</font>
+<font color=red>     0..|      lists:flatmap(</font>
+        |          fun(Server) -&gt;
+<font color=red>     0..|              get_vh_registered_users(Server)</font>
+        |          end, Servers).
+        |  
+        |  -spec get_vh_registered_users(ejabberd:lserver()) -&gt;
+        |      [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer) -&gt;
+<font color=red>     0..|      case mongoose_riak:list_keys(bucket_type(LServer)) of</font>
+        |          {ok, Users} -&gt;
+<font color=red>     0..|              [{User, LServer} || User &lt;- Users];</font>
+        |          _ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  -spec get_vh_registered_users(ejabberd:lserver(), list()) -&gt;
+        |      [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer, _Opts) -&gt;
+<font color=red>     0..|      get_vh_registered_users(LServer).</font>
+        |  
+        |  -spec get_vh_registered_users_number(ejabberd:lserver()) -&gt; non_neg_integer().
+        |  get_vh_registered_users_number(LServer) -&gt;
+<font color=red>     0..|      length(get_vh_registered_users(LServer)).</font>
+        |  
+        |  -spec get_vh_registered_users_number(ejabberd:lserver(), list()) -&gt; non_neg_integer().
+        |  get_vh_registered_users_number(LServer, _Opts) -&gt;
+<font color=red>     0..|      get_vh_registered_users_number(LServer).</font>
+        |  
+        |  -spec get_password(ejabberd:luser(), ejabberd:lserver()) -&gt; binary() | false | scram:scram_tuple().
+        |  get_password(LUser, LServer) -&gt;
+<font color=red>     0..|      case do_get_password(LUser, LServer) of</font>
+        |          false -&gt;
+<font color=red>     0..|              false;</font>
+        |          #scram{} = Scram -&gt;
+<font color=red>     0..|              scram:scram_to_tuple(Scram);</font>
+        |          Password -&gt;
+<font color=red>     0..|              Password</font>
+        |      end.
+        |  
+        |  get_password_s(LUser, LServer) -&gt;
+<font color=red>     0..|      case get_password(LUser, LServer) of</font>
+        |          Password when is_binary(Password) -&gt;
+<font color=red>     0..|              Password;</font>
+        |          _ -&gt;
+<font color=red>     0..|              &lt;&lt;""&gt;&gt;</font>
+        |      end.
+        |  
+        |  get_password(_LUser, _LServer, _DefaultValue) -&gt;
+<font color=red>     0..|      erlang:error(not_implemented).</font>
+        |  
+        |  -spec does_user_exist(ejabberd:luser(), ejabberd:lserver()) -&gt; boolean().
+        |  does_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      case mongoose_riak:fetch_type(bucket_type(LServer), LUser) of</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              true;</font>
+        |          {error, {notfound, map}} -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  -spec remove_user(ejabberd:luser(), ejabberd:lserver()) -&gt;
+        |      ok | {error, not_allowed}.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      case mongoose_riak:delete(bucket_type(LServer), LUser) of</font>
+<font color=red>     0..|          ok -&gt; ok;</font>
+        |          Error -&gt;
+<font color=red>     0..|              ?WARNING_MSG("Failed Riak query: ~p", [Error]),</font>
+<font color=red>     0..|              {error, not_allowed}</font>
+        |      end.
+        |  
+        |  remove_user(_LUser, _LServer, _Password) -&gt;
+<font color=red>     0..|      erlang:error(not_implemented).</font>
+        |  
+        |  plain_password_required() -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  login(_LUser, _LServer) -&gt;
+<font color=red>     0..|      erlang:error(not_implemented).</font>
+        |  
+        |  -spec bucket_type(ejabberd:lserver()) -&gt; {binary(), ejabberd:lserver()}.
+        |  bucket_type(LServer) -&gt;
+<font color=red>     0..|      {&lt;&lt;"users"&gt;&gt;, LServer}.</font>
+        |  
+        |  %% -----------------------------------------------------------------------------
+        |  %% Internal functions
+        |  %% -----------------------------------------------------------------------------
+        |  
+        |  try_register_if_does_not_exist(LUser, LServer, _)
+        |      when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      {error, invalid_jid};</font>
+        |  try_register_if_does_not_exist(LUser, LServer, PasswordIn) -&gt;
+<font color=red>     0..|     case does_user_exist(LUser, LServer) of</font>
+        |         false -&gt;
+<font color=red>     0..|             Password = prepare_password(LServer, PasswordIn),</font>
+<font color=red>     0..|             try_register_with_password(LUser, LServer, Password);</font>
+        |         true -&gt;
+<font color=red>     0..|             {error, exists}</font>
+        |     end.
+        |  
+        |  try_register_with_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Now = integer_to_binary(now_to_seconds(os:timestamp())),</font>
+<font color=red>     0..|      Ops = [{{&lt;&lt;"created"&gt;&gt;, register},</font>
+<font color=red>     0..|              fun(R) -&gt; riakc_register:set(Now, R) end},</font>
+        |             set_password_map_op(Password)],
+<font color=red>     0..|      UserMap = mongoose_riak:create_new_map(Ops),</font>
+<font color=red>     0..|      mongoose_riak:update_type(bucket_type(LServer), LUser, riakc_map:to_op(UserMap)).</font>
+        |  
+        |  do_get_password(LUser, LServer) -&gt;
+<font color=red>     0..|      case mongoose_riak:fetch_type(bucket_type(LServer), LUser) of</font>
+        |          {ok, Map} -&gt;
+<font color=red>     0..|              extract_password(Map);</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  do_set_password({ok, Map}, LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Ops = [set_password_map_op(Password)],</font>
+<font color=red>     0..|      UpdateMap = mongoose_riak:update_map(Map, Ops),</font>
+<font color=red>     0..|      mongoose_riak:update_type(bucket_type(LServer), LUser, riakc_map:to_op(UpdateMap)).</font>
+        |  
+        |  prepare_password(Iterations, Password) when is_integer(Iterations) -&gt;
+<font color=red>     0..|      Scram = scram:password_to_scram(Password, Iterations),</font>
+<font color=red>     0..|      PassDetails = scram:serialize(Scram),</font>
+<font color=red>     0..|      {&lt;&lt;""&gt;&gt;, PassDetails};</font>
+        |  
+        |  prepare_password(Server, Password) -&gt;
+<font color=red>     0..|      case scram:enabled(Server) of</font>
+        |          true -&gt;
+<font color=red>     0..|              prepare_password(scram:iterations(Server), Password);</font>
+        |          _ -&gt;
+<font color=red>     0..|              Password</font>
+        |      end.
+        |  
+        |  set_password_map_op({_, Scram}) -&gt;
+<font color=red>     0..|      {{&lt;&lt;"scram"&gt;&gt;, register}, fun(R) -&gt; riakc_register:set(Scram, R) end};</font>
+        |  set_password_map_op(Password) -&gt;
+<font color=red>     0..|      {{&lt;&lt;"password"&gt;&gt;, register}, fun(R) -&gt; riakc_register:set(Password, R) end}.</font>
+        |  
+        |  extract_password(Map) -&gt;
+<font color=red>     0..|      case riakc_map:find({&lt;&lt;"password"&gt;&gt;, register}, Map) of</font>
+        |          error -&gt;
+<font color=red>     0..|              maybe_extract_scram_password(riakc_map:find({&lt;&lt;"scram"&gt;&gt;, register}, Map));</font>
+        |          {ok, Password} -&gt;
+<font color=red>     0..|              Password</font>
+        |      end.
+        |  
+        |  -spec maybe_extract_scram_password({ok, binary()} | error) -&gt; #scram{} | false.
+        |  maybe_extract_scram_password({ok, ScramSerialised}) -&gt;
+<font color=red>     0..|      case scram:deserialize(ScramSerialised) of</font>
+        |          {ok, Scram} -&gt;
+<font color=red>     0..|              Scram;</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end;
+        |  maybe_extract_scram_password(_) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  -spec now_to_seconds(erlang:timestamp()) -&gt; non_neg_integer().
+        |  now_to_seconds({MegaSecs, Secs, _MicroSecs}) -&gt;
+<font color=red>     0..|      MegaSecs * 1000000 + Secs.</font>
+        |  
+</pre>
+</body>
+</html>

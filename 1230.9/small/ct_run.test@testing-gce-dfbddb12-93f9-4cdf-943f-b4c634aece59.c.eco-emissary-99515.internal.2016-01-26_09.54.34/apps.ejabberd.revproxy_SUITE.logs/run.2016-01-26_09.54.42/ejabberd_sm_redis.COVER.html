@@ -1,0 +1,185 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/ejabberd_sm_redis.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_sm_redis.erl by COVER 2016-01-26 at 09:55:03
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Konrad Kaplita &lt;konrad.kaplita@erlang-solutions.com&gt;
+        |  %%% @copyright (C) 2011, Erlang Solutions Ltd.
+        |  %%% @doc Implementation of Redis-based session manager
+        |  %%%
+        |  %%% @end
+        |  %%% Created : 17 Nov 2011 by Konrad Kaplita &lt;konrad.kaplita@erlang-solutions.com&gt;
+        |  %%%-------------------------------------------------------------------
+        |  -module(ejabberd_sm_redis).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -behavior(ejabberd_gen_sm).
+        |  -export([start/1,
+        |           get_sessions/0,
+        |           get_sessions/1,
+        |           get_sessions/2,
+        |           get_sessions/3,
+        |           create_session/4,
+        |           delete_session/4,
+        |           cleanup/1,
+        |           total_count/0,
+        |           unique_count/0]).
+        |  
+        |  -spec start(list()) -&gt; any().
+        |  start(Opts) -&gt;
+<font color=red>     0..|      ejabberd_redis:start_link(Opts),</font>
+        |      %% Clean current node's sessions from previous life
+<font color=red>     0..|      cleanup(node()).</font>
+        |  
+        |  
+        |  -spec get_sessions() -&gt; [ejabberd_sm:ses_tuple()].
+        |  get_sessions() -&gt;
+<font color=red>     0..|      Keys = ejabberd_redis:cmd(["KEYS", hash(&lt;&lt;"*"&gt;&gt;)]),</font>
+<font color=red>     0..|      lists:flatmap(fun(K) -&gt;</font>
+<font color=red>     0..|                            Sessions = ejabberd_redis:cmd(["SMEMBERS", K]),</font>
+<font color=red>     0..|                            lists:map(fun(S) -&gt;</font>
+<font color=red>     0..|                                              Session = binary_to_term(S),</font>
+<font color=red>     0..|                                              { Session#session.usr,</font>
+        |                                                Session#session.sid,
+        |                                                Session#session.priority,
+        |                                                Session#session.info }
+        |                                      end,
+        |                                      Sessions)
+        |                    end, Keys).
+        |  
+        |  -spec get_sessions(ejabberd:server()) -&gt; [ejabberd_sm:ses_tuple()].
+        |  get_sessions(Server) -&gt;
+<font color=red>     0..|      Keys = ejabberd_redis:cmd(["KEYS", hash(Server)]),</font>
+<font color=red>     0..|      lists:flatmap(fun(K) -&gt;</font>
+<font color=red>     0..|                            Sessions = ejabberd_redis:cmd(["SMEMBERS", K]),</font>
+<font color=red>     0..|                            lists:map(fun(S) -&gt;</font>
+<font color=red>     0..|                                              Session = binary_to_term(S),</font>
+<font color=red>     0..|                                              {Session#session.usr,</font>
+        |                                               Session#session.sid,
+        |                                               Session#session.priority,
+        |                                               Session#session.info}
+        |                                      end,
+        |                                      Sessions)
+        |                    end, Keys).
+        |  
+        |  -spec get_sessions(ejabberd:user(), ejabberd:server()) -&gt; [ejabberd_sm:session()].
+        |  get_sessions(User, Server) -&gt;
+<font color=red>     0..|      Sessions = ejabberd_redis:cmd(["SMEMBERS", hash(User, Server)]),</font>
+        |  
+<font color=red>     0..|      lists:map(fun(S) -&gt; binary_to_term(S) end, Sessions).</font>
+        |  
+        |  -spec get_sessions(ejabberd:user(), ejabberd:server(), ejabberd:resource()
+        |                    ) -&gt; [ejabberd_sm:session()].
+        |  get_sessions(User, Server, Resource) -&gt;
+<font color=red>     0..|      Sessions = ejabberd_redis:cmd(["SMEMBERS", hash(User, Server, Resource)]),</font>
+        |  
+<font color=red>     0..|      lists:map(fun(S) -&gt; binary_to_term(S) end, Sessions).</font>
+        |  
+        |  -spec create_session(User :: ejabberd:user(),
+        |                       Server :: ejabberd:server(),
+        |                       Resource :: ejabberd:resource(),
+        |                       Session :: ejabberd_sm:session()) -&gt; ok | {error, term()}.
+        |  create_session(User, Server, Resource, Session) -&gt;
+<font color=red>     0..|      OldSessions = get_sessions(User, Server, Resource),</font>
+<font color=red>     0..|      BSession = term_to_binary(Session),</font>
+<font color=red>     0..|      case lists:keysearch(Session#session.sid, #session.sid, OldSessions) of</font>
+        |          {value, OldSession} -&gt;
+<font color=red>     0..|              BOldSession = term_to_binary(OldSession),</font>
+        |  
+<font color=red>     0..|              error_or_ok(</font>
+        |                ejabberd_redis:cmd([["SADD", n(node()), hash(User, Server, Resource, Session#session.sid)],
+        |                                    ["SREM", hash(User, Server), BOldSession],
+        |                                    ["SREM", hash(User, Server, Resource), BOldSession],
+        |                                    ["SADD", hash(User, Server), BSession],
+        |                                    ["SADD", hash(User, Server, Resource), BSession]]));
+        |          false -&gt;
+<font color=red>     0..|              error_or_ok(</font>
+        |                ejabberd_redis:cmd([["SADD", n(node()), hash(User, Server, Resource, Session#session.sid)],
+        |                                    ["SADD", hash(User, Server), BSession],
+        |                                    ["SADD", hash(User, Server, Resource), BSession]]))
+        |      end.
+        |  
+        |  
+        |  -spec delete_session(SID :: ejabberd_sm:sid(),
+        |                       User :: ejabberd:user(),
+        |                       Server :: ejabberd:server(),
+        |                       Resource :: ejabberd:resource()) -&gt; ok.
+        |  delete_session(SID, User, Server, Resource) -&gt;
+<font color=red>     0..|      Sessions = get_sessions(User, Server, Resource),</font>
+<font color=red>     0..|      case lists:keysearch(SID, #session.sid, Sessions) of</font>
+        |          {value, Session} -&gt;
+<font color=red>     0..|              BSession = term_to_binary(Session),</font>
+        |  
+<font color=red>     0..|              ejabberd_redis:cmd([["SREM", hash(User, Server), BSession],</font>
+        |                                  ["SREM", hash(User, Server, Resource), BSession],
+        |                                  ["SREM", n(node()), hash(User, Server, Resource, SID)]]);
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec cleanup(atom()) -&gt; ok.
+        |  cleanup(Node) -&gt;
+<font color=red>     0..|      Hashes = ejabberd_redis:cmd(["SMEMBERS", n(Node)]),</font>
+<font color=red>     0..|      ejabberd_redis:cmd(["DEL", n(Node)]),</font>
+<font color=red>     0..|      lists:foreach(fun(H) -&gt;</font>
+<font color=red>     0..|                            [_, U, S, R | SIDEncoded] = re:split(H, ":"),</font>
+        |                            %% Add possible removed ":" from encoded SID
+<font color=red>     0..|                            SID = binary_to_term(ejabberd_binary:join(SIDEncoded, &lt;&lt;":"&gt;&gt;)),</font>
+<font color=red>     0..|                            delete_session(SID, U, S, R),</font>
+<font color=red>     0..|                            ejabberd_hooks:run(session_cleanup, S, [U, S, R, SID])</font>
+        |                    end, Hashes).
+        |  
+        |  
+        |  
+        |  -spec total_count() -&gt; integer().
+        |  total_count() -&gt;
+<font color=red>     0..|      {Counts, _} = rpc:multicall(supervisor, count_children, [ejabberd_c2s_sup]),</font>
+<font color=red>     0..|      lists:sum([proplists:get_value(active, Count, 0) || Count &lt;- Counts, is_list(Count)]).</font>
+        |  
+        |  
+        |  -spec unique_count() -&gt; integer().
+        |  unique_count() -&gt;
+<font color=red>     0..|      length(ejabberd_redis:cmd(["KEYS", "s2:*"])).</font>
+        |  
+        |  %% Internal functions
+        |  
+        |  -spec hash(binary()) -&gt; iolist().
+        |  hash(Val1) -&gt;
+<font color=red>     0..|      ["s3:*:", Val1, ":*"].</font>
+        |  
+        |  
+        |  -spec hash(binary(), binary()) -&gt; iolist().
+        |  hash(Val1, Val2) -&gt;
+<font color=red>     0..|      ["s2:", Val1, ":", Val2].</font>
+        |  
+        |  
+        |  -spec hash(binary(), binary(), binary()) -&gt; iolist().
+        |  hash(Val1, Val2, Val3) -&gt;
+<font color=red>     0..|      ["s3:", Val1, ":", Val2, ":", Val3].</font>
+        |  
+        |  
+        |  -spec hash(binary(), binary(), binary(), ejabberd_sm:sid()) -&gt; iolist().
+        |  hash(Val1, Val2, Val3, Val4) -&gt;
+<font color=red>     0..|      ["s4:", Val1, ":", Val2, ":", Val3, ":", term_to_binary(Val4)].</font>
+        |  
+        |  
+        |  -spec n(atom()) -&gt; iolist().
+        |  n(Node) -&gt;
+<font color=red>     0..|      ["n:", atom_to_list(Node)].</font>
+        |  
+        |  -spec error_or_ok(any() | {error, term()}) -&gt; ok | {error, term()}.
+<font color=red>     0..|  error_or_ok({error, _} = Error) -&gt; Error;</font>
+<font color=red>     0..|  error_or_ok(_) -&gt; ok.</font>
+        |  
+</pre>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/mod_time.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_time.erl by COVER 2016-01-26 at 09:55:02
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Ludwik Bukowski &lt;ludwik.bukowski@erlang-solutions.com&gt;
+        |  %%% @copyright (C) 2015, Ludwik Bukowski
+        |  %%% @doc XEP-0202: Entity Time
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_time).
+        |  -author('ludwik.bukowski@erlang-solutions.com').
+        |  -behaviour(gen_mod).
+        |  -export([start/2, stop/1, process_local_iq/3]).
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -xep([{xep, 202}, {version,"2.0"}]).
+        |  -xep([{xep, 82}, {version,"1.1"}]).
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      mod_disco:register_feature(Host, ?NS_TIME),</font>
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts,</font>
+        |                               one_queue),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_local, Host,</font>
+        |                                    ?NS_TIME, ?MODULE, process_local_iq, IQDisc).
+        |  
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      mod_disco:unregister_feature(Host, ?NS_TIME),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_local, Host,</font>
+        |                                       ?NS_TIME).
+        |  
+        |  
+        |  process_local_iq(_From, _To, #iq{type = set, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |  
+        |  process_local_iq(_From, _To, #iq{type = get} = IQ) -&gt;
+<font color=red>     0..|      {UTC, TZO_diff} = calculate_time(),</font>
+<font color=red>     0..|      IQ#iq{type = result,</font>
+        |            sub_el =
+        |            [#xmlel{name = &lt;&lt;"time"&gt;&gt;,
+        |                    attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_TIME}],
+        |                    children =
+        |                    [#xmlel{name = &lt;&lt;"tzo"&gt;&gt;, attrs = [],
+        |                            children = [#xmlcdata{content = iolist_to_binary(TZO_diff)}]},
+        |                     #xmlel{name = &lt;&lt;"utc"&gt;&gt;, attrs = [],
+        |                            children =
+        |                            [#xmlcdata{content = UTC}]}]}]}.
+        |  
+        |  %% Internals
+        |  calculate_time() -&gt;
+<font color=red>     0..|      Now = now(),</font>
+<font color=red>     0..|      Now_universal = calendar:now_to_universal_time(Now),</font>
+<font color=red>     0..|      Now_local = calendar:now_to_local_time(Now),</font>
+<font color=red>     0..|      {UTC_time, UTC_diff} = jlib:timestamp_to_iso(Now_universal, utc),</font>
+<font color=red>     0..|      UTC = list_to_binary(UTC_time ++ UTC_diff),</font>
+<font color=red>     0..|      Seconds_diff = difference_in_secs(Now_local, Now_universal),</font>
+<font color=red>     0..|      {Hd, Md, _} = calendar:seconds_to_time(abs(Seconds_diff)),</font>
+<font color=red>     0..|      {_, TZO_diff} = jlib:timestamp_to_iso({{2000, 1, 1},</font>
+        |                                             {0, 0, 0}},
+        |                                            {sign(Seconds_diff), {Hd, Md}}),
+<font color=red>     0..|      {UTC, TZO_diff}.</font>
+        |  
+        |  difference_in_secs(LocalTime, UniversalTime) -&gt;
+<font color=red>     0..|      LocalSeconds = calendar:datetime_to_gregorian_seconds(LocalTime),</font>
+<font color=red>     0..|      UniversalSeconds = calendar:datetime_to_gregorian_seconds(UniversalTime),</font>
+<font color=red>     0..|      LocalSeconds - UniversalSeconds.</font>
+        |  
+        |  
+<font color=red>     0..|  sign(N) when N &lt; 0 -&gt; &lt;&lt;"-"&gt;&gt;;</font>
+<font color=red>     0..|  sign(_) -&gt; &lt;&lt;"+"&gt;&gt;.</font>
+</pre>
+</body>
+</html>

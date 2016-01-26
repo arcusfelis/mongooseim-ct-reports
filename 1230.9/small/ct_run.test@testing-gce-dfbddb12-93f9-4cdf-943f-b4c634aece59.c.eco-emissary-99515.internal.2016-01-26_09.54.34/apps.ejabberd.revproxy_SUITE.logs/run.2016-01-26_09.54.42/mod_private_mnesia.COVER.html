@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/mod_private_mnesia.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_private_mnesia.erl by COVER 2016-01-26 at 09:55:02
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% Old copyright notice from mod_private.erl
+        |  %%%
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Created : 16 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%% NS is namespace or key.
+        |  %%% XML is #xmlel{} or value.
+        |  -module(mod_private_mnesia).
+        |  -author('alexey@process-one.net').
+        |  -author('arcusfelis@gmail.com').
+        |  -behaviour(mod_private).
+        |  
+        |  -export([init/2,
+        |           multi_set_data/3,
+        |           multi_get_data/3,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(private_storage, {usns, xml}).
+        |  
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(private_storage,</font>
+        |  			[{disc_only_copies, [node()]},
+        |  			 {attributes, record_info(fields, private_storage)}]),
+        |  
+<font color=red>     0..|      mnesia:add_table_copy(private_storage, node(), disc_only_copies),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  multi_set_data(LUser, LServer, NS2XML) -&gt;
+<font color=red>     0..|      F = fun() -&gt; multi_set_data_t(LUser, LServer, NS2XML) end,</font>
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+<font color=red>     0..|          {atomic, ok} -&gt; ok;</font>
+<font color=red>     0..|          {aborted, Reason} -&gt; {aborted, Reason}</font>
+        |      end.
+        |  
+        |  multi_set_data_t(LUser, LServer, NS2XML) -&gt;
+<font color=red>     0..|      [set_data_t(LUser, LServer, NS, XML) || {NS, XML} &lt;- NS2XML],</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  set_data_t(LUser, LServer, NS, XML) -&gt;
+<font color=red>     0..|      mnesia:write(#private_storage{usns = {LUser, LServer, NS}, xml = XML}).</font>
+        |  
+        |  multi_get_data(LUser, LServer, NS2Def) -&gt;
+<font color=red>     0..|      [get_data(LUser, LServer, NS, Default) || {NS, Default} &lt;- NS2Def].</font>
+        |  
+        |  %% @doc Return stored value or default.
+        |  get_data(LUser, LServer, NS, Default) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(private_storage, {LUser, LServer, NS}) of</font>
+<font color=red>     0..|          [#private_storage{xml=XML}] -&gt; XML;</font>
+<font color=red>     0..|          [] -&gt; Default</font>
+        |      end.
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|  		NSs = select_namespaces_t(LUser, LServer),</font>
+<font color=red>     0..|          [delete_record_t(LUser, LServer, NS) || NS &lt;- NSs]</font>
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  select_namespaces_t(LUser, LServer) -&gt;
+<font color=red>     0..|      Result = mnesia:select(</font>
+        |          private_storage,
+        |          [{#private_storage{usns={LUser, LServer, '$1'}, _ = '_'},
+        |           [],
+        |           ['$$']}]),
+<font color=red>     0..|      [NS || [NS] &lt;- Result].</font>
+        |  
+        |  delete_record_t(LUser, LServer, NS) -&gt;
+<font color=red>     0..|      mnesia:delete({private_storage, {LUser, LServer, NS}}).</font>
+        |  
+</pre>
+</body>
+</html>

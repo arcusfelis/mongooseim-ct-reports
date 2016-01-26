@@ -1,0 +1,471 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/mod_mam_riak_timed_arch_yz.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_riak_timed_arch_yz.erl by COVER 2016-01-26 at 09:55:15
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2015 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mod_mam_riak_timed_arch_yz).
+        |  
+        |  -behaviour(ejabberd_gen_mam_archive).
+        |  -behaviour(gen_mod).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  %% API
+        |  -export([start/2,
+        |           stop/1,
+        |           archive_size/4,
+        |           archive_message/9,
+        |           lookup_messages/10,
+        |           remove_archive/3,
+        |           purge_single_message/6,
+        |           purge_multiple_messages/9]).
+        |  
+        |  -export([safe_archive_message/9,
+        |           safe_archive_message_muc/9,
+        |           lookup_messages/14,
+        |           lookup_messages_muc/14]).
+        |  
+        |  -export([key/3]).
+        |  
+        |  %% For tests only
+        |  -export([create_obj/3, read_archive/6, bucket/1,
+        |           list_mam_buckets/0, remove_bucket/1]).
+        |  
+        |  -define(YZ_SEARCH_INDEX, &lt;&lt;"mam"&gt;&gt;).
+        |  -define(MAM_BUCKET_TYPE, &lt;&lt;"mam_yz"&gt;&gt;).
+        |  
+        |  %% @doc Start module
+        |  %%
+        |  %% Options:
+        |  %% - `pm' option starts one-to-one chat archives
+        |  %% - `muc' option starts multichat archives
+        |  %%
+        |  %% Use both options `pm, muc' to archive both MUC and private messages
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_chat_archive(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_muc_archive(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  start_chat_archive(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_archive_message, Host, ?MODULE, safe_archive_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_lookup_messages, Host, ?MODULE, lookup_messages, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50).</font>
+        |  
+        |  start_muc_archive(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_archive_message, Host, ?MODULE, safe_archive_message_muc, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_lookup_messages, Host, ?MODULE, lookup_messages_muc, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50).</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_chat_archive(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_muc_archive(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  stop_chat_archive(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_archive_message, Host, ?MODULE, safe_archive_message_muc, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_lookup_messages, Host, ?MODULE, lookup_messages_muc, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop_muc_archive(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_archive_message, Host, ?MODULE, safe_archive_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_lookup_messages, Host, ?MODULE, lookup_messages, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  safe_archive_message(Result, Host, MessID, UserID,
+        |                       LocJID, RemJID, SrcJID, Dir, Packet) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          R = archive_message(Result, Host, MessID, UserID,</font>
+        |                              LocJID, RemJID, SrcJID, Dir, Packet),
+<font color=red>     0..|          case R of</font>
+        |              ok -&gt;
+<font color=red>     0..|                  ok;</font>
+        |              Other -&gt;
+<font color=red>     0..|                  throw(Other)</font>
+        |          end,
+<font color=red>     0..|          R</font>
+        |      catch _Type:Reason -&gt;
+<font color=red>     0..|          ?WARNING_MSG("Could not write message to archive, reason: ~p", [Reason]),</font>
+<font color=red>     0..|          ejabberd_hooks:run(mam_drop_message, Host, [Host]),</font>
+<font color=red>     0..|          {error, Reason}</font>
+        |      end.
+        |  
+        |  safe_archive_message_muc(Result, Host, MessId, UserID, LocJID, RemJID, SrcJID, Dir, Packet) -&gt;
+<font color=red>     0..|      RemJIDMuc = maybe_muc_jid(RemJID),</font>
+<font color=red>     0..|      safe_archive_message(Result, Host, MessId, UserID, LocJID, RemJIDMuc, SrcJID, Dir, Packet).</font>
+        |  
+        |  maybe_muc_jid(#jid{lresource = RemRes}) -&gt;
+<font color=red>     0..|      {&lt;&lt;&gt;&gt;, RemRes, &lt;&lt;&gt;&gt;};</font>
+        |  maybe_muc_jid(Other) -&gt;
+<font color=red>     0..|      Other.</font>
+        |  
+        |  
+        |  lookup_messages({error, _Reason} = Result, _Host,
+        |                       _UserID, _UserJID, _RSM, _Borders,
+        |                       _Start, _End, _Now, _WithJID,
+        |                       _PageSize, _LimitPassed, _MaxResultLimit,
+        |                       _IsSimple) -&gt;
+<font color=red>     0..|                       Result;</font>
+        |  lookup_messages(_Result, _Host,
+        |                       _UserID, UserJID, RSM, Borders,
+        |                       Start, End, _Now, WithJID,
+        |                       PageSize, LimitPassed, MaxResultLimit,
+        |                       IsSimple) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          lookup_messages(UserJID, RSM, Borders,</font>
+        |                          Start, End, WithJID,
+        |                          PageSize, LimitPassed, MaxResultLimit,
+        |                          IsSimple)
+        |      catch _Type:Reason -&gt;
+<font color=red>     0..|          {error, Reason}</font>
+        |      end.
+        |  
+        |  lookup_messages_muc(Result, Host,
+        |                      UserID, UserJID, RSM, Borders,
+        |                      Start, End, _Now, WithJID,
+        |                      PageSize, LimitPassed, MaxResultLimit,
+        |                      IsSimple) -&gt;
+<font color=red>     0..|      WithJIDMuc = maybe_muc_jid(WithJID),</font>
+<font color=red>     0..|      lookup_messages(Result, Host,</font>
+        |                      UserID, UserJID, RSM, Borders,
+        |                      Start, End, _Now, WithJIDMuc,
+        |                      PageSize, LimitPassed, MaxResultLimit,
+        |                      IsSimple).
+        |  
+        |  
+        |  archive_size(Size, _Host, _ArchiveID, _ArchiveJID) -&gt;
+<font color=red>     0..|      Size.</font>
+        |  
+        |  %% use correct bucket for given date
+        |  
+        |  -spec bucket(calendar:date() | calendar:yearweeknum() | integer()) -&gt;
+        |      {binary(), binary()} | undefined.
+        |  bucket(MsgId) when is_integer(MsgId) -&gt;
+<font color=red>     0..|      {MicroSec, _} = mod_mam_utils:decode_compact_uuid(MsgId),</font>
+<font color=red>     0..|      MsgNow = mod_mam_utils:microseconds_to_now(MicroSec),</font>
+<font color=red>     0..|      {MsgDate, _} = calendar:now_to_datetime(MsgNow),</font>
+<font color=red>     0..|      bucket(MsgDate);</font>
+        |  bucket({_, _, _} = Date) -&gt;
+<font color=red>     0..|      bucket(calendar:iso_week_number(Date));</font>
+        |  bucket({Year, Week}) -&gt;
+<font color=red>     0..|      YearBin = integer_to_binary(Year),</font>
+<font color=red>     0..|      WeekNumBin = integer_to_binary(Week),</font>
+<font color=red>     0..|      {?MAM_BUCKET_TYPE, &lt;&lt;"mam_",YearBin/binary, "_", WeekNumBin/binary&gt;&gt;};</font>
+        |  bucket(_) -&gt;
+<font color=red>     0..|      undefined.</font>
+        |  
+        |  list_mam_buckets() -&gt;
+<font color=red>     0..|      {ok, Buckets} = riakc_pb_socket:list_buckets(mongoose_riak:get_worker(), ?MAM_BUCKET_TYPE),</font>
+<font color=red>     0..|      [{?MAM_BUCKET_TYPE, Bucket} || Bucket &lt;- Buckets].</font>
+        |  
+        |  
+        |  remove_bucket(Bucket) -&gt;
+<font color=red>     0..|      {ok, Keys} = mongoose_riak:list_keys(Bucket),</font>
+<font color=red>     0..|      [mongoose_riak:delete(Bucket, Key) || Key &lt;- Keys].</font>
+        |  
+        |  archive_message(_, _, MessID, _ArchiveID, LocJID, RemJID, SrcJID, _Dir, Packet) -&gt;
+<font color=red>     0..|      LocalJID = bare_jid(LocJID),</font>
+<font color=red>     0..|      RemoteJID = bare_jid(RemJID),</font>
+<font color=red>     0..|      SourceJID = bare_jid(SrcJID),</font>
+<font color=red>     0..|      MsgId = integer_to_binary(MessID),</font>
+<font color=red>     0..|      Key = key(LocalJID, RemoteJID, MsgId),</font>
+        |  
+<font color=red>     0..|      Bucket = bucket(MessID),</font>
+        |  
+<font color=red>     0..|      RiakMap = create_obj(MsgId, SourceJID, Packet),</font>
+<font color=red>     0..|      mongoose_riak:update_type(Bucket, Key, riakc_map:to_op(RiakMap)).</font>
+        |  
+        |  create_obj(MsgId, SourceJID, Packet) -&gt;
+        |  
+<font color=red>     0..|      Ops = [{{&lt;&lt;"msg_id"&gt;&gt;, register},</font>
+<font color=red>     0..|              fun(R) -&gt; riakc_register:set(MsgId, R) end},</font>
+        |             {{&lt;&lt;"source_jid"&gt;&gt;, register},
+<font color=red>     0..|              fun(R) -&gt; riakc_register:set(SourceJID, R) end},</font>
+        |             {{&lt;&lt;"packet"&gt;&gt;, register},
+<font color=red>     0..|              fun(R) -&gt; riakc_register:set(exml:to_binary(Packet), R) end}],</font>
+        |  
+<font color=red>     0..|      mongoose_riak:create_new_map(Ops).</font>
+        |  
+        |  lookup_messages(ArchiveJID, RSM, Borders, Start, End,
+        |                  WithJID, PageSize, LimitPassed, MaxResultLimit, IsSimple) -&gt;
+        |  
+<font color=red>     0..|      OwnerJID = bare_jid(ArchiveJID),</font>
+<font color=red>     0..|      RemoteJID = bare_jid(WithJID),</font>
+        |  
+<font color=red>     0..|      SearchOpts2 = add_sorting(RSM, [{rows, PageSize}]),</font>
+<font color=red>     0..|      SearchOpts = add_offset(RSM, SearchOpts2),</font>
+        |  
+<font color=red>     0..|      F = fun get_msg_id_key/3,</font>
+        |  
+<font color=red>     0..|      {MsgIdStart, MsgIdEnd} = calculate_msg_id_borders(RSM, Borders, Start, End),</font>
+<font color=red>     0..|      {TotalCountFullQuery, Result} = read_archive(OwnerJID, RemoteJID,</font>
+        |                                                   MsgIdStart, MsgIdEnd,
+        |                                                   SearchOpts, F),
+        |  
+<font color=red>     0..|      SortedKeys = sort_messages(Result),</font>
+<font color=red>     0..|      case IsSimple of</font>
+        |          true -&gt;
+<font color=red>     0..|              {ok, {undefined, undefined, get_messages(SortedKeys)}};</font>
+        |          _ -&gt;
+<font color=red>     0..|              {MsgIdStartNoRSM, MsgIdEndNoRSM} = calculate_msg_id_borders(undefined, Borders, Start, End),</font>
+<font color=red>     0..|              {TotalCount, _} = read_archive(OwnerJID, RemoteJID,</font>
+        |                                             MsgIdStartNoRSM, MsgIdEndNoRSM,
+        |                                             [{rows, 1}], F),
+<font color=red>     0..|              Offset = calculate_offset(RSM, TotalCountFullQuery, length(SortedKeys),</font>
+        |                                        {OwnerJID, RemoteJID, MsgIdStartNoRSM}),
+<font color=red>     0..|              case TotalCount - Offset &gt; MaxResultLimit andalso not LimitPassed of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      {error, 'policy-violation'};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {ok, {TotalCount, Offset, get_messages(SortedKeys)}}</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  add_sorting(#rsm_in{direction = before}, Opts) -&gt;
+<font color=red>     0..|      [{sort, &lt;&lt;"msg_id_register desc"&gt;&gt;} | Opts];</font>
+        |  add_sorting(_, Opts) -&gt;
+<font color=red>     0..|      [{sort, &lt;&lt;"msg_id_register asc"&gt;&gt;} | Opts].</font>
+        |  
+        |  add_offset(#rsm_in{index = Offset}, Opts) when is_integer(Offset) -&gt;
+<font color=red>     0..|      [{start, Offset} | Opts];</font>
+        |  add_offset(_, Opts) -&gt;
+<font color=red>     0..|      Opts.</font>
+        |  
+        |  calculate_offset(#rsm_in{direction = before}, TotalCount, PageSize, _) -&gt;
+<font color=red>     0..|      TotalCount - PageSize;</font>
+        |  calculate_offset(#rsm_in{direction = aft, id = Id}, _, _, {Owner, Remote, MsgIdStart}) when Id /= undefined -&gt;
+<font color=red>     0..|      {Count, _} = read_archive(Owner, Remote, MsgIdStart, Id,</font>
+        |                                [{rows, 1}], fun get_msg_id_key/3),
+<font color=red>     0..|      Count;</font>
+        |  calculate_offset(#rsm_in{direction = undefined, index = Index}, _, _, _) when is_integer(Index) -&gt;
+<font color=red>     0..|      Index;</font>
+        |  calculate_offset(_, _TotalCount, _PageSize, _) -&gt;
+<font color=red>     0..|      0.</font>
+        |  
+        |  get_msg_id_key(Bucket, Key, Msgs) -&gt;
+<font color=red>     0..|      [_, _, MsgId] = decode_key(Key),</font>
+<font color=red>     0..|      Item = {binary_to_integer(MsgId), Bucket, Key},</font>
+<font color=red>     0..|      [Item | Msgs].</font>
+        |  
+        |  get_messages(BucketKeys) -&gt;
+<font color=red>     0..|      lists:flatten([get_message2(MsgId, Bucket, Key) || {MsgId, Bucket, Key} &lt;- BucketKeys]).</font>
+        |  
+        |  get_message2(MsgId, Bucket, Key) -&gt;
+<font color=red>     0..|      case mongoose_riak:fetch_type(Bucket, Key) of</font>
+        |          {ok, RiakMap} -&gt;
+<font color=red>     0..|              SourceJID = riakc_map:fetch({&lt;&lt;"source_jid"&gt;&gt;, register}, RiakMap),</font>
+<font color=red>     0..|              PacketBin = riakc_map:fetch({&lt;&lt;"packet"&gt;&gt;, register}, RiakMap),</font>
+<font color=red>     0..|              {ok, Packet} = exml:parse(PacketBin),</font>
+<font color=red>     0..|              {MsgId, jid:from_binary(SourceJID), Packet};</font>
+        |          _ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  remove_archive(Host, _ArchiveID, ArchiveJID) -&gt;
+<font color=red>     0..|      {ok, TotalCount, _, _} = R = remove_chunk(Host, ArchiveJID, 0),</font>
+<font color=red>     0..|      Result = do_remove_archive(100, R, Host, ArchiveJID),</font>
+<font color=red>     0..|      case Result of</font>
+        |          {stopped, N} -&gt;
+<font color=red>     0..|              lager:warning("archive removal stopped for jid after processing ~p items out of ~p total",</font>
+        |                            [ArchiveJID, N, TotalCount]),
+<font color=red>     0..|              ok;</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  remove_chunk(_Host, ArchiveJID, Acc) -&gt;
+<font color=red>     0..|      KeyFiletrs = key_filters(bare_jid(ArchiveJID)),</font>
+<font color=red>     0..|      fold_archive(fun delete_key_fun/3,</font>
+        |                   KeyFiletrs,
+        |                    [{rows, 50}, {sort, &lt;&lt;"msg_id_register asc"&gt;&gt;}], Acc).
+        |  
+        |  do_remove_archive(0, {ok, _, _, Acc}, _, _) -&gt;
+<font color=red>     0..|      {stopped, Acc};</font>
+        |  do_remove_archive(_, {ok, 0, _, Acc}, _, _) -&gt;
+<font color=red>     0..|      {ok, Acc};</font>
+        |  do_remove_archive(N, {ok, _TotalResults, _RowsIterated, Acc}, Host, ArchiveJID) -&gt;
+<font color=red>     0..|      timer:sleep(1000), % give Riak some time to clear after just removed keys</font>
+<font color=red>     0..|      R = remove_chunk(Host, ArchiveJID, Acc),</font>
+<font color=red>     0..|      do_remove_archive(N-1, R, Host, ArchiveJID).</font>
+        |  
+        |  purge_single_message(_Result, _Host, MessID, _ArchiveID, ArchiveJID, _Now) -&gt;
+<font color=red>     0..|      ArchiveJIDBin = bare_jid(ArchiveJID),</font>
+<font color=red>     0..|      KeyFilters = key_filters(ArchiveJIDBin, MessID),</font>
+<font color=red>     0..|      {ok, 1, 1, 1} = fold_archive(fun delete_key_fun/3, KeyFilters, [], 0),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  purge_multiple_messages(_Result, _Host, _ArchiveID, ArchiveJID, _Borders, Start, End, _Now, WithJID) -&gt;
+<font color=red>     0..|      ArchiveJIDBin = bare_jid(ArchiveJID),</font>
+<font color=red>     0..|      KeyFilters = key_filters(ArchiveJIDBin, WithJID, Start, End),</font>
+<font color=red>     0..|      {ok, Total, _Iterated, Deleted} = fold_archive(fun delete_key_fun/3,</font>
+        |                                                     KeyFilters,
+        |                                                     [{rows, 50}, {sort, &lt;&lt;"msg_id_register asc"&gt;&gt;}], 0),
+<font color=red>     0..|      case Total == Deleted of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              lager:warning("not all messages have been purged for user ~p", [ArchiveJID]),</font>
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  delete_key_fun(Bucket, Key, N) -&gt;
+<font color=red>     0..|      ok = mongoose_riak:delete(Bucket, Key, [{dw, 2}]),</font>
+<font color=red>     0..|      N + 1.</font>
+        |  
+        |  
+        |  key(LocalJID, RemoteJID, MsgId) -&gt;
+<font color=red>     0..|      &lt;&lt;LocalJID/binary, $/, RemoteJID/binary, $/, MsgId/binary&gt;&gt;.</font>
+        |  
+        |  decode_key(KeyBinary) -&gt;
+<font color=red>     0..|      binary:split(KeyBinary, &lt;&lt;"/"&gt;&gt;, [global]).</font>
+        |  
+        |  -spec read_archive(binary() | undefined,
+        |                     binary() | undefined,
+        |                     term(),
+        |                     term(),
+        |                     [term()],
+        |                     fun()) -&gt;
+        |      {integer(), list()} | {error, term()}.
+        |  read_archive(OwnerJID, WithJID, Start, End, SearchOpts, Fun) -&gt;
+<font color=red>     0..|      KeyFilters = key_filters(OwnerJID, WithJID, Start, End),</font>
+<font color=red>     0..|      {ok, Cnt, _, NewAcc} = fold_archive(Fun, KeyFilters, SearchOpts, []),</font>
+<font color=red>     0..|      {Cnt, NewAcc}.</font>
+        |  
+        |  
+        |  sort_messages(Msgs) -&gt;
+<font color=red>     0..|      SortFun = fun({MsgId1, _, _}, {MsgId2, _, _}) -&gt;</font>
+<font color=red>     0..|          MsgId1 =&lt; MsgId2</font>
+        |      end,
+<font color=red>     0..|      lists:sort(SortFun, Msgs).</font>
+        |  
+        |  fold_archive(Fun, Query, SearchOpts, InitialAcc) -&gt;
+<font color=red>     0..|      Result = mongoose_riak:search(?YZ_SEARCH_INDEX, Query, SearchOpts),</font>
+<font color=red>     0..|      case Result of</font>
+        |          {ok, {search_results, [], _, Count}} -&gt;
+<font color=red>     0..|              {ok, Count, 0, InitialAcc};</font>
+        |          {ok, {search_results, Results, _Score, Count}} -&gt;
+<font color=red>     0..|              {ok, Count, length(Results), do_fold_archive(Fun, Results, InitialAcc)};</font>
+        |          {error, R} = Err -&gt;
+<font color=red>     0..|              ?WARNING_MSG("Error reading archive key_filters=~p, reason=~p", [Query, R]),</font>
+<font color=red>     0..|              Err</font>
+        |      end.
+        |  
+        |  do_fold_archive(Fun, BucketKeys, InitialAcc) -&gt;
+<font color=red>     0..|      lists:foldl(fun({_Index, Props}, Acc) -&gt;</font>
+<font color=red>     0..|          {_, Bucket} = lists:keyfind(&lt;&lt;"_yz_rb"&gt;&gt;, 1, Props),</font>
+<font color=red>     0..|          {_, Type} = lists:keyfind(&lt;&lt;"_yz_rt"&gt;&gt;, 1, Props),</font>
+<font color=red>     0..|          {_ , Key} = lists:keyfind(&lt;&lt;"_yz_rk"&gt;&gt;, 1, Props),</font>
+<font color=red>     0..|          Fun({Type, Bucket}, Key, Acc)</font>
+        |      end, InitialAcc, BucketKeys).
+        |  
+        |  key_filters(Jid) -&gt;
+<font color=red>     0..|      &lt;&lt;"_yz_rk:",Jid/binary,"*"&gt;&gt;.</font>
+        |  
+        |  key_filters(LocalJid, undefined) -&gt;
+<font color=red>     0..|      key_filters(LocalJid);</font>
+        |  key_filters(LocalJid, MsgId) when is_integer(MsgId) -&gt;
+<font color=red>     0..|      StartsWith = key_filters(LocalJid),</font>
+<font color=red>     0..|      MsgIdBin = integer_to_binary(MsgId),</font>
+<font color=red>     0..|      &lt;&lt;StartsWith/binary, " AND msg_id_register:", MsgIdBin/binary&gt;&gt;;</font>
+        |  key_filters(LocalJid, RemoteJid) -&gt;
+<font color=red>     0..|      &lt;&lt;"_yz_rk:",LocalJid/binary,"/", RemoteJid/binary,"*"&gt;&gt;.</font>
+        |  
+        |  key_filters(LocalJid, RemoteJid, undefined, undefined) -&gt;
+<font color=red>     0..|      key_filters(LocalJid, RemoteJid);</font>
+        |  key_filters(LocalJid, RemoteJid, Start, End) -&gt;
+<font color=red>     0..|      JidFilter = key_filters(LocalJid, RemoteJid),</font>
+<font color=red>     0..|      IdFilter = id_filters(Start, End),</font>
+<font color=red>     0..|      &lt;&lt;JidFilter/binary, " AND ", IdFilter/binary&gt;&gt;.</font>
+        |  
+        |  id_filters(StartInt, undefined) -&gt;
+<font color=red>     0..|      solr_id_filters(integer_to_binary(StartInt), &lt;&lt;"*"&gt;&gt;);</font>
+        |  id_filters(undefined, EndInt) -&gt;
+<font color=red>     0..|      solr_id_filters(&lt;&lt;"*"&gt;&gt;, integer_to_binary(EndInt));</font>
+        |  id_filters(StartInt, EndInt) -&gt;
+<font color=red>     0..|      solr_id_filters(integer_to_binary(StartInt), integer_to_binary(EndInt)).</font>
+        |  
+        |  solr_id_filters(Start, End) -&gt;
+<font color=red>     0..|      &lt;&lt;"msg_id_register:[",Start/binary," TO ", End/binary," ]"&gt;&gt;.</font>
+        |  
+        |  calculate_msg_id_borders(#rsm_in{id = undefined}, Borders, Start, End) -&gt;
+<font color=red>     0..|      calculate_msg_id_borders(undefined, Borders, Start, End);</font>
+        |  calculate_msg_id_borders(#rsm_in{direction = aft, id = Id}, Borders, Start, End) -&gt;
+<font color=red>     0..|      {StartId, EndId} = calculate_msg_id_borders(undefined, Borders, Start, End),</font>
+<font color=red>     0..|      NextId = Id + 1,</font>
+<font color=red>     0..|      {mod_mam_utils:maybe_max(StartId, NextId), EndId};</font>
+        |  calculate_msg_id_borders(#rsm_in{direction = before, id = Id}, Borders, Start, End) -&gt;
+<font color=red>     0..|      {StartId, EndId} = calculate_msg_id_borders(undefined, Borders, Start, End),</font>
+<font color=red>     0..|      PrevId = Id - 1,</font>
+<font color=red>     0..|      {StartId, mod_mam_utils:maybe_min(EndId, PrevId)};</font>
+        |  calculate_msg_id_borders(_RSM, Borders, Start, End) -&gt;
+<font color=red>     0..|      StartID = maybe_encode_compact_uuid(Start, 0),</font>
+<font color=red>     0..|      EndID = maybe_encode_compact_uuid(End, 255),</font>
+<font color=red>     0..|      {mod_mam_utils:apply_start_border(Borders, StartID),</font>
+        |       mod_mam_utils:apply_end_border(Borders, EndID)}.
+        |  
+<font color=red>     0..|  bare_jid(undefined) -&gt; undefined;</font>
+        |  bare_jid(JID) -&gt;
+<font color=red>     0..|      jid:to_binary(jid:to_bare(jid:to_lower(JID))).</font>
+        |  
+        |  
+        |  maybe_encode_compact_uuid(undefined, _) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  maybe_encode_compact_uuid(Microseconds, NodeID) -&gt;
+<font color=red>     0..|      mod_mam_utils:encode_compact_uuid(Microseconds, NodeID).</font>
+</pre>
+</body>
+</html>

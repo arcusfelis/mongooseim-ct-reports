@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/mod_private.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_private.erl by COVER 2016-01-26 at 09:55:04
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_private.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Support for private storage.
+        |  %%% Created : 16 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_private).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_mod).
+        |  
+        |  -export([start/2,
+        |           stop/1,
+        |           process_sm_iq/3,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -xep([{xep, 49}, {version, "1.2"}]).
+        |  -define(BACKEND, mod_private_backend).
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Backend callbacks
+        |  
+        |  -callback init(Host, Opts) -&gt; ok when
+        |      Host    :: binary(),
+        |      Opts    :: list().
+        |  
+        |  -callback multi_set_data(LUser, LServer, NS2XML) -&gt; Result when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      NS2XML  :: [{NS, XML}],
+        |      NS      :: binary(),
+        |      XML     :: #xmlel{},
+        |      Reason  :: term(),
+        |      Result  :: ok | {aborted, Reason} | {error, Reason}.
+        |  
+        |  -callback multi_get_data(LUser, LServer, NS2Def) -&gt; [XML | Default] when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      NS2Def  :: [{NS, Default}],
+        |      NS      :: binary(),
+        |      Default :: term(),
+        |      XML     :: #xmlel{}.
+        |  
+        |  -callback remove_user(LUser, LServer) -&gt; any() when
+        |      LUser   :: binary(),
+        |      LServer :: binary().
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      gen_mod:start_backend_module(?MODULE, Opts, [multi_get_data, multi_set_data]),</font>
+<font color=red>     0..|      ?BACKEND:init(Host, Opts),</font>
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+<font color=red>     0..|      ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(anonymous_purge_hook, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_PRIVATE,</font>
+        |                                    ?MODULE, process_sm_iq, IQDisc).
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(anonymous_purge_hook, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_PRIVATE).</font>
+        |  
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Handlers
+        |  
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      ?BACKEND:remove_user(LUser, LServer).</font>
+        |  
+        |  process_sm_iq(
+        |          From = #jid{luser = LUser, lserver = LServer},
+        |          To   = #jid{},
+        |          IQ   = #iq{type = Type, sub_el = SubElem = #xmlel{children = Elems}}) -&gt;
+<font color=red>     0..|      IsKnown = lists:member(LServer, ?MYHOSTS),</font>
+<font color=red>     0..|      IsEqual = compare_bare_jids(From, To),</font>
+<font color=red>     0..|      Strategy = choose_strategy(IsKnown, IsEqual, Type),</font>
+<font color=red>     0..|      case Strategy of</font>
+        |          get -&gt;
+<font color=red>     0..|              NS2XML = to_map(Elems),</font>
+<font color=red>     0..|              XMLs = ?BACKEND:multi_get_data(LUser, LServer, NS2XML),</font>
+<font color=red>     0..|              IQ#iq{type = result, sub_el = [SubElem#xmlel{children = XMLs}]};</font>
+        |          set -&gt;
+<font color=red>     0..|              NS2XML = to_map(Elems),</font>
+<font color=red>     0..|              Result = ?BACKEND:multi_set_data(LUser, LServer, NS2XML),</font>
+<font color=red>     0..|              case Result of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      IQ#iq{type = result, sub_el = [SubElem]};</font>
+        |                  {error, Reason} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("~p:multi_set_data failed ~p for ~ts@~ts.",</font>
+        |                                 [?BACKEND, Reason, LUser, LServer]),
+<font color=red>     0..|                      error_iq(IQ, ?ERR_INTERNAL_SERVER_ERROR);</font>
+        |                  {aborted, Reason} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("~p:multi_set_data aborted ~p for ~ts@~ts.",</font>
+        |                                 [?BACKEND, Reason, LUser, LServer]),
+<font color=red>     0..|                      error_iq(IQ, ?ERR_INTERNAL_SERVER_ERROR)</font>
+        |              end;
+        |          not_allowed -&gt;
+<font color=red>     0..|              error_iq(IQ, ?ERR_NOT_ALLOWED);</font>
+        |          forbidden -&gt;
+<font color=red>     0..|              error_iq(IQ, ?ERR_FORBIDDEN)</font>
+        |      end.
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Helpers
+        |  
+<font color=red>     0..|  choose_strategy(true,  true, get) -&gt; get;</font>
+<font color=red>     0..|  choose_strategy(true,  true, set) -&gt; set;</font>
+<font color=red>     0..|  choose_strategy(false, _,    _  ) -&gt; not_allowed;</font>
+<font color=red>     0..|  choose_strategy(_,     _,    _  ) -&gt; forbidden.</font>
+        |  
+        |  compare_bare_jids(#jid{luser = LUser, lserver = LServer},
+<font color=red>     0..|                    #jid{luser = LUser, lserver = LServer}) -&gt; true;</font>
+<font color=red>     0..|  compare_bare_jids(_, _) -&gt; false.</font>
+        |  
+        |  element_to_namespace(#xmlel{attrs = Attrs}) -&gt;
+<font color=red>     0..|      xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs);</font>
+        |  element_to_namespace(_) -&gt;
+<font color=red>     0..|      &lt;&lt;&gt;&gt;.</font>
+        |  
+        |  %% Skip invalid elements.
+        |  to_map(Elems) -&gt;
+<font color=red>     0..|      [{NS, Elem} || Elem &lt;- Elems, is_valid_namespace(NS = element_to_namespace(Elem))].</font>
+        |  
+<font color=red>     0..|  is_valid_namespace(Namespace) -&gt; Namespace =/= &lt;&lt;&gt;&gt;.</font>
+        |  
+        |  error_iq(IQ=#iq{sub_el=SubElem}, ErrorStanza) -&gt;
+<font color=red>     0..|      IQ#iq{type = error, sub_el = [SubElem, ErrorStanza]}.</font>
+</pre>
+</body>
+</html>

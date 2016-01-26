@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/mod_last_riak.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_last_riak.erl by COVER 2016-01-26 at 09:55:01
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_last.erl
+        |  %%% Author  : Pawel Pikula &lt;pawel.pikula@erlang-solutions.com&gt;
+        |  %%% Purpose : mod_last riak backend (XEP-0012)
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2014   ProcessOne
+        |  %%% MongooseIM, Copyright (C) 2014      Erlang Solutions Ltd.
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  %%% @doc Riak backend for last activity XEP
+        |  %%%
+        |  %%% The backend uses the existing riak connection pool, which is "globally" defined in
+        |  %%% the ejebberd.cfg file. Therefore, we don't need to start anything in the init
+        |  %%% function.
+        |  %%%
+        |  %%% The module follows the approach taken by the other riak backends - it creates
+        |  %%% the following bucket {&lt;&lt;"last"&gt;&gt;, &lt;&lt;"example.com"&gt;&gt;} for each xmpp domain.
+        |  %%% The &lt;&lt;"last"&gt;&gt; bucket type has the following props :'{"props":{"last_write_wins":true}}'
+        |  %%%
+        |  %%% Basically, there are 3 operations the backend need to provide set/get and count
+        |  %%% the number of users which has been active since given date. However, the count
+        |  %%% query can be only called using mongooseimctl.
+        |  %%%
+        |  %%% Username is used as a key and the value is just a user status, which is just
+        |  %%% a binary. Moreover, we have a secondary integer index on the timestamp, which
+        |  %%% is used in the count active users query.
+        |  %%%
+        |  %%% Data Layout:
+        |  %%% KV: {Username:binary, Status:binary}
+        |  %%% 2i: [Timestamp:integer]
+        |  %%%
+        |  %%% Set/Get are rather simple operations - they map to riak's put/get functions.
+        |  %%% The count query uses mapred task to calculate the number of users satisfying
+        |  %%% the criteria. As the input timestamp index range is used. The approach is
+        |  %%% described here: http://docs.basho.com/riak/latest/dev/using/2i/#Querying
+        |  %%% in the *Count Bucket Objects via $bucket Index* section. The alternative approach
+        |  %%% could be the "riakc_pb_socket:get_index_range" function
+        |  %%%
+        |  %%% The pros and cons of the both approaches have been discussed here:
+        |  %%% https://github.com/esl/MongooseIM/pull/567
+        |  
+        |  -module(mod_last_riak).
+        |  
+        |  -behaviour(mod_last).
+        |  
+        |  -include("mod_last.hrl").
+        |  -include("ejabberd.hrl").
+        |  
+        |  -define(TIMESTAMP_IDX, {integer_index, "timestamp"}).
+        |  
+        |  %% API
+        |  -export([init/2,
+        |           get_last/2,
+        |           count_active_users/2,
+        |           set_last_info/4,
+        |           remove_user/2]).
+        |  
+        |  -spec init(ejabberd:server(), list()) -&gt;ok.
+        |  init(_VHost, _Opts) -&gt;
+        |      %% we are using common riak pool
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec get_last(ejabberd:luser(), ejabberd:lserver()) -&gt;
+        |      {ok, non_neg_integer(), binary()} | {error, term()} | not_found.
+        |  get_last(LUser, LServer) -&gt;
+<font color=red>     0..|      case mongoose_riak:get(bucket_type(LServer), LUser) of</font>
+        |          {ok, Obj} -&gt;
+<font color=red>     0..|              Status = riakc_obj:get_value(Obj),</font>
+<font color=red>     0..|              MD = riakc_obj:get_update_metadata(Obj),</font>
+<font color=red>     0..|              [Timestamp] = riakc_obj:get_secondary_index(MD, ?TIMESTAMP_IDX),</font>
+<font color=red>     0..|              {ok, Timestamp, Status};</font>
+        |          {error, notfound} -&gt;
+<font color=red>     0..|              not_found;</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  -spec count_active_users(ejabberd:lserver(), non_neg_integer()) -&gt; non_neg_integer().
+        |  count_active_users(LServer, TimeStamp) -&gt;
+<font color=red>     0..|      Idx = {index, bucket_type(LServer), ?TIMESTAMP_IDX, TimeStamp+1, infinity()},</font>
+<font color=red>     0..|      RedMF = {modfun, riak_kv_mapreduce, reduce_count_inputs},</font>
+<font color=red>     0..|      Red = [{reduce, RedMF, [{reduce_phase_batch_size, 1000}], true}],</font>
+<font color=red>     0..|      {ok, [{0, [Count]}]}  = mongoose_riak:mapred(Idx, Red),</font>
+<font color=red>     0..|      Count.</font>
+        |  
+        |  -spec set_last_info(ejabberd:luser(), ejabberd:lserver(), non_neg_integer(),
+        |                      binary()) -&gt; ok | {error, term()}.
+        |  set_last_info(LUser, LServer, Timestamp, Status) -&gt;
+<font color=red>     0..|      Obj = riakc_obj:new(bucket_type(LServer), LUser, Status),</font>
+<font color=red>     0..|      MD = riakc_obj:get_update_metadata(Obj),</font>
+<font color=red>     0..|      MDWithIndex = riakc_obj:set_secondary_index(MD, [{?TIMESTAMP_IDX, [Timestamp]}]),</font>
+<font color=red>     0..|      FinalObj = riakc_obj:update_metadata(Obj, MDWithIndex),</font>
+        |  
+<font color=red>     0..|      mongoose_riak:put(FinalObj).</font>
+        |  
+        |  -spec remove_user(ejabberd:luser(), ejabberd:lserver())  -&gt; ok.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      mongoose_riak:delete(bucket_type(LServer), LUser).</font>
+        |  
+<font color=red>     0..|  bucket_type(LServer) -&gt; {&lt;&lt;"last"&gt;&gt;, LServer}.</font>
+        |  
+        |  -spec infinity() -&gt; non_neg_integer().
+        |  infinity() -&gt;
+        |      % almost infinity ... Wed, 16 Nov 5138 09:46:39 GMT
+        |      % I think Mongoose won't live so long ;)
+<font color=red>     0..|      99999999999.</font>
+</pre>
+</body>
+</html>

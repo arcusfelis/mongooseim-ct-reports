@@ -1,0 +1,58 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-dfbddb12-93f9-4cdf-943f-b4c634aece59.c.eco-emissary-99515.internal.2016-01-26_09.54.34/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.54.42/mod_mam_muc_ca_sup.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_muc_ca_sup.erl by COVER 2016-01-26 at 09:55:01
+
+****************************************************************************
+
+        |  -module(mod_mam_muc_ca_sup).
+        |  -author('arcusfelis@gmail.com').
+        |  
+        |  -behaviour(supervisor).
+        |  
+        |  -export([start/2, stop/1, start_link/2, init/1]).
+        |  
+        |  start(Host, Config) -&gt;
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, supervisor_spec(Host, Config)).</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      Tag = {mod_mam_muc_ca_sup, Host},</font>
+<font color=red>     0..|      supervisor:terminate_child(ejabberd_sup, Tag),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup, Tag).</font>
+        |  
+        |  start_link(Host, Config) -&gt;
+<font color=red>     0..|      supervisor2:start_link({local, ?MODULE}, ?MODULE, [Host, Config]).</font>
+        |  
+        |  supervisor_spec(Host, Config) -&gt;
+<font color=red>     0..|      {{mod_mam_muc_ca_sup, Host},</font>
+        |       {?MODULE, start_link, [Host, Config]},
+        |       permanent,
+        |       infinity,
+        |       supervisor,
+        |       [?MODULE]}.
+        |  
+        |  worker_spec(Host, Addr, Port, WorkerNumber, ClientOptions) -&gt;
+<font color=red>     0..|      {{Host, Addr, Port, WorkerNumber},</font>
+        |       {mod_mam_muc_ca_arch, start_link, [Host, Addr, Port, ClientOptions]},
+        |       {permanent, 10}, %% Delay is 10 seconds
+        |       infinity,
+        |       worker,
+        |       [mod_mam_muc_ca_arch]}.
+        |  
+        |  worker_specs(Host, Servers, ClientOptions) -&gt;
+<font color=red>     0..|      [worker_spec(Host, Addr, Port, WorkerNumber, ClientOptions)</font>
+<font color=red>     0..|       || {Addr, Port, WorkerCount} &lt;- Servers,</font>
+<font color=red>     0..|          WorkerNumber &lt;- lists:seq(1, WorkerCount)].</font>
+        |  
+        |  init([Host, ClientOptions]) -&gt;
+<font color=red>     0..|      Servers = proplists:get_value(servers, ClientOptions),</font>
+<font color=red>     0..|      Specs = worker_specs(Host, Servers, ClientOptions),</font>
+<font color=red>     0..|      {ok, {{one_for_one, 10, 1}, Specs}}.</font>
+        |  
+</pre>
+</body>
+</html>
