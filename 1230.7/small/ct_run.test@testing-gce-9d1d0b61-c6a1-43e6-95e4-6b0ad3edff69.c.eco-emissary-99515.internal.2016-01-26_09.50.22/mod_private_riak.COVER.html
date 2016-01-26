@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_private_riak.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_private_riak.erl by COVER 2016-01-26 at 09:50:52
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2015 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mod_private_riak).
+        |  
+        |  -behaviour(mod_private).
+        |  
+        |  %% API
+        |  -export([init/2,
+        |           multi_set_data/3,
+        |           multi_get_data/3,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -spec init(ejabberd:lserver(), list()) -&gt; ok.
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec multi_set_data(ejabberd:luser(), ejabberd:lserver(), [{binary(), jlib:xmlel()}]) -&gt;
+        |      ok | {error, term()}.
+        |  multi_set_data(LUser, LServer, NS2XML) -&gt;
+<font color=red>     0..|      R = [set_private_data(LUser, LServer, NS, XML) || {NS, XML} &lt;- NS2XML],</font>
+        |      %% check if something returned with error msg
+<font color=red>     0..|      case lists:keyfind(error, 1, R) of</font>
+<font color=red>     0..|          {error, Reason} -&gt; {error, Reason};</font>
+<font color=red>     0..|          false -&gt; ok</font>
+        |      end.
+        |  
+        |  -spec multi_get_data(ejabberd:luser(), ejabberd:lserver(), [{binary(), term()}]) -&gt; [any()].
+        |  multi_get_data(LUser, LServer, NS2Def) -&gt;
+<font color=red>     0..|      [get_private_data(LUser, LServer, NS, Default) || {NS, Default} &lt;- NS2Def].</font>
+        |  
+        |  -spec remove_user(ejabberd:luser(), ejabberd:lserver()) -&gt; ok.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      KeyFilter = [[&lt;&lt;"starts_with"&gt;&gt;,LUser]],</font>
+<font color=red>     0..|      Bucket = bucket_type(LServer),</font>
+<font color=red>     0..|      case mongoose_riak:mapred([{Bucket, KeyFilter}], []) of</font>
+        |          {ok, []} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {ok, [{0, BucketKeys} | _]} -&gt;
+<font color=red>     0..|              [mongoose_riak:delete(Bucket1, Key) || {{Bucket1, Key}, _} &lt;- BucketKeys];</font>
+        |          Error -&gt;
+<font color=red>     0..|              ?WARNING_MSG("Error reading keys to remove: ~p", [Error]),</font>
+<font color=red>     0..|              {error, Error}</font>
+        |      end.
+        |  
+        |  set_private_data(LUser, LServer, NS, XML) -&gt;
+<font color=red>     0..|      Obj = riakc_obj:new(bucket_type(LServer), key(LUser, NS), exml:to_binary(XML)),</font>
+<font color=red>     0..|      mongoose_riak:put(Obj).</font>
+        |  
+        |  get_private_data(LUser, LServer, NS, Default) -&gt;
+<font color=red>     0..|      case mongoose_riak:get(bucket_type(LServer), key(LUser, NS)) of</font>
+        |          {ok, Obj} -&gt;
+<font color=red>     0..|              Value = riakc_obj:get_value(Obj),</font>
+<font color=red>     0..|              {ok, #xmlel{} = DecodedXML} = exml:parse(Value),</font>
+<font color=red>     0..|              DecodedXML;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Default</font>
+        |      end.
+        |  
+        |  bucket_type(LServer) -&gt;
+<font color=red>     0..|      {&lt;&lt;"private"&gt;&gt;, LServer}.</font>
+        |  
+        |  key(LUser, NS) -&gt;
+<font color=red>     0..|      &lt;&lt;LUser/binary, "/", NS/binary&gt;&gt;.</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_revproxy.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_revproxy.erl by COVER 2016-01-26 at 09:51:11
+
+****************************************************************************
+
+        |  %%%===================================================================
+        |  %%% @copyright (C) 2014, Erlang Solutions Ltd.
+        |  %%% @doc HTTP(S) reverse proxy for MongooseIM's Cowboy listener
+        |  %%% @end
+        |  %%%===================================================================
+        |  -module(mod_revproxy).
+        |  -behaviour(gen_mod).
+        |  -behaviour(cowboy_http_handler).
+        |  
+        |  %% API
+        |  -export([compile/1]).
+        |  
+        |  %% gen_mod callbacks
+        |  -export([start/2,
+        |           stop/1]).
+        |  
+        |  %% cowboy_http_handler callbacks
+        |  -export([init/3,
+        |           handle/2,
+        |           terminate/3]).
+        |  
+        |  %% to be used by tests only
+        |  -export([compile_routes/1,
+        |           match/4,
+        |           upstream_uri/1,
+        |           split/4]).
+        |  
+        |  -include("mod_revproxy.hrl").
+        |  
+        |  -record(state, {timeout, length, custom_headers}).
+        |  
+        |  -type option() :: {atom(), any()}.
+        |  -type state() :: #state{}.
+        |  
+        |  -type host()     :: '_' | string() | binary().
+        |  -type path()     :: '_' | string() | binary().
+        |  -type method()   :: '_' | atom() | string() | binary().
+        |  -type route()    :: {host(), method(), upstream()} |
+        |                      {host(), path(), method(), upstream()}.
+        |  
+        |  -define(CRLF, "\r\n").
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% API
+        |  %%--------------------------------------------------------------------
+        |  -spec compile([route()]) -&gt; ok.
+        |  compile(Routes) -&gt;
+     2..|      Source = mod_revproxy_dynamic_src(Routes),
+     2..|      {Module, Code} = dynamic_compile:from_string(Source),
+     2..|      code:load_binary(Module, "mod_revproxy_dynamic.erl", Code),
+     2..|      ok.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %%--------------------------------------------------------------------
+        |  -spec start(ejabberd:host(), [option()]) -&gt; ok.
+        |  start(_Host, Opts) -&gt;
+     1..|      Routes = gen_mod:get_opt(routes, Opts, []),
+     1..|      compile(Routes).
+        |  
+        |  -spec stop(ejabberd:host()) -&gt; ok.
+        |  stop(_Host) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% cowboy_http_handler callbacks
+        |  %%--------------------------------------------------------------------
+        |  -spec init({atom(), http}, cowboy_req:req(), [option()])
+        |      -&gt; {ok, cowboy_req:req(), state()}.
+        |  init(_Transport, Req, Opts) -&gt;
+     2..|      Timeout = gen_mod:get_opt(timeout, Opts, 5000),
+     2..|      Length = gen_mod:get_opt(body_length, Opts, 8000000),
+     2..|      Headers = gen_mod:get_opt(custom_headers, Opts, []),
+     2..|      {ok, Req, #state{timeout=Timeout,
+        |                       length=Length,
+        |                       custom_headers=Headers}}.
+        |  
+        |  -spec handle(cowboy_req:req(), state()) -&gt; {ok, cowboy_req:req(), state()}.
+        |  handle(Req, State) -&gt;
+     2..|      {Host, Req1} = cowboy_req:header(&lt;&lt;"host"&gt;&gt;, Req),
+     2..|      {Path, Req2} = cowboy_req:path(Req1),
+     2..|      {QS, Req3} = cowboy_req:qs(Req2),
+     2..|      PathQS = case QS of
+        |          &lt;&lt;&gt;&gt; -&gt;
+     1..|              Path;
+        |          _ -&gt;
+     1..|              &lt;&lt;Path/binary, "?", QS/binary&gt;&gt;
+        |      end,
+     2..|      {Method, Req4} = cowboy_req:method(Req3),
+     2..|      Match = match(mod_revproxy_dynamic:rules(), Host, PathQS, Method),
+     2..|      handle_match(Match, Method, Req4, State).
+        |  
+        |  -spec terminate(any(), cowboy_req:req(), state()) -&gt; ok.
+        |  terminate(_Reason, _Req, _State) -&gt;
+     2..|      ok.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  
+        |  %% Passing and receiving request via fusco
+        |  handle_match(#match{}=Match, Method, Req, State) -&gt;
+     2..|      {Host, Path} = upstream_uri(Match),
+     2..|      pass_request(Host, Path, Method, Req, State);
+        |  handle_match(false, _, Req, State) -&gt;
+<font color=red>     0..|      {ok, Req1} = cowboy_req:reply(404, Req),</font>
+<font color=red>     0..|      {ok, Req1, State}.</font>
+        |  
+        |  pass_request(Host, Path, Method, Req,
+        |               #state{timeout=Timeout, custom_headers=CustomHeaders}=State) -&gt;
+     2..|      {ok, Pid} = fusco:start_link(Host, [{connect_timeout, Timeout}]),
+     2..|      {Headers, Req1} = cowboy_req:headers(Req),
+     2..|      {Body, Req2} = request_body(Req1, State),
+     2..|      Headers1 = Headers ++ CustomHeaders,
+     2..|      Response = fusco:request(Pid, Path, Method, Headers1, Body, Timeout),
+     2..|      return_response(Response, Req2, State).
+        |  
+        |  return_response({ok, {{Status, _}, Headers, Body, _, _}}, Req, State) -&gt;
+<font color=red>     0..|      StatusI = binary_to_integer(Status),</font>
+<font color=red>     0..|      Headers1 = remove_confusing_headers(Headers),</font>
+<font color=red>     0..|      {ok, Req1} = cowboy_req:reply(StatusI, Headers1, Body, Req),</font>
+<font color=red>     0..|      {ok, Req1, State};</font>
+        |  return_response({error, connect_timeout}, Req, State) -&gt;
+<font color=red>     0..|      {ok, Req1} = cowboy_req:reply(504, Req),</font>
+<font color=red>     0..|      {ok, Req1, State};</font>
+        |  return_response({error, timeout}, Req, State) -&gt;
+<font color=red>     0..|      {ok, Req1} = cowboy_req:reply(504, Req),</font>
+<font color=red>     0..|      {ok, Req1, State};</font>
+        |  return_response({error, _Other}, Req, State) -&gt;
+     2..|      {ok, Req1} = cowboy_req:reply(502, Req),
+     2..|      {ok, Req1, State}.
+        |  
+        |  request_body(Req, #state{length=Length}) -&gt;
+     2..|      case cowboy_req:has_body(Req) of
+        |          false -&gt;
+     1..|              {&lt;&lt;&gt;&gt;, Req};
+        |          true -&gt;
+     1..|              {ok, Data, Req1} = cowboy_req:body(Req, [{length, Length}]),
+     1..|              {Data, Req1}
+        |      end.
+        |  
+        |  remove_confusing_headers(List) -&gt;
+<font color=red>     0..|      [Header || {Field,_}=Header &lt;- List,</font>
+<font color=red>     0..|                 not is_header_confusing(cowboy_bstr:to_lower(Field))].</font>
+        |  
+<font color=red>     0..|  is_header_confusing(&lt;&lt;"transfer-encoding"&gt;&gt;) -&gt; true;</font>
+<font color=red>     0..|  is_header_confusing(_)                       -&gt; false.</font>
+        |  
+        |  %% Cowboy-like routing functions
+        |  upstream_uri(#match{upstream=Upstream, remainder=Remainder,
+        |                      bindings=Bindings, path=Path}) -&gt;
+        |      #upstream{type=Type,
+        |                protocol=Protocol,
+        |                host=UpHost,
+     8..|                path=UpPath} = Upstream,
+     8..|      BoundHost = upstream_bindings(UpHost, $., Bindings, &lt;&lt;&gt;&gt;),
+     8..|      PathSegments = case {Type,Path} of
+     5..|          {uri, _} -&gt; UpPath ++ Remainder;
+<font color=red>     0..|          {_, '_'} -&gt; UpPath ++ Remainder;</font>
+     3..|          _        -&gt; UpPath ++ Path ++ Remainder
+        |      end,
+     8..|      BoundPath = upstream_bindings(PathSegments, $/, Bindings, &lt;&lt;&gt;&gt;),
+     8..|      FullHost = &lt;&lt;Protocol/binary, BoundHost/binary&gt;&gt;,
+     8..|      FullPath = &lt;&lt;"/", BoundPath/binary&gt;&gt;,
+     8..|      {binary_to_list(FullHost), FullPath}.
+        |  
+        |  upstream_bindings([], _, _,  Acc) -&gt;
+    16..|      Acc;
+        |  upstream_bindings([&lt;&lt;&gt;&gt;|Tail], S, Bindings, Acc) when Tail =/= [] -&gt;
+     3..|      upstream_bindings(Tail, S, Bindings, Acc);
+        |  upstream_bindings([Binding|Tail], S, Bindings, Acc) when is_atom(Binding) -&gt;
+    10..|      {Binding, Value} = lists:keyfind(Binding, 1, Bindings),
+    10..|      upstream_bindings(Tail, S, Bindings, upstream_append(Value, S, Acc));
+        |  upstream_bindings([Head|Tail], S, Bindings, Acc) -&gt;
+    36..|      upstream_bindings(Tail, S, Bindings, upstream_append(Head, S, Acc)).
+        |  
+        |  upstream_append(Value, _, &lt;&lt;&gt;&gt;) -&gt;
+    16..|      Value;
+        |  upstream_append(Value, S, Acc) -&gt;
+    30..|      &lt;&lt;Acc/binary, S, Value/binary&gt;&gt;.
+        |  
+        |  %% Matching request to the upstream
+        |  match(Rules, Host, Path, Method) when is_list(Host), is_list(Path) -&gt;
+    12..|      match_rules(Rules, Host, Path, Method);
+        |  match(Rules, Host, Path, Method) -&gt;
+    12..|      match(Rules, split_host(Host), split_path(Path), Method).
+        |  
+        |  match_rules([], _, _, _) -&gt;
+<font color=red>     0..|      false;</font>
+        |  match_rules([Rule|Tail], Host, Path, Method) -&gt;
+    34..|      case match_method(Rule, Host, Path, Method) of
+        |          false -&gt;
+    22..|              match_rules(Tail, Host, Path, Method);
+        |          Result -&gt;
+    12..|              Result
+        |      end.
+        |  
+        |  match_method({_, _, '_', _}=Rule, Host, Path, _Method) -&gt;
+    17..|      match_path(Rule, Host, Path);
+        |  match_method({_, _, Method, _}=Rule, Host, Path, Method) -&gt;
+    15..|      match_path(Rule, Host, Path);
+        |  match_method(_, _, _, _) -&gt;
+     2..|      false.
+        |  
+        |  match_path({_, '_', _, _}=Rule, Host, Path) -&gt;
+    13..|      match_host(Rule, Host, Path, []);
+        |  match_path({_, RulePath, _, _}=Rule, Host, Path) -&gt;
+    19..|      match_path_segments(RulePath, Path, Rule, Host, []).
+        |  
+        |  match_path_segments([], Remainder, Rule, Host, Bindings) -&gt;
+     7..|      match_host(Rule, Host, Remainder, Bindings);
+        |  match_path_segments([&lt;&lt;&gt;&gt;|T], Remainder, Rule, Host, Bindings) -&gt;
+     3..|      match_path_segments(T, Remainder, Rule, Host, Bindings);
+        |  match_path_segments([H|T1], [H|T2], Rule, Host, Bindings) -&gt;
+     4..|      match_path_segments(T1, T2, Rule, Host, Bindings);
+        |  match_path_segments([Binding|T1], [H|T2], Rule, Host, Bindings)
+        |          when is_atom(Binding) -&gt;
+     3..|      case match_bindings(Binding, H, Bindings) of
+        |          false -&gt;
+<font color=red>     0..|              false;</font>
+        |          Bindings1 -&gt;
+     3..|              match_path_segments(T1, T2, Rule, Host, Bindings1)
+        |      end;
+        |  match_path_segments(_, _, _, _, _) -&gt;
+    12..|      false.
+        |  
+        |  match_host({'_', RulePath, _, Upstream}, _Host, Remainder, Bindings) -&gt;
+<font color=red>     0..|      #match{upstream = Upstream,</font>
+        |             path = RulePath,
+        |             remainder = Remainder,
+        |             bindings = Bindings};
+        |  match_host({RuleHost, Path, _, Upstream}, Host, Remainder, Bindings) -&gt;
+    20..|      match_host_segments(RuleHost, Host, Upstream, Remainder, Path, Bindings).
+        |  
+        |  match_host_segments([], [], Upstream, Remainder, Path, Bindings) -&gt;
+    12..|      #match{upstream = Upstream,
+        |             path = Path,
+        |             remainder = Remainder,
+        |             bindings = Bindings};
+        |  match_host_segments([H|T1], [H|T2], Upstream, Remainder, Path, Bindings) -&gt;
+    31..|      match_host_segments(T1, T2, Upstream, Remainder, Path, Bindings);
+        |  match_host_segments([Binding|T1], [H|T2], Upstream, Remainder, Path, Bindings)
+        |          when is_atom(Binding) -&gt;
+     7..|      case match_bindings(Binding, H, Bindings) of
+        |          false -&gt;
+<font color=red>     0..|              false;</font>
+        |          Bindings1 -&gt;
+     7..|              match_host_segments(T1, T2, Upstream, Remainder, Path, Bindings1)
+        |      end;
+        |  match_host_segments(_, _, _, _, _, _) -&gt;
+     8..|      false.
+        |  
+        |  match_bindings(Binding, Value, Bindings) -&gt;
+    10..|      case lists:keyfind(Binding, 1, Bindings) of
+        |          {Binding, Value} -&gt;
+<font color=red>     0..|              Bindings;</font>
+        |          {Binding, _} -&gt;
+<font color=red>     0..|              false;</font>
+        |          false -&gt;
+    10..|              lists:keystore(Binding, 1, Bindings, {Binding, Value})
+        |      end.
+        |  
+        |  %% Rules compilation
+        |  compile_routes(Routes) -&gt;
+     4..|      compile_routes(Routes, []).
+        |  
+        |  compile_routes([], Acc) -&gt;
+     4..|      lists:reverse(Acc);
+        |  compile_routes([{Host, Method, Upstream}|Tail], Acc) -&gt;
+     9..|      compile_routes([{Host, '_', Method, Upstream}|Tail], Acc);
+        |  compile_routes([{HostMatch,PathMatch,MethodMatch,UpstreamMatch}|Tail], Acc) -&gt;
+    20..|      HostRule = compile_host(HostMatch),
+    20..|      Method = compile_method(MethodMatch),
+    20..|      Upstream = compile_upstream(UpstreamMatch),
+    20..|      PathRule = compile_path(PathMatch),
+    20..|      Host = {HostRule, PathRule, Method, Upstream},
+    20..|      compile_routes(Tail, [Host|Acc]).
+        |  
+        |  compile_host('_') -&gt;
+<font color=red>     0..|      '_';</font>
+        |  compile_host("_") -&gt;
+<font color=red>     0..|      '_';</font>
+        |  compile_host(HostMatch) when is_list(HostMatch) -&gt;
+    20..|      compile_host(list_to_binary(HostMatch));
+        |  compile_host(HostMatch) when is_binary(HostMatch) -&gt;
+    20..|      split_host(HostMatch).
+        |  
+        |  compile_path('_') -&gt;
+     9..|      '_';
+        |  compile_path("_") -&gt;
+<font color=red>     0..|      '_';</font>
+        |  compile_path(PathMatch) when is_list(PathMatch) -&gt;
+    11..|      compile_path(iolist_to_binary(PathMatch));
+        |  compile_path(PathMatch) when is_binary(PathMatch) -&gt;
+    11..|      split_path(PathMatch).
+        |  
+        |  compile_method('_') -&gt;
+<font color=red>     0..|      '_';</font>
+        |  compile_method("_") -&gt;
+    10..|      '_';
+        |  compile_method(Bin) when is_binary(Bin) -&gt;
+    10..|      cowboy_bstr:to_upper(Bin);
+        |  compile_method(List) when is_list(List) -&gt;
+<font color=red>     0..|      compile_method(list_to_binary(List));</font>
+        |  compile_method(Atom) when is_atom(Atom) -&gt;
+    10..|      compile_method(atom_to_binary(Atom, utf8)).
+        |  
+        |  compile_upstream(Bin) when is_binary(Bin) -&gt;
+    20..|      split_upstream(Bin);
+        |  compile_upstream(List) when is_list(List) -&gt;
+    20..|      compile_upstream(list_to_binary(List));
+        |  compile_upstream(Atom) when is_atom(Atom) -&gt;
+<font color=red>     0..|      Atom;</font>
+        |  compile_upstream(_) -&gt;
+<font color=red>     0..|      erlang:error(badarg).</font>
+        |  
+        |  split_host(Host) -&gt;
+    52..|      split(Host, $., [], &lt;&lt;&gt;&gt;).
+        |  
+        |  split_path(Path) -&gt;
+    43..|      Split = split(Path, $/, [], &lt;&lt;&gt;&gt;),
+    43..|      Trailing = include_trailing(Path, $/, Split),
+    43..|      lists:reverse(Trailing).
+        |  
+        |  split_upstream(&lt;&lt;"http://", Rest/binary&gt;&gt;) -&gt;
+    19..|      split_upstream(Rest, #upstream{protocol = &lt;&lt;"http://"&gt;&gt;});
+        |  split_upstream(&lt;&lt;"https://", Rest/binary&gt;&gt;) -&gt;
+     1..|      split_upstream(Rest, #upstream{protocol = &lt;&lt;"https://"&gt;&gt;}).
+        |  
+        |  split_upstream(URI, Upstream) -&gt;
+    20..|      {Host, Path, Type} = case binary:split(URI, &lt;&lt;"/"&gt;&gt;) of
+        |          [HostSeg] -&gt;
+     3..|              {HostSeg, &lt;&lt;&gt;&gt;, host};
+        |          [HostSeg, PathSeg] -&gt;
+    17..|              {HostSeg, PathSeg, uri}
+        |      end,
+    20..|      HostSegments = split_host(Host),
+    20..|      PathSegments = split_path(Path),
+    20..|      Upstream#upstream{type = Type,
+        |                        host = lists:reverse(HostSegments),
+        |                        path = PathSegments}.
+        |  
+        |  include_trailing(&lt;&lt;&gt;&gt;, _, Segments) -&gt;
+     9..|      Segments;
+        |  include_trailing(&lt;&lt;Separator&gt;&gt;, Separator, Segments) -&gt;
+     3..|      Segments;
+        |  include_trailing(Bin, Separator, Segments) -&gt;
+    31..|      case binary:at(Bin, byte_size(Bin)-1) of
+    10..|          Separator -&gt; [&lt;&lt;&gt;&gt;|Segments];
+    21..|          _         -&gt; Segments
+        |      end.
+        |  
+        |  split(&lt;&lt;&gt;&gt;, _S, Segments, &lt;&lt;&gt;&gt;) -&gt;
+    28..|      Segments;
+        |  split(&lt;&lt;&gt;&gt;, _S, Segments, Acc) -&gt;
+    67..|      [Acc|Segments];
+        |  split(&lt;&lt;S, Rest/binary&gt;&gt;, S, Segments, &lt;&lt;&gt;&gt;) -&gt;
+    23..|      split(Rest, S, Segments, &lt;&lt;&gt;&gt;);
+        |  split(&lt;&lt;S, Rest/binary&gt;&gt;, S, Segments, Acc) -&gt;
+    61..|      split(Rest, S, [Acc|Segments], &lt;&lt;&gt;&gt;);
+        |  split(&lt;&lt;$:, Rest/binary&gt;&gt;, S, Segments, &lt;&lt;&gt;&gt;) -&gt;
+    31..|      {BindingBin, Rest1} = compile_binding(Rest, S, &lt;&lt;&gt;&gt;),
+    31..|      Binding = binary_to_atom(BindingBin, utf8),
+    31..|      split(Rest1, S, [Binding|Segments], &lt;&lt;&gt;&gt;);
+        |  split(&lt;&lt;$:, D, Rest/binary&gt;&gt;, S, Segments, Acc)
+        |          when D &gt;= $0, D =&lt; $9 -&gt;
+    20..|      split(Rest, S, Segments, &lt;&lt;Acc/binary, $:, D&gt;&gt;);
+        |  split(&lt;&lt;$:, _Rest/binary&gt;&gt;, _S, _Segments, _Acc) -&gt;
+<font color=red>     0..|      erlang:error(badarg);</font>
+        |  split(&lt;&lt;C, Rest/binary&gt;&gt;, S, Segments, Acc) -&gt;
+   814..|      split(Rest, S, Segments, &lt;&lt;Acc/binary, C&gt;&gt;).
+        |  
+        |  compile_binding(&lt;&lt;&gt;&gt;, _S, &lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      erlang:error(badarg);</font>
+        |  compile_binding(&lt;&lt;&gt;&gt;, _S, Acc) -&gt;
+     6..|      {Acc, &lt;&lt;&gt;&gt;};
+        |  compile_binding(&lt;&lt;S, Rest/binary&gt;&gt;, S, Acc) -&gt;
+    25..|      {Acc, Rest};
+        |  compile_binding(&lt;&lt;C, Rest/binary&gt;&gt;, S, Acc) -&gt;
+   200..|      compile_binding(Rest, S, &lt;&lt;Acc/binary, C&gt;&gt;).
+        |  
+        |  %% Dynamically compiled configuration module
+        |  mod_revproxy_dynamic_src(Routes) -&gt;
+     2..|      Rules = compile_routes(Routes),
+     2..|      lists:flatten(
+        |          ["-module(mod_revproxy_dynamic).
+        |           -export([rules/0]).
+        |  
+        |           rules() -&gt;
+        |               ", io_lib:format("~p", [Rules]), ".\n"]).
+</pre>
+</body>
+</html>

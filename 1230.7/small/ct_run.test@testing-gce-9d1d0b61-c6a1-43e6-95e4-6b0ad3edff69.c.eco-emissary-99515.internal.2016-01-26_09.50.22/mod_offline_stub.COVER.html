@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_offline_stub.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_offline_stub.erl by COVER 2016-01-26 at 09:50:50
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_offline_stub.erl
+        |  %%% Author  : Radek Szymczyszyn
+        |  %%%           &lt;radoslaw.szymczyszyn@erlang-solutions.com&gt;
+        |  %%% Purpose : Silence &lt;service-unavailable/&gt; when not using mod_offline
+        |  %%%           but using mod_mam for message persistence.
+        |  %%%
+        |  %%%           RFC 6121 requires a &lt;service-unavailable/&gt; stanza error
+        |  %%%           to be sent to a user messaging an unavailable recipient
+        |  %%%           if the message is not stored for delayed delivery
+        |  %%%           (i.e. as an "offline message").
+        |  %%%           If the recipient exists (i.e. auth module returns `true`
+        |  %%%           from `is_user_exists`) mod_mam stores the message,
+        |  %%%           but &lt;service-unavailable/&gt; is still returned,
+        |  %%%           what is not compliant with the RFC.
+        |  %%%
+        |  %%%           This module prevents returning &lt;service-unavailable/&gt;.
+        |  %%% See     : RFC 6121 8.5.2.2.1
+        |  %%% License : GNU GPLv2 or (at your option) any later version
+        |  %%%
+        |  %%% MongooseIM, Copyright (C) 2014 Erlang Solutions
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_offline_stub).
+        |  -author('mongoose-im@erlang-solutions.com').
+        |  -behaviour(gen_mod).
+        |  
+        |  %% gen_mod callbacks
+        |  -export([start/2,
+        |           stop/1]).
+        |  
+        |  %% Hook handlers
+        |  -export([stop_hook_processing/3]).
+        |  
+        |  -spec start(any(), any()) -&gt; 'ok'.
+        |  start(Host, _Opts) -&gt;
+<font color=red>     0..|      [ejabberd_hooks:add(Hook, Host, M, F, Prio)</font>
+<font color=red>     0..|       || {Hook, M, F, Prio} &lt;- handlers()],</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec stop(any()) -&gt; 'ok'.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      [ejabberd_hooks:delete(Hook, Host, M, F, Prio)</font>
+<font color=red>     0..|       || {Hook, M, F, Prio} &lt;- handlers()],</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% Don't repeat yourself.
+        |  handlers() -&gt;
+<font color=red>     0..|      [{offline_message_hook, ?MODULE, stop_hook_processing, 75}].</font>
+        |  
+        |  -spec stop_hook_processing(any(), any(), any()) -&gt; stop.
+        |  stop_hook_processing(_From, _To, _Packet) -&gt;
+<font color=red>     0..|      stop.</font>
+</pre>
+</body>
+</html>

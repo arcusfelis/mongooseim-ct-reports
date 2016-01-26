@@ -1,0 +1,266 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/ejabberd_tls.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_tls.erl by COVER 2016-01-26 at 09:51:02
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_tls.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Interface to openssl
+        |  %%% Created : 24 Jul 2004 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_tls).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([tcp_to_tls/2, tls_to_tcp/1,
+        |           send/2,
+        |           recv_data/2,
+        |           setopts/2,
+        |           sockname/1, peername/1,
+        |           controlling_process/2,
+        |           close/1,
+        |           get_peer_certificate/1,
+        |           get_verify_result/1,
+        |           get_cert_verify_string/2
+        |           ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -define(SET_CERTIFICATE_FILE_ACCEPT, 1).
+        |  -define(SET_CERTIFICATE_FILE_CONNECT, 2).
+        |  -define(SET_ENCRYPTED_INPUT,  3).
+        |  -define(SET_DECRYPTED_OUTPUT, 4).
+        |  -define(GET_ENCRYPTED_OUTPUT, 5).
+        |  -define(GET_DECRYPTED_INPUT,  6).
+        |  -define(GET_PEER_CERTIFICATE, 7).
+        |  -define(GET_VERIFY_RESULT,    8).
+        |  -define(VERIFY_NONE, 16#10000).
+        |  
+        |  -record(tlssock, {tcpsock  :: port(),
+        |                    tlsport  :: port()
+        |                   }).
+        |  -type tlssock() :: #tlssock{}.
+        |  
+        |  -spec tcp_to_tls(port(), [any()]
+        |                  ) -&gt; {ok, tlssock()} | {'error','no_certfile' | string()}.
+        |  tcp_to_tls(TCPSocket, Options) -&gt;
+<font color=red>     0..|      case lists:keysearch(certfile, 1, Options) of</font>
+        |  	{value, {certfile, CertFile}} -&gt;
+<font color=red>     0..|  	    Port = open_port({spawn_driver, "tls_drv"}, [binary]),</font>
+<font color=red>     0..|  	    Flags =</font>
+        |  		case lists:member(verify_none, Options) of
+        |  		    true -&gt;
+<font color=red>     0..|  			?VERIFY_NONE;</font>
+        |  		    false -&gt;
+<font color=red>     0..|  			0</font>
+        |  		end,
+<font color=red>     0..|  	    Command = case lists:member(connect, Options) of</font>
+        |  			  true -&gt;
+<font color=red>     0..|  			      ?SET_CERTIFICATE_FILE_CONNECT;</font>
+        |  			  false -&gt;
+<font color=red>     0..|  			      ?SET_CERTIFICATE_FILE_ACCEPT</font>
+        |  		      end,
+<font color=red>     0..|  	    Ciphers = case lists:keysearch(ciphers, 1, Options) of</font>
+        |  			      {value, {ciphers, C}} -&gt;
+<font color=red>     0..|  				      C++[0];</font>
+        |  			      false -&gt;
+<font color=red>     0..|  				      []</font>
+        |  		      end,
+<font color=red>     0..|  	    case port_control(Port, Command bor Flags, CertFile ++ [0] ++ Ciphers) of</font>
+        |  		&lt;&lt;0&gt;&gt; -&gt;
+<font color=red>     0..|  		    {ok, #tlssock{tcpsock = TCPSocket, tlsport = Port}};</font>
+        |  		&lt;&lt;1, Error/binary&gt;&gt; -&gt;
+<font color=red>     0..|  		    {error, binary_to_list(Error)}</font>
+        |  	    end;
+        |  	false -&gt;
+<font color=red>     0..|  	    {error, no_certfile}</font>
+        |      end.
+        |  
+        |  
+        |  -spec tls_to_tcp(tlssock()) -&gt; port().
+        |  tls_to_tcp(#tlssock{tcpsock = TCPSocket, tlsport = Port}) -&gt;
+<font color=red>     0..|      port_close(Port),</font>
+<font color=red>     0..|      TCPSocket.</font>
+        |  
+        |  recv_data(TLSSock, Packet) -&gt;
+<font color=red>     0..|      case catch recv_data1(TLSSock, Packet) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          Res -&gt;
+<font color=red>     0..|              Res</font>
+        |      end.
+        |  
+        |  
+        |  -spec recv_data1(TLSSock :: tlssock(), Packet :: iolist()
+        |                  ) -&gt; {'error', atom() | [byte()]} | {'ok',binary()}.
+        |  recv_data1(#tlssock{tcpsock = TCPSocket, tlsport = Port}, Packet) -&gt;
+<font color=red>     0..|      case port_control(Port, ?SET_ENCRYPTED_INPUT, Packet) of</font>
+        |          &lt;&lt;0&gt;&gt; -&gt;
+<font color=red>     0..|              case port_control(Port, ?GET_DECRYPTED_INPUT, []) of</font>
+        |                  &lt;&lt;0, In/binary&gt;&gt; -&gt;
+<font color=red>     0..|                      case port_control(Port, ?GET_ENCRYPTED_OUTPUT, []) of</font>
+        |                          &lt;&lt;0, Out/binary&gt;&gt; -&gt;
+<font color=red>     0..|                              case gen_tcp:send(TCPSocket, Out) of</font>
+        |                                  ok -&gt;
+        |                                      %?PRINT("IN: ~p~n", [{TCPSocket, binary_to_list(In)}]),
+<font color=red>     0..|                                      {ok, In};</font>
+        |                                  Error -&gt;
+<font color=red>     0..|                                      Error</font>
+        |                              end;
+        |                          &lt;&lt;1, Error/binary&gt;&gt; -&gt;
+<font color=red>     0..|                              {error, binary_to_list(Error)}</font>
+        |                      end;
+        |                  &lt;&lt;1, Error/binary&gt;&gt; -&gt;
+<font color=red>     0..|                      {error, binary_to_list(Error)}</font>
+        |              end;
+        |          &lt;&lt;1, Error/binary&gt;&gt; -&gt;
+<font color=red>     0..|              {error, binary_to_list(Error)}</font>
+        |      end.
+        |  
+        |  
+        |  -spec send(tlssock(), iolist()) -&gt; 'ok' | {'error',atom() | [byte()]}.
+        |  send(#tlssock{tcpsock = TCPSocket, tlsport = Port} = TLSSock, Packet) -&gt;
+<font color=red>     0..|      case port_control(Port, ?SET_DECRYPTED_OUTPUT, Packet) of</font>
+        |          &lt;&lt;0&gt;&gt; -&gt;
+        |              %?PRINT("OUT: ~p~n", [{TCPSocket, lists:flatten(Packet)}]),
+<font color=red>     0..|              case port_control(Port, ?GET_ENCRYPTED_OUTPUT, []) of</font>
+        |                  &lt;&lt;0, Out/binary&gt;&gt; -&gt;
+<font color=red>     0..|                      mongoose_metrics:update([data, xmpp, sent, encrypted_size], size(Out)),</font>
+<font color=red>     0..|                      gen_tcp:send(TCPSocket, Out);</font>
+        |                  &lt;&lt;1, Error/binary&gt;&gt; -&gt;
+<font color=red>     0..|                      {error, binary_to_list(Error)}</font>
+        |              end;
+        |          &lt;&lt;1, Error/binary&gt;&gt; -&gt;
+<font color=red>     0..|              {error, binary_to_list(Error)};</font>
+        |          &lt;&lt;2&gt;&gt; -&gt; % Dirty hack
+<font color=red>     0..|              receive</font>
+        |                  {timeout, _Timer, _} -&gt;
+<font color=red>     0..|                      {error, timeout}</font>
+        |              after 100 -&gt;
+<font color=red>     0..|                      send(TLSSock, Packet)</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -type option() :: gen_sctp:option() | gen_tcp:option() | gen_udp:option().
+        |  -spec setopts(tlssock(), [option()]) -&gt; 'ok' | {'error',atom()}.
+        |  setopts(#tlssock{tcpsock = TCPSocket}, Opts) -&gt;
+<font color=red>     0..|      inet:setopts(TCPSocket, Opts).</font>
+        |  
+        |  
+        |  -spec sockname(tlssock()) -&gt;
+        |    {'error',atom()} | {'ok',{inet:ip_address(), inet:port_number()}}.
+        |  sockname(#tlssock{tcpsock = TCPSocket}) -&gt;
+<font color=red>     0..|      inet:sockname(TCPSocket).</font>
+        |  
+        |  
+        |  -spec peername(tlssock()) -&gt;
+        |    {'error',atom()} | {'ok',{inet:ip_address(), inet:port_number()}}.
+        |  peername(#tlssock{tcpsock = TCPSocket}) -&gt;
+<font color=red>     0..|      inet:peername(TCPSocket).</font>
+        |  
+        |  
+        |  -spec controlling_process(tlssock(), pid()) -&gt; 'ok' | {'error',atom()}.
+        |  controlling_process(#tlssock{tcpsock = TCPSocket}, Pid) -&gt;
+<font color=red>     0..|      gen_tcp:controlling_process(TCPSocket, Pid).</font>
+        |  
+        |  
+        |  -spec close(tlssock()) -&gt; 'true'.
+        |  close(#tlssock{tcpsock = TCPSocket, tlsport = Port}) -&gt;
+<font color=red>     0..|      gen_tcp:close(TCPSocket),</font>
+<font color=red>     0..|      port_close(Port).</font>
+        |  
+        |  
+        |  -spec get_peer_certificate(tlssock()) -&gt; 'error' | {'ok',_}.
+        |  get_peer_certificate(#tlssock{tlsport = Port}) -&gt;
+<font color=red>     0..|      case port_control(Port, ?GET_PEER_CERTIFICATE, []) of</font>
+        |          &lt;&lt;0, BCert/binary&gt;&gt; -&gt;
+<font color=red>     0..|              case catch public_key:pkix_decode_cert(BCert, plain) of</font>
+        |                  {'Certificate', _, _, _} = Cert -&gt;
+<font color=red>     0..|                      {ok, Cert};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      error</font>
+        |              end;
+        |          &lt;&lt;1&gt;&gt; -&gt;
+<font color=red>     0..|              error</font>
+        |      end.
+        |  
+        |  -spec get_verify_result(tlssock()) -&gt; byte().
+        |  get_verify_result(#tlssock{tlsport = Port}) -&gt;
+<font color=red>     0..|      &lt;&lt;Res&gt;&gt; = port_control(Port, ?GET_VERIFY_RESULT, []),</font>
+<font color=red>     0..|      Res.</font>
+        |  
+        |  
+        |  -spec get_cert_verify_string(_,_) -&gt; binary().
+        |  get_cert_verify_string(CertVerifyRes, Cert) -&gt;
+<font color=red>     0..|      BCert = public_key:pkix_encode('Certificate', Cert, plain),</font>
+<font color=red>     0..|      IsSelfsigned = public_key:pkix_is_self_signed(BCert),</font>
+<font color=red>     0..|      case {CertVerifyRes, IsSelfsigned} of</font>
+<font color=red>     0..|          {21, true} -&gt; &lt;&lt;"self-signed certificate"&gt;&gt;;</font>
+<font color=red>     0..|          _ -&gt; cert_verify_code(CertVerifyRes)</font>
+        |      end.
+        |  
+        |  %% http://www.openssl.org/docs/apps/verify.html
+<font color=red>     0..|  cert_verify_code(0) -&gt; &lt;&lt;"ok"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(2) -&gt; &lt;&lt;"unable to get issuer certificate"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(3) -&gt; &lt;&lt;"unable to get certificate CRL"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(4) -&gt; &lt;&lt;"unable to decrypt certificate's signature"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(5) -&gt; &lt;&lt;"unable to decrypt CRL's signature"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(6) -&gt; &lt;&lt;"unable to decode issuer public key"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(7) -&gt; &lt;&lt;"certificate signature failure"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(8) -&gt; &lt;&lt;"CRL signature failure"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(9) -&gt; &lt;&lt;"certificate is not yet valid"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(10) -&gt; &lt;&lt;"certificate has expired"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(11) -&gt; &lt;&lt;"CRL is not yet valid"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(12) -&gt; &lt;&lt;"CRL has expired"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(13) -&gt; &lt;&lt;"format error in certificate's notBefore field"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(14) -&gt; &lt;&lt;"format error in certificate's notAfter field"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(15) -&gt; &lt;&lt;"format error in CRL's lastUpdate field"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(16) -&gt; &lt;&lt;"format error in CRL's nextUpdate field"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(17) -&gt; &lt;&lt;"out of memory"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(18) -&gt; &lt;&lt;"self signed certificate"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(19) -&gt; &lt;&lt;"self signed certificate in certificate chain"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(20) -&gt; &lt;&lt;"unable to get local issuer certificate"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(21) -&gt; &lt;&lt;"unable to verify the first certificate"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(22) -&gt; &lt;&lt;"certificate chain too long"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(23) -&gt; &lt;&lt;"certificate revoked"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(24) -&gt; &lt;&lt;"invalid CA certificate"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(25) -&gt; &lt;&lt;"path length constraint exceeded"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(26) -&gt; &lt;&lt;"unsupported certificate purpose"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(27) -&gt; &lt;&lt;"certificate not trusted"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(28) -&gt; &lt;&lt;"certificate rejected"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(29) -&gt; &lt;&lt;"subject issuer mismatch"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(30) -&gt; &lt;&lt;"authority and subject key identifier mismatch"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(31) -&gt; &lt;&lt;"authority and issuer serial number mismatch"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(32) -&gt; &lt;&lt;"key usage does not include certificate signing"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(50) -&gt; &lt;&lt;"application verification failure"&gt;&gt;;</font>
+<font color=red>     0..|  cert_verify_code(X) -&gt; &lt;&lt;"Unknown OpenSSL error code: ", (list_to_binary(integer_to_list(X)))/binary&gt;&gt;.</font>
+</pre>
+</body>
+</html>

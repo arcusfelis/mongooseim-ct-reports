@@ -1,0 +1,189 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/eldap_filter.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/eldap_filter.erl by COVER 2016-01-26 at 09:50:58
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File:    eldap_filter.erl
+        |  %%% Purpose: Converts String Representation of
+        |  %%%            LDAP Search Filter (RFC 2254)
+        |  %%%            to eldap's representation of filter
+        |  %%% Author:  Evgeniy Khramtsov &lt;ekhramtsov@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  -module(eldap_filter).
+        |  
+        |  %% TODO: remove this when new regexp module will be used
+        |  -export([parse/1, parse/2, do_sub/2]).
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  %%%-------------------------------------------------------------------
+        |  %%% Arity: parse/1
+        |  %%% Function: parse(RFC2254_Filter) -&gt; {ok, EldapFilter}   |
+        |  %%%                                    {error, bad_filter}
+        |  %%%
+        |  %%%           RFC2254_Filter = string().
+        |  %%%
+        |  %%% Description: Converts String Representation of LDAP Search Filter (RFC 2254)
+        |  %%%              to eldap's representation of filter.
+        |  %%%
+        |  %%% Example:
+        |  %%%   &gt; eldap_filter:parse("(&amp;(!(uid&lt;=100))(mail=*))").
+        |  %%%
+        |  %%%   {ok,{'and',[{'not',{lessOrEqual,{'AttributeValueAssertion',"uid","100"}}},
+        |  %%%           {present,"mail"}]}}
+        |  %%%-------------------------------------------------------------------
+        |  -spec parse(binary()) -&gt; {error, any()} | {ok, eldap:filter()}.
+        |  parse(L) -&gt;
+<font color=red>     0..|      parse(L, []).</font>
+        |  
+        |  %%%-------------------------------------------------------------------
+        |  %%% Arity: parse/2
+        |  %%% Function: parse(RFC2254_Filter, [SubstValue |...]) -&gt;
+        |  %%%                                  {ok, EldapFilter}                 |
+        |  %%%                                  {error, bad_filter}               |
+        |  %%%                                  {error, bad_regexp}               |
+        |  %%%                                  {error, max_substitute_recursion}
+        |  %%%
+        |  %%%           SubstValue = {RegExp, Value} | {RegExp, Value, N},
+        |  %%%           RFC2254_Filter = RegExp = Value = string(),
+        |  %%%           N = integer().
+        |  %%%
+        |  %%% Description: The same as parse/1, but substitutes N or all occurences
+        |  %%%              of RegExp with Value *after* parsing.
+        |  %%%
+        |  %%% Example:
+        |  %%%    &gt; eldap_filter:parse(
+        |  %%%            "(|(mail=%u@%d)(jid=%u@%d))",
+        |  %%%            [{"%u", "xramtsov"},{"%d","gmail.com"}]).
+        |  %%%
+        |  %%%    {ok,{'or',[{equalityMatch,{'AttributeValueAssertion',
+        |  %%%                              "mail",
+        |  %%%                              "xramtsov@gmail.com"}},
+        |  %%%           {equalityMatch,{'AttributeValueAssertion',
+        |  %%%                              "jid",
+        |  %%%                              "xramtsov@gmail.com"}}]}}
+        |  %%%-------------------------------------------------------------------
+        |  -spec parse(binary(), [{binary(), binary()} |
+        |                         {binary(), binary(), pos_integer()}]) -&gt;
+        |                     {error, any()} | {ok, eldap:filter()}.
+        |  
+        |  parse(L, SList) -&gt;
+<font color=red>     0..|      case catch eldap_filter_yecc:parse(scan(binary_to_list(L), SList)) of</font>
+        |          {'EXIT', _} = Err -&gt;
+<font color=red>     0..|              {error, Err};</font>
+        |          {error, {_, _, Msg}} -&gt;
+<font color=red>     0..|              {error, Msg};</font>
+        |          {ok, Result} -&gt;
+<font color=red>     0..|              {ok, Result};</font>
+        |          {regexp, Err} -&gt;
+<font color=red>     0..|              {error, Err}</font>
+        |      end.
+        |  
+        |  %%====================================================================
+        |  %% Internal functions
+        |  %%====================================================================
+        |  -define(do_scan(L), scan(Rest, &lt;&lt;&gt;&gt;, [{L, 1} | check(Buf, S) ++ Result], L, S)).
+        |  
+        |  
+        |  -spec scan([byte()],_) -&gt; [{atom(),1} | {'str',1,[any()]}].
+        |  scan(L, SList) -&gt;
+<font color=red>     0..|      scan(L, &lt;&lt;""&gt;&gt;, [], undefined, SList).</font>
+        |  
+        |  
+        |  -spec scan([byte()], Buf :: binary(), Result :: [{atom(),1} | {'str',1,[any()]}],
+        |      atom(), S :: any()) -&gt; [{atom(),1} | {'str',1,[any()]}].
+        |  scan("=*)" ++ Rest, Buf, Result, '(', S) -&gt;
+<font color=red>     0..|      scan(Rest, &lt;&lt;&gt;&gt;, [{')', 1}, {'=*', 1} | check(Buf, S) ++ Result], ')', S);</font>
+<font color=red>     0..|  scan(":dn" ++ Rest, Buf, Result, '(', S) -&gt; ?do_scan(':dn');</font>
+<font color=red>     0..|  scan(":=" ++ Rest, Buf, Result, '(', S) -&gt; ?do_scan(':=');</font>
+<font color=red>     0..|  scan(":=" ++ Rest, Buf, Result, ':dn', S) -&gt; ?do_scan(':=');</font>
+<font color=red>     0..|  scan(":=" ++ Rest, Buf, Result, ':', S) -&gt; ?do_scan(':=');</font>
+<font color=red>     0..|  scan("~=" ++ Rest, Buf, Result, '(', S) -&gt; ?do_scan('~=');</font>
+<font color=red>     0..|  scan("&gt;=" ++ Rest, Buf, Result, '(', S) -&gt; ?do_scan('&gt;=');</font>
+<font color=red>     0..|  scan("&lt;=" ++ Rest, Buf, Result, '(', S) -&gt; ?do_scan('&lt;=');</font>
+<font color=red>     0..|  scan("="  ++ Rest, Buf, Result, '(', S) -&gt; ?do_scan('=');</font>
+<font color=red>     0..|  scan(":"  ++ Rest, Buf, Result, '(', S) -&gt; ?do_scan(':');</font>
+<font color=red>     0..|  scan(":"  ++ Rest, Buf, Result, ':dn', S) -&gt; ?do_scan(':');</font>
+<font color=red>     0..|  scan("&amp;"  ++ Rest, Buf, Result, '(', S) when Buf==&lt;&lt;""&gt;&gt; -&gt; ?do_scan('&amp;');</font>
+<font color=red>     0..|  scan("|"  ++ Rest, Buf, Result, '(', S) when Buf==&lt;&lt;""&gt;&gt; -&gt; ?do_scan('|');</font>
+<font color=red>     0..|  scan("!"  ++ Rest, Buf, Result, '(', S) when Buf==&lt;&lt;""&gt;&gt; -&gt; ?do_scan('!');</font>
+<font color=red>     0..|  scan("*"  ++ Rest, Buf, Result, '*', S) -&gt; ?do_scan('*');</font>
+<font color=red>     0..|  scan("*"  ++ Rest, Buf, Result, '=', S) -&gt; ?do_scan('*');</font>
+<font color=red>     0..|  scan("("  ++ Rest, Buf, Result, _, S) -&gt; ?do_scan('(');</font>
+<font color=red>     0..|  scan(")"  ++ Rest, Buf, Result, _, S) -&gt; ?do_scan(')');</font>
+        |  scan([Letter | Rest], Buf, Result, PreviosAtom, S) -&gt;
+<font color=red>     0..|      scan(Rest, &lt;&lt;Buf/binary, Letter&gt;&gt;, Result, PreviosAtom, S);</font>
+        |  scan([], Buf, Result, _, S) -&gt;
+<font color=red>     0..|      lists:reverse(check(Buf, S) ++ Result).</font>
+        |  
+        |  
+        |  -spec check(binary(),_) -&gt; [{'str',1,[byte()]}].
+        |  check(&lt;&lt;&gt;&gt;, _) -&gt;
+<font color=red>     0..|      [];</font>
+        |  check(Buf, S) -&gt;
+<font color=red>     0..|      [{str, 1, binary_to_list(do_sub(Buf, S))}].</font>
+        |  
+        |  
+        |  -define(MAX_RECURSION, 100).
+        |  
+        |  
+        |  -spec do_sub(binary(), [{binary(), binary()} |
+        |                          {binary(), binary(), pos_integer()}]) -&gt; binary().
+        |  do_sub(S, []) -&gt;
+<font color=red>     0..|      S;</font>
+        |  do_sub(&lt;&lt;&gt;&gt;, _) -&gt;
+<font color=red>     0..|      &lt;&lt;&gt;&gt;;</font>
+        |  do_sub(S, [{RegExp, New} | T]) -&gt;
+<font color=red>     0..|      Result = do_sub(S, {RegExp, replace_amps(New)}, 1),</font>
+<font color=red>     0..|      do_sub(Result, T);</font>
+        |  do_sub(S, [{RegExp, New, Times} | T]) -&gt;
+<font color=red>     0..|      Result = do_sub(S, {RegExp, replace_amps(New), Times}, 1),</font>
+<font color=red>     0..|      do_sub(Result, T).</font>
+        |  
+        |  
+        |  do_sub(S, {RegExp, New}, _Iter) -&gt;
+<font color=red>     0..|      re:replace(S, RegExp, New, [global, {return, binary}]);</font>
+        |  do_sub(S, {_, _, N}, _) when N&lt;1 -&gt;
+<font color=red>     0..|      S;</font>
+        |  do_sub(S, {RegExp, New, _Times}, _Iter) -&gt;
+<font color=red>     0..|      re:replace(S, RegExp, New, [global, {return, binary}]).</font>
+        |  
+        |  
+        |  -spec replace_amps(binary()) -&gt; binary().
+        |  replace_amps(Bin) -&gt;
+<font color=red>     0..|      list_to_binary(</font>
+        |        lists:flatmap(
+<font color=red>     0..|          fun($&amp;) -&gt; "\\&amp;";</font>
+<font color=red>     0..|             ($\\) -&gt; "\\\\";</font>
+<font color=red>     0..|             (Chr) -&gt; [Chr]</font>
+        |          end, binary_to_list(Bin))).
+</pre>
+</body>
+</html>

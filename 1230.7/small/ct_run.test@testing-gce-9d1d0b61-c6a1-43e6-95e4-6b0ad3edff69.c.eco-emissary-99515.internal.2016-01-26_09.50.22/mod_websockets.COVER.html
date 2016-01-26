@@ -1,0 +1,416 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_websockets.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_websockets.erl by COVER 2016-01-26 at 09:51:10
+
+****************************************************************************
+
+        |  %%%===================================================================
+        |  %%% @copyright (C) 2013, Erlang Solutions Ltd.
+        |  %%% @doc Module providing support for websockets in ejabberd
+        |  %%% @end
+        |  %%%===================================================================
+        |  -module(mod_websockets).
+        |  -behaviour(gen_mod).
+        |  -behaviour(cowboy_http_handler).
+        |  -behaviour(cowboy_websocket_handler).
+        |  
+        |  %% gen_mod callbacks
+        |  -export([start/2,
+        |           stop/1]).
+        |  
+        |  %% cowboy_http_handler callbacks
+        |  -export([init/3,
+        |           handle/2,
+        |           terminate/3]).
+        |  
+        |  %% cowboy_http_websocket_handler callbacks
+        |  -export([websocket_init/3,
+        |           websocket_handle/3,
+        |           websocket_info/3,
+        |           websocket_terminate/3]).
+        |  
+        |  %% ejabberd_socket compatibility
+        |  -export([starttls/2, starttls/3,
+        |           compress/1, compress/3,
+        |           reset_stream/1,
+        |           send/2,
+        |           send_xml/2,
+        |           change_shaper/2,
+        |           monitor/1,
+        |           get_sockmod/1,
+        |           close/1,
+        |           peername/1,
+        |           set_ping/2,
+        |           disable_ping/1]).
+        |  
+        |  %% ejabberd_listener compatibility
+        |  -export([socket_type/0,
+        |           start_listener/2]).
+        |  
+        |  -export([stop/0]).
+        |  
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml_stream.hrl").
+        |  
+        |  -define(LISTENER, ?MODULE).
+        |  -define(GEN_FSM, p1_fsm).
+        |  -define(NS_FRAMING, &lt;&lt;"urn:ietf:params:xml:ns:xmpp-framing"&gt;&gt;).
+        |  
+        |  -record(websocket, {
+        |            pid :: pid(),
+        |            peername :: {inet:ip_address(), inet:port_number()}
+        |           }).
+        |  -record(ws_state, {
+        |            c2s_pid :: pid(),
+        |            open_tag :: stream | open,
+        |            parser :: exml_stream:parser(),
+        |            ping_rate :: integer()
+        |           }).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% ejabberd_listener compatibility
+        |  %%--------------------------------------------------------------------
+        |  -spec socket_type() -&gt; independent.
+        |  socket_type() -&gt;
+<font color=red>     0..|      independent.</font>
+        |  
+        |  % -spec start_listener(list())
+        |  start_listener({Port, IP, ws}, Opts) -&gt;
+<font color=red>     0..|      Dispatch = get_dispatch(Opts),</font>
+<font color=red>     0..|      NumAcceptors = gen_mod:get_opt(num_acceptors, Opts, 100),</font>
+<font color=red>     0..|      start_ws(NumAcceptors, Port, IP, Dispatch);</font>
+        |  
+        |  start_listener({Port, IP, wss}, Opts) -&gt;
+<font color=red>     0..|      Dispatch = get_dispatch(Opts),</font>
+<font color=red>     0..|      NumAcceptors = gen_mod:get_opt(num_acceptors, Opts, 100),</font>
+<font color=red>     0..|      SSLPort = gen_mod:get_opt(ssl_port, Opts, Port),</font>
+<font color=red>     0..|      SSLCert = gen_mod:get_opt(cert, Opts, undefined),</font>
+<font color=red>     0..|      SSLKey = gen_mod:get_opt(key, Opts, undefined),</font>
+<font color=red>     0..|      SSLKeyPass = gen_mod:get_opt(key_pass, Opts, undefined),</font>
+<font color=red>     0..|      start_wss(NumAcceptors, SSLPort, IP, SSLCert, SSLKey, SSLKeyPass, Dispatch).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  start(_Host, Opts) -&gt;
+<font color=red>     0..|      NumAcceptors = gen_mod:get_opt(num_acceptors, Opts, 100),</font>
+<font color=red>     0..|      Port = gen_mod:get_opt(port, Opts, undefined),</font>
+<font color=red>     0..|      IP = gen_mod:get_opt(ip, Opts, {0,0,0,0}),</font>
+<font color=red>     0..|      SSLPort = gen_mod:get_opt(ssl_port, Opts, undefined),</font>
+<font color=red>     0..|      SSLCert = gen_mod:get_opt(cert, Opts, undefined),</font>
+<font color=red>     0..|      SSLKey = gen_mod:get_opt(key, Opts, undefined),</font>
+<font color=red>     0..|      SSLKeyPass = gen_mod:get_opt(key_pass, Opts, undefined),</font>
+<font color=red>     0..|      Dispatch = get_dispatch(Opts),</font>
+<font color=red>     0..|      {ok, _} = start_ws(NumAcceptors, Port, IP, Dispatch),</font>
+<font color=red>     0..|      {ok, _} = start_wss(NumAcceptors, SSLPort, IP, SSLCert, SSLKey,</font>
+        |                          SSLKeyPass, Dispatch).
+        |  
+        |  start_ws(_, undefined, _, _) -&gt;
+<font color=red>     0..|      {ok, not_started};</font>
+        |  start_ws(NumAcceptors, Port, IP, Dispatch) -&gt;
+<font color=red>     0..|      case cowboy:start_http(?LISTENER, NumAcceptors,</font>
+        |                                  [{port, Port}, {ip, IP}],
+        |                                  [{env, [{dispatch, Dispatch}]}]) of
+        |  % Uncomment when cowboy 1.1.0 is released with fixed spec
+        |  %        {error, {already_started, Pid}} -&gt;
+        |  %            {ok, Pid};
+        |          {ok, Pid} -&gt;
+<font color=red>     0..|              {ok, Pid};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  start_wss(_, _, _, undefined, undefined, undefined, _) -&gt;
+<font color=red>     0..|      {ok, not_started};</font>
+        |  start_wss(NumAcceptors, Port, IP, Cert, Key, Pass, Dispatch) -&gt;
+<font color=red>     0..|      case cowboy:start_https({?LISTENER, secure}, NumAcceptors,</font>
+        |                                  [
+        |                                      {certfile, Cert},
+        |                                      {keyfile, Key},
+        |                                      {password, Pass},
+        |                                      {ip, IP},
+        |                                      {port, Port}
+        |                                  ],
+        |                                  [{env, [{dispatch, Dispatch}]}]) of
+        |  % Uncomment when cowboy 1.1.0 is released with fixed spec
+        |  %        {error, {already_started, Pid}} -&gt;
+        |  %            {ok, Pid};
+        |          {ok, Pid} -&gt;
+<font color=red>     0..|              {ok, Pid};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  stop() -&gt;
+<font color=red>     0..|      stop(any).</font>
+        |  
+        |  stop(_Host) -&gt;
+<font color=red>     0..|      cowboy:stop_listener({?LISTENER, secure}),</font>
+<font color=red>     0..|      cowboy:stop_listener(?LISTENER),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% cowboy_http_handler callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  init(Transport, Req, Opts) -&gt;
+<font color=red>     0..|      ?DEBUG("cowboy init: ~p~n", [{Transport, Req, Opts}]),</font>
+<font color=red>     0..|      {upgrade, protocol, cowboy_websocket}.</font>
+        |  
+        |  handle(Req, State) -&gt;
+<font color=red>     0..|          {ok, Req, State}.</font>
+        |  
+        |  terminate(_Reason, _Req, _State) -&gt;
+<font color=red>     0..|          ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% cowboy_http_websocket_handler callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  % Called for every new websocket connection.
+        |  websocket_init(Transport, Req, Opts) -&gt;
+<font color=red>     0..|      ?DEBUG("websocket_init: ~p~n", [{Transport, Req, Opts}]),</font>
+<font color=red>     0..|      {Peer, NewReq} = cowboy_req:peer(Req),</font>
+<font color=red>     0..|      NewReq2 = cowboy_req:set_resp_header(&lt;&lt;"Sec-WebSocket-Protocol"&gt;&gt;, &lt;&lt;"xmpp"&gt;&gt;, NewReq),</font>
+<font color=red>     0..|      SocketData = #websocket{pid=self(),</font>
+        |                              peername = Peer},
+<font color=red>     0..|      C2SOpts = [{xml_socket, true} | Opts],</font>
+<font color=red>     0..|      case ejabberd_c2s:start({?MODULE, SocketData}, C2SOpts) of</font>
+        |          {ok, Pid} -&gt;
+<font color=red>     0..|              ?DEBUG("started c2s via websockets: ~p", [Pid]),</font>
+<font color=red>     0..|              State = #ws_state{c2s_pid = Pid},</font>
+<font color=red>     0..|              Timeout = gen_mod:get_opt(timeout, Opts, infinity),</font>
+<font color=red>     0..|              PingRate = gen_mod:get_opt(ping_rate, Opts, none),</font>
+<font color=red>     0..|              ?DEBUG("ping rate is ~p", [PingRate]),</font>
+<font color=red>     0..|              maybe_send_ping_request(PingRate),</font>
+<font color=red>     0..|              NewState = State#ws_state{ping_rate = PingRate},</font>
+<font color=red>     0..|              {ok, NewReq2, NewState, Timeout};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?WARNING_MSG("c2s start failed: ~p", [Reason]),</font>
+<font color=red>     0..|              {shutdown, NewReq2}</font>
+        |      end.
+        |  
+        |  % Called when a text message arrives.
+        |  websocket_handle({text, Msg}, Req, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Received: ~p", [Msg]),</font>
+<font color=red>     0..|      {ok, NewState} = handle_text(Msg, State),</font>
+<font color=red>     0..|      {ok, Req, NewState};</font>
+        |  
+        |  websocket_handle({binary, Msg}, Req, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Received binary: ~p", [Msg]),</font>
+<font color=red>     0..|      {ok, NewState} = handle_text(Msg, State),</font>
+<font color=red>     0..|      {ok, Req, NewState};</font>
+        |  
+        |  websocket_handle({pong, Payload}, Req, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Received pong frame: ~p", [Payload]),</font>
+<font color=red>     0..|      {ok, Req, State};</font>
+        |  
+        |  % With this callback we can handle other kind of
+        |  % messages, like binary.
+        |  websocket_handle(Any, Req, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Received non-text: ~p", [Any]),</font>
+<font color=red>     0..|      {ok, Req, State}.</font>
+        |  
+        |  % Other messages from the system are handled here.
+        |  websocket_info({send, Text}, Req, State) -&gt;
+<font color=red>     0..|      {reply, {text, Text}, Req, State};</font>
+        |  websocket_info({send_xml, XML}, Req, State) -&gt;
+<font color=red>     0..|      XML1 = process_server_stream_root(replace_stream_ns(XML, State), State),</font>
+<font color=red>     0..|      Text = exml:to_iolist(XML1),</font>
+<font color=red>     0..|      {reply, {text, Text}, Req, State};</font>
+        |  websocket_info(reset_stream, Req, #ws_state{parser = undefined} = State) -&gt;
+<font color=red>     0..|      {ok, Req, State};</font>
+        |  websocket_info(reset_stream, Req, #ws_state{parser = Parser} = State) -&gt;
+<font color=red>     0..|      {ok, NewParser} = exml_stream:reset_parser(Parser),</font>
+<font color=red>     0..|      {ok, Req, State#ws_state{ parser = NewParser, open_tag = undefined }};</font>
+        |  websocket_info({set_ping, Value}, Req, State = #ws_state{ping_rate = none}) when is_integer(Value) and (Value &gt; 0)-&gt;
+<font color=red>     0..|      send_ping_request(Value),</font>
+<font color=red>     0..|      {ok, Req, State#ws_state{ping_rate = Value}};</font>
+        |  websocket_info({set_ping, Value}, Req, State) when is_integer(Value) and (Value &gt; 0)-&gt;
+<font color=red>     0..|      {ok, Req, State#ws_state{ping_rate = Value}};</font>
+        |  websocket_info(disable_ping, Req, State)-&gt;
+<font color=red>     0..|      {ok, Req, State#ws_state{ping_rate = none}};</font>
+        |  websocket_info(do_ping, Req, State = #ws_state{ping_rate = none}) -&gt;
+        |      %% probalby someone disabled pings
+<font color=red>     0..|      {ok, Req, State};</font>
+        |  websocket_info(do_ping, Req, State) -&gt;
+        |      %% send ping frame to the client
+<font color=red>     0..|      send_ping_request(State#ws_state.ping_rate),</font>
+<font color=red>     0..|      {reply, ping, Req, State};</font>
+        |  websocket_info(stop, Req, #ws_state{parser = undefined} = State) -&gt;
+<font color=red>     0..|      {shutdown, Req, State};</font>
+        |  websocket_info(stop, Req, #ws_state{parser = Parser} = State) -&gt;
+<font color=red>     0..|      exml_stream:free_parser(Parser),</font>
+<font color=red>     0..|      {shutdown, Req, State};</font>
+        |  websocket_info(Info, Req, State) -&gt;
+<font color=red>     0..|      ?DEBUG("unknown info: ~p", [Info]),</font>
+<font color=red>     0..|      {ok, Req, State}.</font>
+        |  
+        |  websocket_terminate(_Reason, _Req, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Callbacks implementation
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_text(Text, #ws_state{ parser = undefined } = State) -&gt;
+<font color=red>     0..|      ParserOpts = get_parser_opts(Text),</font>
+<font color=red>     0..|      {ok, Parser} = exml_stream:new_parser(ParserOpts),</font>
+<font color=red>     0..|      handle_text(Text, State#ws_state{ parser = Parser });</font>
+        |  handle_text(Text, #ws_state{c2s_pid = C2S, parser = Parser} = State) -&gt;
+<font color=red>     0..|      {ok, NewParser, Elements} = exml_stream:parse(Parser, Text),</font>
+<font color=red>     0..|      State1 = State#ws_state{ parser = NewParser },</font>
+<font color=red>     0..|      {Elements1, State2} = process_client_stream_start(Elements, State1),</font>
+<font color=red>     0..|      [send_to_c2s(C2S, process_client_stream_end(</font>
+<font color=red>     0..|                          replace_stream_ns(Elem, State2), State2)) || Elem &lt;- Elements1],</font>
+<font color=red>     0..|      {ok, State2}.</font>
+        |  
+        |  send_to_c2s(C2S, #xmlel{} = Element) -&gt;
+<font color=red>     0..|      send_to_c2s(C2S, {xmlstreamelement, Element});</font>
+        |  send_to_c2s(C2S, StreamElement) -&gt;
+<font color=red>     0..|      ?GEN_FSM:send_event(C2S, StreamElement).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% ejabberd_socket compatibility
+        |  %%--------------------------------------------------------------------
+        |  
+        |  starttls(SocketData, TLSOpts) -&gt;
+<font color=red>     0..|      starttls(SocketData, TLSOpts, &lt;&lt;&gt;&gt;).</font>
+        |  
+        |  starttls(_SocketData, _TLSOpts, _Data) -&gt;
+<font color=red>     0..|      throw({error, tls_not_allowed_on_websockets}).</font>
+        |  
+        |  compress(SocketData) -&gt;
+<font color=red>     0..|      compress(SocketData, &lt;&lt;&gt;&gt;, 0).</font>
+        |  
+        |  compress(_SocketData, _Data, _InflateSizeLimit) -&gt;
+<font color=red>     0..|      throw({error, compression_not_allowed_on_websockets}).</font>
+        |  
+        |  reset_stream(#websocket{pid = Pid} = SocketData) -&gt;
+<font color=red>     0..|      Pid ! reset_stream,</font>
+<font color=red>     0..|      SocketData.</font>
+        |  
+        |  send_xml(SocketData, {xmlstreamraw, Text}) -&gt;
+<font color=red>     0..|      send(SocketData, Text);</font>
+        |  send_xml(SocketData, {xmlstreamelement, XML}) -&gt;
+<font color=red>     0..|      send_xml(SocketData, XML);</font>
+        |  send_xml(#websocket{pid = Pid}, XML) -&gt;
+<font color=red>     0..|      Pid ! {send_xml, XML},</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  send(#websocket{pid = Pid}, Data) -&gt;
+<font color=red>     0..|      Pid ! {send, Data},</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  change_shaper(SocketData, _Shaper) -&gt;
+<font color=red>     0..|      SocketData. %% TODO: we ignore shapers for now</font>
+        |  
+        |  monitor(#websocket{pid = Pid}) -&gt;
+<font color=red>     0..|      erlang:monitor(process, Pid).</font>
+        |  
+        |  get_sockmod(_SocketData) -&gt;
+<font color=red>     0..|      ?MODULE.</font>
+        |  
+        |  close(#websocket{pid = Pid}) -&gt;
+<font color=red>     0..|      Pid ! close.</font>
+        |  
+        |  peername(#websocket{peername = PeerName}) -&gt;
+<font color=red>     0..|      {ok, PeerName}.</font>
+        |  
+        |  set_ping(#websocket{pid = Pid}, Value) -&gt;
+<font color=red>     0..|      Pid ! {set_ping, Value}.</font>
+        |  
+        |  disable_ping(#websocket{pid = Pid}) -&gt;
+<font color=red>     0..|      Pid ! disable_ping.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Helpers for handling both
+        |  %% http://datatracker.ietf.org/doc/draft-ietf-xmpp-websocket
+        |  %% and older
+        |  %% http://tools.ietf.org/id/draft-moffitt-xmpp-over-websocket
+        |  %%--------------------------------------------------------------------
+        |  
+        |  process_client_stream_start(Elements, #ws_state{ open_tag = OpenTag } = State)
+        |    when OpenTag =/= undefined -&gt;
+<font color=red>     0..|      {Elements, State};</font>
+        |  process_client_stream_start([#xmlstreamstart{ name = &lt;&lt;"stream", _/binary&gt;&gt;}
+        |                               | _] = Elements, State) -&gt;
+<font color=red>     0..|      {Elements, State#ws_state{ open_tag = stream }};</font>
+        |  process_client_stream_start([#xmlel{ name = &lt;&lt;"open"&gt;&gt;, attrs = Attrs }], State) -&gt;
+<font color=red>     0..|      Attrs1 = lists:keyreplace(&lt;&lt;"xmlns"&gt;&gt;, 1, Attrs, {&lt;&lt;"xmlns"&gt;&gt;, ?NS_CLIENT}),</font>
+<font color=red>     0..|      Attrs2 = [{&lt;&lt;"xmlns:stream"&gt;&gt;, ?NS_STREAM} | Attrs1],</font>
+<font color=red>     0..|      NewStart = #xmlstreamstart{ name = &lt;&lt;"stream:stream"&gt;&gt;, attrs = Attrs2 },</font>
+<font color=red>     0..|      {[NewStart], State#ws_state{ open_tag = open }};</font>
+        |  process_client_stream_start(_, #ws_state{ c2s_pid = C2SPid } = State) -&gt;
+<font color=red>     0..|      send_to_c2s(C2SPid, {xmlstreamerror, &lt;&lt;"Unknown opening tag"&gt;&gt;}),</font>
+<font color=red>     0..|      {[], State}.</font>
+        |  
+        |  process_client_stream_end(#xmlel{ name = &lt;&lt;"close"&gt;&gt; }, #ws_state{ open_tag = open }) -&gt;
+<font color=red>     0..|      #xmlstreamend{ name = &lt;&lt;"stream:stream"&gt;&gt; };</font>
+        |  process_client_stream_end(Element, _) -&gt;
+<font color=red>     0..|      Element.</font>
+        |  
+        |  process_server_stream_root(#xmlstreamstart{ name = &lt;&lt;"stream", _/binary&gt;&gt;, attrs = Attrs },
+        |                             #ws_state{ open_tag = open }) -&gt;
+<font color=red>     0..|      Attrs1 = lists:keydelete(&lt;&lt;"xmlns:stream"&gt;&gt;, 1, Attrs),</font>
+<font color=red>     0..|      Attrs2 = lists:keyreplace(&lt;&lt;"xmlns"&gt;&gt;, 1, Attrs1, {&lt;&lt;"xmlns"&gt;&gt;, ?NS_FRAMING}),</font>
+<font color=red>     0..|      #xmlel{ name = &lt;&lt;"open"&gt;&gt;, attrs = Attrs2 };</font>
+        |  process_server_stream_root(#xmlstreamend{ name = &lt;&lt;"stream", _/binary&gt;&gt; },
+        |                             #ws_state{ open_tag = open }) -&gt;
+<font color=red>     0..|      #xmlel{ name = &lt;&lt;"close"&gt;&gt;, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_FRAMING}] };</font>
+        |  process_server_stream_root(Element, _) -&gt;
+<font color=red>     0..|      Element.</font>
+        |  
+        |  replace_stream_ns(#xmlel{ name = &lt;&lt;"stream:", ElementName/binary&gt;&gt; } = Element,
+        |                    #ws_state{ open_tag = open }) -&gt;
+<font color=red>     0..|      Element#xmlel{ name = ElementName, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_STREAM} | Element#xmlel.attrs] };</font>
+        |  replace_stream_ns(Element, #ws_state{ open_tag = open }) -&gt;
+<font color=red>     0..|      case should_have_jabber_client(Element) of</font>
+        |          true -&gt;
+<font color=red>     0..|              JabberClient = {&lt;&lt;"xmlns"&gt;&gt;, &lt;&lt;"jabber:client"&gt;&gt;},</font>
+<font color=red>     0..|              NewAtrrs = lists:keystore(&lt;&lt;"xmlns"&gt;&gt;, 1,</font>
+        |                                        Element#xmlel.attrs, JabberClient),
+<font color=red>     0..|              Element#xmlel{attrs = NewAtrrs};</font>
+        |          false -&gt;
+<font color=red>     0..|              Element</font>
+        |      end;
+        |  replace_stream_ns(Element, _State) -&gt;
+<font color=red>     0..|      Element.</font>
+        |  
+<font color=red>     0..|  get_parser_opts(&lt;&lt;"&lt;open", _/binary&gt;&gt;) -&gt; [{infinite_stream, true}, {autoreset, true}]; % new-type WS</font>
+<font color=red>     0..|  get_parser_opts(_) -&gt; []. % old-type WS</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Helpers
+        |  %%--------------------------------------------------------------------
+<font color=red>     0..|  should_have_jabber_client(#xmlel{name = &lt;&lt;"iq"&gt;&gt;}) -&gt; true;</font>
+<font color=red>     0..|  should_have_jabber_client(#xmlel{name = &lt;&lt;"message"&gt;&gt;}) -&gt; true;</font>
+<font color=red>     0..|  should_have_jabber_client(#xmlel{name = &lt;&lt;"presence"&gt;&gt;}) -&gt; true;</font>
+<font color=red>     0..|  should_have_jabber_client(_) -&gt; false.</font>
+        |  
+        |  
+        |  get_dispatch(Opts) -&gt;
+<font color=red>     0..|      WSHost = gen_mod:get_opt(host, Opts, '_'), %% default to any</font>
+<font color=red>     0..|      WSPrefix = gen_mod:get_opt(prefix, Opts, "/ws-xmpp"),</font>
+<font color=red>     0..|      cowboy_router:compile([{WSHost, [{WSPrefix, ?MODULE, Opts}] }]).</font>
+        |  
+        |  send_ping_request(PingRate) -&gt;
+<font color=red>     0..|      Dest = self(),</font>
+<font color=red>     0..|      ?DEBUG("Sending websocket ping request to ~p", [Dest]),</font>
+<font color=red>     0..|      erlang:send_after(PingRate, Dest, do_ping).</font>
+        |  
+        |  maybe_send_ping_request(none) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  maybe_send_ping_request(PingRate) -&gt;
+<font color=red>     0..|      send_ping_request(PingRate).</font>
+</pre>
+</body>
+</html>

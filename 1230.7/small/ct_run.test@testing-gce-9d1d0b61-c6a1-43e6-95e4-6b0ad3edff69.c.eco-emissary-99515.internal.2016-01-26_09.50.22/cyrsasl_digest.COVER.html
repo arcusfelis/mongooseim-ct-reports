@@ -1,0 +1,269 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/cyrsasl_digest.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/cyrsasl_digest.erl by COVER 2016-01-26 at 09:50:58
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : cyrsasl_digest.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@sevcom.net&gt;
+        |  %%% Purpose : DIGEST-MD5 SASL mechanism
+        |  %%% Created : 11 Mar 2003 by Alexey Shchepin &lt;alexey@sevcom.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(cyrsasl_digest).
+        |  -author('alexey@sevcom.net').
+        |  
+        |  -export([start/1,
+        |           stop/0,
+        |           mech_new/4,
+        |           mech_step/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -behaviour(cyrsasl).
+        |  
+        |  -record(state, {step :: integer(),
+        |                  nonce,
+        |                  username :: ejabberd:user(),
+        |                  authzid,
+        |                  get_password :: cyrsasl:get_password_fun(),
+        |                  check_password :: cyrsasl:check_pass_digest_fun(),
+        |                  auth_module :: ejabberd_auth:authmodule(),
+        |                  host :: ejabberd:server()
+        |                }).
+        |  
+        |  start(_Opts) -&gt;
+<font color=red>     0..|      case ejabberd_config:fips_mode() of</font>
+        |          enabled -&gt;
+<font color=red>     0..|              skip;</font>
+        |          _ -&gt;
+<font color=red>     0..|              cyrsasl:register_mechanism(&lt;&lt;"DIGEST-MD5"&gt;&gt;, ?MODULE, digest)</font>
+        |      end.
+        |  
+        |  stop() -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec mech_new(Host :: ejabberd:server(),
+        |                 GetPassword :: cyrsasl:get_password_fun(),
+        |                 CheckPassword :: cyrsasl:check_password_fun(),
+        |                 CheckPasswordDigest :: cyrsasl:check_pass_digest_fun()
+        |                 ) -&gt; {ok, #state{}}.
+        |  mech_new(Host, GetPassword, _CheckPassword, CheckPasswordDigest) -&gt;
+<font color=red>     0..|      {ok, #state{step = 1,</font>
+        |                  nonce = randoms:get_string(),
+        |                  host = Host,
+        |                  get_password = GetPassword,
+        |                  check_password = CheckPasswordDigest}}.
+        |  
+        |  -spec mech_step(State :: tuple(),
+        |                  ClientIn :: any()
+        |                  ) -&gt; {ok, proplists:proplist()} | {error, binary()}.
+        |  mech_step(#state{step = 1, nonce = Nonce} = State, _) -&gt;
+<font color=red>     0..|      {continue,</font>
+        |       list_to_binary("nonce=\"" ++ Nonce ++
+        |       "\",qop=\"auth\",charset=utf-8,algorithm=md5-sess"),
+        |       State#state{step = 3}};
+        |  mech_step(#state{step = 3, nonce = Nonce} = State, ClientIn) -&gt;
+<font color=red>     0..|      case parse(ClientIn) of</font>
+        |          bad -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"bad-protocol"&gt;&gt;};</font>
+        |          KeyVals -&gt;
+<font color=red>     0..|              DigestURI = xml:get_attr_s(&lt;&lt;"digest-uri"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|              UserName = xml:get_attr_s(&lt;&lt;"username"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|              case is_digesturi_valid(DigestURI, State#state.host) of</font>
+        |                  false -&gt;
+<font color=red>     0..|                      ?DEBUG("User login not authorized because digest-uri "</font>
+        |                             "seems invalid: ~p", [DigestURI]),
+<font color=red>     0..|                      {error, &lt;&lt;"not-authorized"&gt;&gt;, UserName};</font>
+        |                  true -&gt;
+<font color=red>     0..|                      AuthzId = xml:get_attr_s(&lt;&lt;"authzid"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|                      case (State#state.get_password)(UserName) of</font>
+        |                          {false, _} -&gt;
+<font color=red>     0..|                              {error, &lt;&lt;"not-authorized"&gt;&gt;, UserName};</font>
+        |                          {Passwd, AuthModule} -&gt;
+<font color=red>     0..|                                  case (State#state.check_password)(UserName, &lt;&lt;&gt;&gt;,</font>
+        |                                          xml:get_attr_s(&lt;&lt;"response"&gt;&gt;, KeyVals),
+<font color=red>     0..|                                          fun(PW) -&gt; response(KeyVals, UserName, PW, Nonce, AuthzId,</font>
+        |                                                  &lt;&lt;"AUTHENTICATE"&gt;&gt;) end) of
+        |                                  {true, _} -&gt;
+<font color=red>     0..|                                      RspAuth = response(KeyVals,</font>
+        |                                                         UserName, Passwd,
+        |                                                         Nonce, AuthzId, &lt;&lt;&gt;&gt;),
+<font color=red>     0..|                                      {continue,</font>
+        |                                       list_to_binary([&lt;&lt;"rspauth="&gt;&gt;, RspAuth]),
+        |                                       State#state{step = 5,
+        |                                                   auth_module = AuthModule,
+        |                                                   username = UserName,
+        |                                                   authzid = AuthzId}};
+        |                                  false -&gt;
+<font color=red>     0..|                                      {error, &lt;&lt;"not-authorized"&gt;&gt;, UserName}</font>
+        |                              end
+        |                      end
+        |              end
+        |      end;
+        |  mech_step(#state{step = 5,
+        |                   auth_module = AuthModule,
+        |                   username = UserName,
+        |                   authzid = AuthzId}, &lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      {ok, [{username, UserName}, {authzid, AuthzId},</font>
+        |            {auth_module, AuthModule}]};
+        |  mech_step(A, B) -&gt;
+<font color=red>     0..|      ?DEBUG("SASL DIGEST: A ~p B ~p", [A,B]),</font>
+<font color=red>     0..|      {error, &lt;&lt;"bad-protocol"&gt;&gt;}.</font>
+        |  
+        |  
+        |  -spec parse(binary()) -&gt; 'bad' | [{binary(),binary()}].
+        |  parse(S) -&gt;
+<font color=red>     0..|      parse1(S, &lt;&lt;&gt;&gt;, []).</font>
+        |  
+        |  parse1(&lt;&lt;$=, Cs/binary&gt;&gt;, S, Ts) -&gt;
+<font color=red>     0..|      parse2(Cs, binary_reverse(S), &lt;&lt;&gt;&gt;, Ts);</font>
+        |  parse1(&lt;&lt;$,, Cs/binary&gt;&gt;, &lt;&lt;&gt;&gt;, Ts) -&gt;
+<font color=red>     0..|      parse1(Cs, &lt;&lt;&gt;&gt;, Ts);</font>
+        |  parse1(&lt;&lt;$\s, Cs/binary&gt;&gt;, &lt;&lt;&gt;&gt;, Ts) -&gt;
+<font color=red>     0..|      parse1(Cs, &lt;&lt;&gt;&gt;, Ts);</font>
+        |  parse1(&lt;&lt;C, Cs/binary&gt;&gt;, S, Ts) -&gt;
+<font color=red>     0..|      parse1(Cs, &lt;&lt;C, S/binary&gt;&gt;, Ts);</font>
+        |  parse1(&lt;&lt;&gt;&gt;, &lt;&lt;&gt;&gt;, T) -&gt;
+<font color=red>     0..|      lists:reverse(T);</font>
+        |  parse1(&lt;&lt;&gt;&gt;, _S, _T) -&gt;
+<font color=red>     0..|      bad.</font>
+        |  
+        |  parse2(&lt;&lt;$\", Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse3(Cs, Key, Val, Ts);</font>
+        |  parse2(&lt;&lt;C, Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse4(Cs, Key, &lt;&lt;C, Val/binary&gt;&gt;, Ts);</font>
+        |  parse2(&lt;&lt;&gt;&gt;, _, _, _) -&gt;
+<font color=red>     0..|      bad.</font>
+        |  
+        |  parse3(&lt;&lt;$\", Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse4(Cs, Key, Val, Ts);</font>
+        |  parse3(&lt;&lt;$\\, C, Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse3(Cs, Key, &lt;&lt;C, Val/binary&gt;&gt;, Ts);</font>
+        |  parse3(&lt;&lt;C, Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse3(Cs, Key, &lt;&lt;C, Val/binary&gt;&gt;, Ts);</font>
+        |  parse3(&lt;&lt;&gt;&gt;, _, _, _) -&gt;
+<font color=red>     0..|      bad.</font>
+        |  
+        |  -spec parse4(binary(),
+        |      Key :: binary(),
+        |      Val :: binary(),
+        |      Ts :: [{binary(),binary()}]) -&gt; 'bad' | [{K :: binary(), V :: binary()}].
+        |  parse4(&lt;&lt;$, , Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse1(Cs, &lt;&lt;&gt;&gt;, [{Key, binary_reverse(Val)} | Ts]);</font>
+        |  parse4(&lt;&lt;$\s, Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse4(Cs, Key, Val, Ts);</font>
+        |  parse4(&lt;&lt;C, Cs/binary&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse4(Cs, Key, &lt;&lt;C, Val/binary&gt;&gt;, Ts);</font>
+        |  parse4(&lt;&lt;&gt;&gt;, Key, Val, Ts) -&gt;
+<font color=red>     0..|      parse1(&lt;&lt;&gt;&gt;, &lt;&lt;&gt;&gt;, [{Key, binary_reverse(Val)} | Ts]).</font>
+        |  
+        |  binary_reverse(&lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      &lt;&lt;&gt;&gt;;</font>
+        |  binary_reverse(&lt;&lt;H,T/binary&gt;&gt;) -&gt;
+<font color=red>     0..|      &lt;&lt;(binary_reverse(T))/binary,H&gt;&gt;.</font>
+        |  
+        |  %% @doc Check if the digest-uri is valid.
+        |  %% RFC-2831 allows to provide the IP address in Host,
+        |  %% however ejabberd doesn't allow that.
+        |  %% If the service (for example jabber.example.org)
+        |  %% is provided by several hosts (being one of them server3.example.org),
+        |  %% then digest-uri can be like xmpp/server3.example.org/jabber.example.org
+        |  %% In that case, ejabberd only checks the service name, not the host.
+        |  -spec is_digesturi_valid(DigestURICase :: binary(),
+        |                           JabberHost :: 'undefined' | ejabberd:server()) -&gt; boolean().
+        |  is_digesturi_valid(DigestURICase, JabberHost) -&gt;
+<font color=red>     0..|      DigestURI = stringprep:tolower(DigestURICase),</font>
+<font color=red>     0..|      case catch binary:split(DigestURI, &lt;&lt;"/"&gt;&gt;) of</font>
+        |          [&lt;&lt;"xmpp"&gt;&gt;, Host] when Host == JabberHost -&gt;
+<font color=red>     0..|              true;</font>
+        |          [&lt;&lt;"xmpp"&gt;&gt;, _Host, ServName] when ServName == JabberHost -&gt;
+<font color=red>     0..|              true;</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  -spec digit_to_xchar(byte()) -&gt; char().
+        |  digit_to_xchar(D) when (D &gt;= 0) and (D &lt; 10) -&gt;
+<font color=red>     0..|      D + 48;</font>
+        |  digit_to_xchar(D) -&gt;
+<font color=red>     0..|      D + 87.</font>
+        |  
+        |  -spec hex(binary()) -&gt; binary().
+        |  hex(S) -&gt;
+<font color=red>     0..|      hex(S, &lt;&lt;&gt;&gt;).</font>
+        |  
+        |  -spec hex(binary(),binary()) -&gt; binary().
+        |  hex(&lt;&lt;&gt;&gt;, Res) -&gt;
+<font color=red>     0..|      binary_reverse(Res);</font>
+        |  hex(&lt;&lt;N, Ns/binary&gt;&gt;, Res) -&gt;
+<font color=red>     0..|      D1 = digit_to_xchar(N rem 16),</font>
+<font color=red>     0..|      D2 = digit_to_xchar(N div 16),</font>
+<font color=red>     0..|      hex(Ns, &lt;&lt;D1, D2, Res/binary&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec response(KeyVals :: [{binary(),binary()}],
+        |                 User :: ejabberd:user(),
+        |                 Passwd :: binary(),
+        |                 Nonce :: binary(),
+        |                 AuthzId :: binary(),
+        |                 A2Prefix :: &lt;&lt;_:_*96&gt;&gt;) -&gt; binary().
+        |  response(KeyVals, User, Passwd, Nonce, AuthzId, A2Prefix) -&gt;
+<font color=red>     0..|      Realm = xml:get_attr_s(&lt;&lt;"realm"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|      CNonce = xml:get_attr_s(&lt;&lt;"cnonce"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|      DigestURI = xml:get_attr_s(&lt;&lt;"digest-uri"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|      NC = xml:get_attr_s(&lt;&lt;"nc"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|      QOP = xml:get_attr_s(&lt;&lt;"qop"&gt;&gt;, KeyVals),</font>
+<font color=red>     0..|      A1 = case AuthzId of</font>
+        |  	     &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|  		 list_to_binary(</font>
+        |  		   [crypto:hash(md5, [User, &lt;&lt;":"&gt;&gt;, Realm, &lt;&lt;":"&gt;&gt;, Passwd]),
+        |  		     &lt;&lt;":"&gt;&gt;, Nonce, &lt;&lt;":"&gt;&gt;, CNonce]);
+        |  	     _ -&gt;
+<font color=red>     0..|  		 list_to_binary(</font>
+        |  		   [crypto:hash(md5, [User, &lt;&lt;":"&gt;&gt;, Realm, &lt;&lt;":"&gt;&gt;, Passwd]),
+        |  		     &lt;&lt;":"&gt;&gt;, Nonce, &lt;&lt;":"&gt;&gt;, CNonce, &lt;&lt;":"&gt;&gt;, AuthzId])
+        |  	 end,
+<font color=red>     0..|      A2 = case QOP of</font>
+        |  	     &lt;&lt;"auth"&gt;&gt; -&gt;
+<font color=red>     0..|  		 [A2Prefix, &lt;&lt;":"&gt;&gt;, DigestURI];</font>
+        |  	     _ -&gt;
+<font color=red>     0..|  		 [A2Prefix, &lt;&lt;":"&gt;&gt;, DigestURI,</font>
+        |  		     &lt;&lt;":00000000000000000000000000000000"&gt;&gt;]
+        |  	 end,
+<font color=red>     0..|      T = [hex(crypto:hash(md5, A1)), &lt;&lt;":"&gt;&gt;, Nonce, &lt;&lt;":"&gt;&gt;,</font>
+        |  	NC, &lt;&lt;":"&gt;&gt;, CNonce, &lt;&lt;":"&gt;&gt;, QOP, &lt;&lt;":"&gt;&gt;,
+        |  	hex(crypto:hash(md5, A2))],
+<font color=red>     0..|      hex(crypto:hash(md5, T)).</font>
+        |  
+        |  
+        |  
+</pre>
+</body>
+</html>

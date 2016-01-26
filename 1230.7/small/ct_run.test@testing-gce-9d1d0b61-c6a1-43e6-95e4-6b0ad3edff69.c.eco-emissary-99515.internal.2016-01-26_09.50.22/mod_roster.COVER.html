@@ -1,0 +1,907 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_roster.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_roster.erl by COVER 2016-01-26 at 09:51:21
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_roster.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Roster management
+        |  %%% Created : 11 Dec 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%% @doc Roster management (Mnesia storage).
+        |  %%%
+        |  %%% Includes support for XEP-0237: Roster Versioning.
+        |  %%% The roster versioning follows an all-or-nothing strategy:
+        |  %%%  - If the version supplied by the client is the latest, return an empty response.
+        |  %%%  - If not, return the entire new roster (with updated version string).
+        |  %%% Roster version is a hash digest of the entire roster.
+        |  %%% No additional data is stored in DB.
+        |  
+        |  -module(mod_roster).
+        |  -author('alexey@process-one.net').
+        |  -xep([{xep, 237}, {version, "1.3"}]).
+        |  -xep([{xep, 83}, {version, "1.0"}]).
+        |  -xep([{xep, 93}, {version, "1.2"}]).
+        |  -behaviour(gen_mod).
+        |  
+        |  -export([start/2,
+        |           stop/1,
+        |           process_iq/3,
+        |           process_local_iq/3,
+        |           get_user_roster/2,
+        |           get_subscription_lists/3,
+        |           get_roster/2,
+        |           in_subscription/6,
+        |           out_subscription/4,
+        |           set_items/3,
+        |           remove_user/2,
+        |           get_jid_info/4,
+        |           item_to_xml/1,
+        |           get_versioning_feature/2,
+        |           roster_versioning_enabled/1,
+        |           roster_version/2,
+        |           send_unsubscription_to_rosteritems/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_roster.hrl").
+        |  
+        |  -export_type([roster/0]).
+        |  
+        |  -type roster() :: #roster{}.
+        |  
+        |  -callback init(Host, Opts) -&gt; ok when
+        |      Host :: ejabberd:server(),
+        |      Opts :: list().
+        |  -callback transaction(LServer, F) -&gt; {aborted, Reason} | {atomic, Result} when
+        |      LServer :: ejabberd:lserver(),
+        |      F :: fun(),
+        |      Reason :: any(),
+        |      Result :: any().
+        |  -callback read_roster_version(LUser, LServer) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Result :: binary() | error.
+        |  -callback write_roster_version(LUser, LServer, InTransaction, Ver) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      InTransaction :: boolean(),
+        |      Ver :: binary(),
+        |      Result :: any().
+        |  -callback get_roster(LUser, LServer) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Result :: [roster()].
+        |  -callback get_roster_by_jid_t(LUser, LServer, LJid) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      LJid :: ejabberd:simple_jid(),
+        |      Result :: term().
+        |  -callback get_subscription_lists(Acc, LUser, LServer) -&gt; Result when
+        |      Acc :: term(),
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Result :: term().
+        |  -callback roster_subscribe_t(LUser, LServer, LJid, SJid) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      LJid :: ejabberd:simple_jid(),
+        |      SJid :: roster(),
+        |      Result :: term().
+        |  -callback get_roster_by_jid_with_groups_t(LUser, LServer, LJid) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      LJid :: ejabberd:simple_jid(),
+        |      Result :: term().
+        |  -callback remove_user(LUser, LServer) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Result :: term().
+        |  -callback update_roster_t(LUser, LServer, LJid, Item) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      LJid :: ejabberd:simple_jid(),
+        |      Item :: roster(),
+        |      Result :: term().
+        |  -callback del_roster_t(LUser, LServer, LJid) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      LJid :: ejabberd:simple_jid(),
+        |      Result :: term().
+        |  -callback read_subscription_and_groups(LUser, LServer, LJid) -&gt; Result when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      LJid :: ejabberd:simple_jid(),
+        |      Result :: term().
+        |  
+        |  -callback raw_to_record(LServer, Item) -&gt; Result when
+        |      LServer :: ejabberd:lserver(),
+        |      Item :: term(),
+        |      Result :: error | roster().
+        |  
+        |  
+        |  -define(BACKEND, mod_roster_backend).
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+<font color=red>     0..|      TrackedFuns = [read_roster_version,</font>
+        |                     write_roster_version,
+        |                     get_roster,
+        |                     get_roster_by_jid_t,
+        |                     get_subscription_lists,
+        |                     roster_subscribe_t,
+        |                     get_roster_by_jid_with_groups_t,
+        |                     update_roster_t,
+        |                     del_roster_t,
+        |                     read_subscription_and_groups
+        |                     ],
+<font color=red>     0..|      gen_mod:start_backend_module(?MODULE, Opts, TrackedFuns),</font>
+<font color=red>     0..|      ?BACKEND:init(Host, Opts),</font>
+        |  
+<font color=red>     0..|      ejabberd_hooks:add(roster_get, Host,</font>
+        |                         ?MODULE, get_user_roster, 50),
+<font color=red>     0..|      ejabberd_hooks:add(roster_in_subscription, Host,</font>
+        |                         ?MODULE, in_subscription, 50),
+<font color=red>     0..|      ejabberd_hooks:add(roster_out_subscription, Host,</font>
+        |                         ?MODULE, out_subscription, 50),
+<font color=red>     0..|      ejabberd_hooks:add(roster_get_subscription_lists, Host,</font>
+        |                         ?MODULE, get_subscription_lists, 50),
+<font color=red>     0..|      ejabberd_hooks:add(roster_get_jid_info, Host,</font>
+        |                         ?MODULE, get_jid_info, 50),
+<font color=red>     0..|      ejabberd_hooks:add(remove_user, Host,</font>
+        |                         ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:add(anonymous_purge_hook, Host,</font>
+        |                         ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:add(roster_get_versioning_feature, Host,</font>
+        |                         ?MODULE, get_versioning_feature, 50),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_ROSTER,</font>
+        |                                    ?MODULE, process_iq, IQDisc).
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(roster_get, Host,</font>
+        |                            ?MODULE, get_user_roster, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_in_subscription, Host,</font>
+        |                            ?MODULE, in_subscription, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_out_subscription, Host,</font>
+        |                            ?MODULE, out_subscription, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_get_subscription_lists, Host,</font>
+        |                            ?MODULE, get_subscription_lists, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_get_jid_info, Host,</font>
+        |                            ?MODULE, get_jid_info, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(remove_user, Host,</font>
+        |                            ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(anonymous_purge_hook, Host,</font>
+        |                            ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_get_versioning_feature, Host,</font>
+        |                            ?MODULE, get_versioning_feature, 50),
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_ROSTER).</font>
+        |  
+        |  process_iq(From, To, IQ) -&gt;
+<font color=red>     0..|      #iq{sub_el = SubEl} = IQ,</font>
+<font color=red>     0..|      #jid{lserver = LServer} = From,</font>
+<font color=red>     0..|      case lists:member(LServer, ?MYHOSTS) of</font>
+        |          true -&gt;
+<font color=red>     0..|              process_local_iq(From, To, IQ);</font>
+        |          _ -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, ?ERR_ITEM_NOT_FOUND]}</font>
+        |      end.
+        |  
+        |  process_local_iq(From, To, #iq{type = Type} = IQ) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          set -&gt;
+<font color=red>     0..|              process_iq_set(From, To, IQ);</font>
+        |          get -&gt;
+<font color=red>     0..|              process_iq_get(From, To, IQ)</font>
+        |      end.
+        |  
+        |  roster_hash(Items) -&gt;
+<font color=red>     0..|      L = [R#roster{groups = lists:sort(Grs)} ||</font>
+<font color=red>     0..|           R = #roster{groups = Grs} &lt;- Items],</font>
+<font color=red>     0..|      sha:sha1_hex(term_to_binary(lists:sort(L))).</font>
+        |  
+        |  roster_versioning_enabled(Host) -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(Host, ?MODULE, versioning, false).</font>
+        |  
+        |  roster_version_on_db(Host) -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(Host, ?MODULE, store_current_id, false).</font>
+        |  
+        |  %% Returns a list that may contain an xmlel with the XEP-237 feature if it's enabled.
+        |  get_versioning_feature(Acc, Host) -&gt;
+<font color=red>     0..|      case roster_versioning_enabled(Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              Feature = #xmlel{name = &lt;&lt;"ver"&gt;&gt;,</font>
+        |                               attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_ROSTER_VER}]},
+<font color=red>     0..|              [Feature | Acc];</font>
+<font color=red>     0..|          false -&gt; []</font>
+        |      end.
+        |  
+        |  roster_version(LServer, LUser) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      case roster_version_on_db(LServer) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case read_roster_version(LUser, LServer) of</font>
+<font color=red>     0..|                  error -&gt; not_found;</font>
+<font color=red>     0..|                  V -&gt; V</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              roster_hash(ejabberd_hooks:run_fold(roster_get, LServer, [], [US]))</font>
+        |      end.
+        |  
+        |  read_roster_version(LUser, LServer) -&gt;
+<font color=red>     0..|      ?BACKEND:read_roster_version(LUser, LServer).</font>
+        |  
+        |  write_roster_version(LUser, LServer) -&gt;
+<font color=red>     0..|      write_roster_version(LUser, LServer, false).</font>
+        |  
+        |  write_roster_version_t(LUser, LServer) -&gt;
+<font color=red>     0..|      write_roster_version(LUser, LServer, true).</font>
+        |  
+        |  write_roster_version(LUser, LServer, InTransaction) -&gt;
+<font color=red>     0..|      Ver = sha:sha1_hex(term_to_binary(os:timestamp())),</font>
+<font color=red>     0..|      ?BACKEND:write_roster_version(LUser, LServer, InTransaction, Ver),</font>
+<font color=red>     0..|      Ver.</font>
+        |  
+        |  %% Load roster from DB only if neccesary.
+        |  %% It is neccesary if
+        |  %%     - roster versioning is disabled in server OR
+        |  %%     - roster versioning is not used by the client OR
+        |  %%     - roster versioning is used by server and client, BUT the server isn't storing versions on db OR
+        |  %%     - the roster version from client don't match current version.
+        |  process_iq_get(From, To, #iq{sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      LServer = From#jid.lserver,</font>
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          AttrVer = xml:get_tag_attr(&lt;&lt;"ver"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|          VersioningEnabled = roster_versioning_enabled(LServer),</font>
+<font color=red>     0..|          VersionOnDb = roster_version_on_db(LServer),</font>
+<font color=red>     0..|          {ItemsToSend, VersionToSend} =</font>
+        |          get_user_roster_based_on_version(AttrVer, VersioningEnabled, VersionOnDb,
+        |                                           From, To),
+<font color=red>     0..|          IQ#iq{type = result,</font>
+        |                sub_el = create_sub_el(ItemsToSend, VersionToSend)}
+        |      catch
+        |          _:_ -&gt;
+<font color=red>     0..|              IQ#iq{type = error,</font>
+        |                    sub_el = [SubEl, ?ERR_INTERNAL_SERVER_ERROR]}
+        |      end.
+        |  
+        |  get_user_roster_based_on_version({value, RequestedVersion}, true, true,
+        |                                   From, To) -&gt;
+<font color=red>     0..|      LUser = From#jid.luser,</font>
+<font color=red>     0..|      LServer = From#jid.lserver,</font>
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      case read_roster_version(LUser, LServer) of</font>
+        |          error -&gt;
+<font color=red>     0..|              RosterVersion = write_roster_version(LUser, LServer),</font>
+<font color=red>     0..|              {lists:map(fun item_to_xml/1,</font>
+        |                         ejabberd_hooks:run_fold(roster_get,
+        |                                                 To#jid.lserver,
+        |                                                 [],
+        |                                                 [US])),
+        |               RosterVersion};
+        |          RequestedVersion -&gt;
+<font color=red>     0..|              {false, false};</font>
+        |          NewVersion -&gt;
+<font color=red>     0..|              {lists:map(fun item_to_xml/1,</font>
+        |                         ejabberd_hooks:run_fold(roster_get,
+        |                                                 To#jid.lserver,
+        |                                                 [],
+        |                                                 [US])),
+        |               NewVersion}
+        |      end;
+        |  get_user_roster_based_on_version({value, RequestedVersion}, true, false,
+        |                                   From, To) -&gt;
+<font color=red>     0..|      RosterItems =</font>
+        |      ejabberd_hooks:run_fold(roster_get,
+        |                              To#jid.lserver,
+        |                              [],
+        |                              [{From#jid.luser, From#jid.lserver}]),
+<font color=red>     0..|      case roster_hash(RosterItems) of</font>
+        |          RequestedVersion -&gt;
+<font color=red>     0..|              {false, false};</font>
+        |          New -&gt;
+<font color=red>     0..|              {lists:map(fun item_to_xml/1,</font>
+        |                         RosterItems),
+        |               New}
+        |      end;
+        |  get_user_roster_based_on_version(_, _, _, From, To) -&gt;
+<font color=red>     0..|      {lists:map(fun item_to_xml/1,</font>
+        |                 ejabberd_hooks:run_fold(roster_get,
+        |                                         To#jid.lserver,
+        |                                         [],
+        |                                         [{From#jid.luser, From#jid.lserver}])),
+        |       false}.
+        |  
+        |  create_sub_el(false, false) -&gt;
+<font color=red>     0..|      [];</font>
+        |  create_sub_el(Items, false) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"query"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_ROSTER}],
+        |              children = Items}];
+        |  create_sub_el(Items, Version) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"query"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_ROSTER},
+        |                       {&lt;&lt;"ver"&gt;&gt;, Version}],
+        |              children = Items}].
+        |  
+        |  get_user_roster(Acc, {LUser, LServer}) -&gt;
+        |      lists:filter(fun (#roster{subscription = none, ask = in}) -&gt;
+<font color=red>     0..|                           false;</font>
+        |                       (_) -&gt;
+<font color=red>     0..|                           true</font>
+<font color=red>     0..|                   end, get_roster(LUser, LServer)) ++ Acc.</font>
+        |  
+        |  get_roster(LUser, LServer) -&gt;
+<font color=red>     0..|      ?BACKEND:get_roster(LUser, LServer).</font>
+        |  
+        |  item_to_xml(Item) -&gt;
+<font color=red>     0..|      Attrs1 = [{&lt;&lt;"jid"&gt;&gt;,</font>
+        |                 jid:to_binary(Item#roster.jid)}],
+<font color=red>     0..|      Attrs2 = case Item#roster.name of</font>
+<font color=red>     0..|                   &lt;&lt;""&gt;&gt; -&gt; Attrs1;</font>
+<font color=red>     0..|                   Name -&gt; [{&lt;&lt;"name"&gt;&gt;, Name} | Attrs1]</font>
+        |               end,
+<font color=red>     0..|      Attrs3 = case Item#roster.subscription of</font>
+<font color=red>     0..|                   none -&gt; [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"none"&gt;&gt;} | Attrs2];</font>
+<font color=red>     0..|                   from -&gt; [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"from"&gt;&gt;} | Attrs2];</font>
+<font color=red>     0..|                   to -&gt; [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"to"&gt;&gt;} | Attrs2];</font>
+<font color=red>     0..|                   both -&gt; [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"both"&gt;&gt;} | Attrs2];</font>
+<font color=red>     0..|                   remove -&gt; [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"remove"&gt;&gt;} | Attrs2]</font>
+        |               end,
+<font color=red>     0..|      Attrs4 = case ask_to_pending(Item#roster.ask) of</font>
+<font color=red>     0..|                   out -&gt; [{&lt;&lt;"ask"&gt;&gt;, &lt;&lt;"subscribe"&gt;&gt;} | Attrs3];</font>
+<font color=red>     0..|                   both -&gt; [{&lt;&lt;"ask"&gt;&gt;, &lt;&lt;"subscribe"&gt;&gt;} | Attrs3];</font>
+<font color=red>     0..|                   _ -&gt; Attrs3</font>
+        |               end,
+<font color=red>     0..|      SubEls1 = lists:map(fun (G) -&gt;</font>
+<font color=red>     0..|                                  #xmlel{name = &lt;&lt;"group"&gt;&gt;, attrs = [],</font>
+        |                                         children = [{xmlcdata, G}]}
+        |                          end,
+        |                          Item#roster.groups),
+<font color=red>     0..|      SubEls = SubEls1 ++ Item#roster.xs,</font>
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"item"&gt;&gt;, attrs = Attrs4,</font>
+        |             children = SubEls}.
+        |  
+        |  get_roster_by_jid_t(LUser, LServer, LJID) -&gt;
+<font color=red>     0..|      ?BACKEND:get_roster_by_jid_t(LUser, LServer, LJID).</font>
+        |  
+        |  process_iq_set(#jid{lserver = LServer} = From, To, #iq{sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      #xmlel{children = Els} = SubEl,</font>
+<font color=red>     0..|      ejabberd_hooks:run(roster_set, LServer, [From, To, SubEl]),</font>
+<font color=red>     0..|      lists:foreach(fun(El) -&gt; process_item_set(From, To, El) end, Els),</font>
+<font color=red>     0..|      IQ#iq{type = result, sub_el = []}.</font>
+        |  
+        |  process_item_set(From, To, #xmlel{attrs = Attrs} = El) -&gt;
+<font color=red>     0..|      JID1 = jid:from_binary(xml:get_attr_s(&lt;&lt;"jid"&gt;&gt;, Attrs)),</font>
+<font color=red>     0..|      do_process_item_set(JID1, From, To, El);</font>
+<font color=red>     0..|  process_item_set(_From, _To, _) -&gt; ok.</font>
+        |  
+<font color=red>     0..|  do_process_item_set(error, _, _, _) -&gt; ok;</font>
+        |  do_process_item_set(JID1,
+        |                      #jid{user = User, luser = LUser, lserver = LServer} = From,
+        |                      To,
+        |                      #xmlel{attrs = Attrs, children = Els}) -&gt;
+<font color=red>     0..|      LJID = jid:to_lower(JID1),</font>
+<font color=red>     0..|      F = fun () -&gt;</font>
+<font color=red>     0..|                  Item = get_roster_by_jid_t(LUser, LServer, LJID),</font>
+<font color=red>     0..|                  Item1 = process_item_attrs(Item, Attrs),</font>
+<font color=red>     0..|                  Item2 = process_item_els(Item1, Els),</font>
+<font color=red>     0..|                  case Item2#roster.subscription of</font>
+<font color=red>     0..|                      remove -&gt; del_roster_t(LUser, LServer, LJID);</font>
+<font color=red>     0..|                      _ -&gt; update_roster_t(LUser, LServer, LJID, Item2)</font>
+        |                  end,
+<font color=red>     0..|                  Item3 = ejabberd_hooks:run_fold(roster_process_item,</font>
+        |                                                  LServer, Item2,
+        |                                                  [LServer]),
+<font color=red>     0..|                  case roster_version_on_db(LServer) of</font>
+<font color=red>     0..|                      true -&gt; write_roster_version_t(LUser, LServer);</font>
+<font color=red>     0..|                      false -&gt; ok</font>
+        |                  end,
+<font color=red>     0..|                  {Item, Item3}</font>
+        |          end,
+<font color=red>     0..|      case transaction(LServer, F) of</font>
+        |          {atomic, {OldItem, Item}} -&gt;
+<font color=red>     0..|              push_item(User, LServer, To, Item),</font>
+<font color=red>     0..|              case Item#roster.subscription of</font>
+        |                  remove -&gt;
+<font color=red>     0..|                      send_unsubscribing_presence(From, OldItem), ok;</font>
+<font color=red>     0..|                  _ -&gt; ok</font>
+        |              end;
+        |          E -&gt;
+<font color=red>     0..|              ?DEBUG("ROSTER: roster item set error: ~p~n", [E]), ok</font>
+        |      end.
+        |  
+        |  process_item_attrs(Item, [{&lt;&lt;"jid"&gt;&gt;, Val} | Attrs]) -&gt;
+<font color=red>     0..|      case jid:from_binary(Val) of</font>
+        |          error -&gt;
+<font color=red>     0..|              process_item_attrs(Item, Attrs);</font>
+        |          JID1 -&gt;
+<font color=red>     0..|              JID = {JID1#jid.luser, JID1#jid.lserver, JID1#jid.lresource},</font>
+<font color=red>     0..|              process_item_attrs(Item#roster{jid = JID}, Attrs)</font>
+        |      end;
+        |  process_item_attrs(Item, [{&lt;&lt;"name"&gt;&gt;, Val} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs(Item#roster{name = Val}, Attrs);</font>
+        |  process_item_attrs(Item, [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"remove"&gt;&gt;} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs(Item#roster{subscription = remove}, Attrs);</font>
+        |  process_item_attrs(Item, [_ | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs(Item, Attrs);</font>
+        |  process_item_attrs(Item, []) -&gt;
+<font color=red>     0..|      Item.</font>
+        |  
+        |  process_item_els(Item,
+        |                   [#xmlel{name = Name, attrs = Attrs, children = SEls}
+        |                    | Els]) -&gt;
+<font color=red>     0..|      case Name of</font>
+        |          &lt;&lt;"group"&gt;&gt; -&gt;
+<font color=red>     0..|              Groups = [xml:get_cdata(SEls) | Item#roster.groups],</font>
+<font color=red>     0..|              process_item_els(Item#roster{groups = Groups}, Els);</font>
+        |          _ -&gt;
+<font color=red>     0..|              case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs) of</font>
+<font color=red>     0..|                  &lt;&lt;""&gt;&gt; -&gt; process_item_els(Item, Els);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      XEls = [#xmlel{name = Name, attrs = Attrs,</font>
+        |                                     children = SEls}
+        |                              | Item#roster.xs],
+<font color=red>     0..|                      process_item_els(Item#roster{xs = XEls}, Els)</font>
+        |              end
+        |      end;
+        |  process_item_els(Item, [{xmlcdata, _} | Els]) -&gt;
+<font color=red>     0..|      process_item_els(Item, Els);</font>
+<font color=red>     0..|  process_item_els(Item, []) -&gt; Item.</font>
+        |  
+        |  push_item(User, Server, From, Item) -&gt;
+<font color=red>     0..|      ejabberd_sm:route(jid:make(&lt;&lt;""&gt;&gt;, &lt;&lt;""&gt;&gt;, &lt;&lt;""&gt;&gt;),</font>
+        |                        jid:make(User, Server, &lt;&lt;""&gt;&gt;),
+        |                        {broadcast, {item, Item#roster.jid, Item#roster.subscription}}),
+<font color=red>     0..|      case roster_versioning_enabled(Server) of</font>
+        |          true -&gt;
+<font color=red>     0..|              push_item_version(Server, User, From, Item,</font>
+        |                                roster_version(Server, jid:nodeprep(User)));
+        |          false -&gt;
+<font color=red>     0..|              lists:foreach(fun (Resource) -&gt;</font>
+<font color=red>     0..|                                    push_item(User, Server, Resource, From, Item)</font>
+        |                            end,
+        |                            ejabberd_sm:get_user_resources(User, Server))
+        |      end.
+        |  
+        |  push_item(User, Server, Resource, From, Item) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run(roster_push, Server, [From, Item]),</font>
+<font color=red>     0..|      push_item(User, Server, Resource, From, Item, not_found).</font>
+        |  
+        |  push_item(User, Server, Resource, From, Item, RosterVersion) -&gt;
+<font color=red>     0..|      ExtraAttrs = case RosterVersion of</font>
+<font color=red>     0..|                       not_found -&gt; [];</font>
+<font color=red>     0..|                       _ -&gt; [{&lt;&lt;"ver"&gt;&gt;, RosterVersion}]</font>
+        |                   end,
+<font color=red>     0..|      ResIQ = #iq{type = set, xmlns = ?NS_ROSTER,</font>
+        |                  %% @doc Roster push, calculate and include the version attribute.
+        |                  %% TODO: don't push to those who didn't load roster
+        |                  id = list_to_binary("push" ++ randoms:get_string()),
+        |                  sub_el =
+        |                  [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                          attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_ROSTER} | ExtraAttrs],
+        |                          children = [item_to_xml(Item)]}]},
+<font color=red>     0..|      ejabberd_router:route(From,</font>
+        |                            jid:make(User, Server, Resource),
+        |                            jlib:iq_to_xml(ResIQ)).
+        |  
+        |  push_item_version(Server, User, From, Item,
+        |                    RosterVersion) -&gt;
+<font color=red>     0..|      lists:foreach(fun (Resource) -&gt;</font>
+<font color=red>     0..|                            push_item(User, Server, Resource, From, Item,</font>
+        |                                      RosterVersion)
+        |                    end,
+        |                    ejabberd_sm:get_user_resources(User, Server)).
+        |  
+        |  get_subscription_lists(Acc, User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      Items = ?BACKEND:get_subscription_lists(Acc, LUser, LServer),</font>
+<font color=red>     0..|      JID = jid:make(User, Server, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      fill_subscription_lists(JID, LServer, Items, [], [], []).</font>
+        |  
+        |  
+        |  fill_subscription_lists(JID, LServer, [#roster{} = I | Is], F, T, P) -&gt;
+<font color=red>     0..|      J = element(3, I#roster.usj),</font>
+        |  
+<font color=red>     0..|      NewP = build_pending(I, JID, P),</font>
+        |  
+<font color=red>     0..|      case I#roster.subscription of</font>
+        |          both -&gt;
+<font color=red>     0..|              fill_subscription_lists(JID, LServer, Is, [J | F], [J | T], NewP);</font>
+        |          from -&gt;
+<font color=red>     0..|              fill_subscription_lists(JID, LServer, Is, [J | F], T, NewP);</font>
+<font color=red>     0..|          to -&gt; fill_subscription_lists(JID, LServer, Is, F, [J | T], NewP);</font>
+<font color=red>     0..|          _ -&gt; fill_subscription_lists(JID, LServer, Is, F, T, NewP)</font>
+        |      end;
+        |  fill_subscription_lists(JID, LServer, [RawI | Is], F, T, P) -&gt;
+<font color=red>     0..|      I = ?BACKEND:raw_to_record(LServer, RawI),</font>
+<font color=red>     0..|      case I of</font>
+        |          %% Bad JID in database:
+<font color=red>     0..|          error -&gt; fill_subscription_lists(JID, LServer, Is, F, T, P);</font>
+<font color=red>     0..|          _ -&gt; fill_subscription_lists(JID, LServer, [I | Is], F, T, P)</font>
+        |      end;
+<font color=red>     0..|  fill_subscription_lists(_, _LServer, [], F, T, P) -&gt; {F, T, P}.</font>
+        |  
+        |  build_pending(#roster{ask = Ask} = I, JID, P)
+        |    when Ask == in; Ask == both -&gt;
+<font color=red>     0..|      Message = I#roster.askmessage,</font>
+<font color=red>     0..|      Status  = if is_binary(Message) -&gt; Message;</font>
+<font color=red>     0..|                   true -&gt; &lt;&lt;&gt;&gt;</font>
+        |                end,
+<font color=red>     0..|      StatusEl = #xmlel{</font>
+        |                    name = &lt;&lt;"status"&gt;&gt;,
+        |                    children = [#xmlcdata{content = Status}]},
+<font color=red>     0..|      El = #xmlel{</font>
+        |              name = &lt;&lt;"presence"&gt;&gt;,
+        |              attrs = [{&lt;&lt;"from"&gt;&gt;, jid:to_binary(I#roster.jid)},
+        |                       {&lt;&lt;"to"&gt;&gt;, jid:to_binary(JID)},
+        |                       {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"subscribe"&gt;&gt;}],
+        |              children = [StatusEl]},
+<font color=red>     0..|      [El | P];</font>
+        |  build_pending(_, _, P) -&gt;
+<font color=red>     0..|      P.</font>
+        |  
+        |  
+<font color=red>     0..|  ask_to_pending(subscribe) -&gt; out;</font>
+<font color=red>     0..|  ask_to_pending(unsubscribe) -&gt; none;</font>
+<font color=red>     0..|  ask_to_pending(Ask) -&gt; Ask.</font>
+        |  
+        |  roster_subscribe_t(LUser, LServer, LJID, Item) -&gt;
+<font color=red>     0..|      ?BACKEND:roster_subscribe_t(LUser, LServer, LJID, Item).</font>
+        |  
+        |  transaction(LServer, F) -&gt;
+<font color=red>     0..|      ?BACKEND:transaction(LServer, F).</font>
+        |  
+        |  in_subscription(_, User, Server, JID, Type, Reason) -&gt;
+<font color=red>     0..|      process_subscription(in, User, Server, JID, Type,</font>
+        |                           Reason).
+        |  
+        |  out_subscription(User, Server, JID, Type) -&gt;
+<font color=red>     0..|      process_subscription(out, User, Server, JID, Type, &lt;&lt;""&gt;&gt;).</font>
+        |  
+        |  get_roster_by_jid_with_groups_t(LUser, LServer, LJID) -&gt;
+<font color=red>     0..|      ?BACKEND:get_roster_by_jid_with_groups_t(LUser, LServer, LJID).</font>
+        |  
+        |  process_subscription(Direction, User, Server, JID1, Type, Reason) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      LJID = jid:to_lower(JID1),</font>
+<font color=red>     0..|      F = fun () -&gt;</font>
+<font color=red>     0..|                  Item = get_roster_by_jid_with_groups_t(LUser, LServer,</font>
+        |                                                         LJID),
+<font color=red>     0..|                  NewState = case Direction of</font>
+        |                                 out -&gt;
+<font color=red>     0..|                                     out_state_change(Item#roster.subscription,</font>
+        |                                                      Item#roster.ask, Type);
+        |                                 in -&gt;
+<font color=red>     0..|                                     in_state_change(Item#roster.subscription,</font>
+        |                                                     Item#roster.ask, Type)
+        |                             end,
+<font color=red>     0..|                  AutoReply = case Direction of</font>
+<font color=red>     0..|                                  out -&gt; none;</font>
+        |                                  in -&gt;
+<font color=red>     0..|                                      in_auto_reply(Item#roster.subscription,</font>
+        |                                                    Item#roster.ask, Type)
+        |                              end,
+<font color=red>     0..|                  AskMessage = case NewState of</font>
+<font color=red>     0..|                                   {_, both} -&gt; Reason;</font>
+<font color=red>     0..|                                   {_, in} -&gt; Reason;</font>
+<font color=red>     0..|                                   _ -&gt; &lt;&lt;""&gt;&gt;</font>
+        |                               end,
+<font color=red>     0..|                  case NewState of</font>
+<font color=red>     0..|                      none -&gt; {none, AutoReply};</font>
+        |                      {none, none}
+        |                        when Item#roster.subscription == none,
+        |                             Item#roster.ask == in -&gt;
+<font color=red>     0..|                          del_roster_t(LUser, LServer, LJID), {none, AutoReply};</font>
+        |                      {Subscription, Pending} -&gt;
+<font color=red>     0..|                          NewItem = Item#roster{subscription = Subscription,</font>
+        |                                                ask = Pending,
+        |                                                askmessage =
+        |                                                iolist_to_binary(AskMessage)},
+<font color=red>     0..|                          roster_subscribe_t(LUser, LServer, LJID, NewItem),</font>
+<font color=red>     0..|                          case roster_version_on_db(LServer) of</font>
+<font color=red>     0..|                              true -&gt; write_roster_version_t(LUser, LServer);</font>
+<font color=red>     0..|                              false -&gt; ok</font>
+        |                          end,
+<font color=red>     0..|                          {{push, NewItem}, AutoReply}</font>
+        |                  end
+        |          end,
+<font color=red>     0..|      case transaction(LServer, F) of</font>
+        |          {atomic, {Push, AutoReply}} -&gt;
+<font color=red>     0..|              case AutoReply of</font>
+<font color=red>     0..|                  none -&gt; ok;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      T = case AutoReply of</font>
+<font color=red>     0..|                              subscribed -&gt; &lt;&lt;"subscribed"&gt;&gt;;</font>
+<font color=red>     0..|                              unsubscribed -&gt; &lt;&lt;"unsubscribed"&gt;&gt;</font>
+        |                          end,
+<font color=red>     0..|                      ejabberd_router:route(jid:make(User, Server,</font>
+        |                                                     &lt;&lt;""&gt;&gt;),
+        |                                            JID1,
+        |                                            #xmlel{name = &lt;&lt;"presence"&gt;&gt;,
+        |                                                   attrs = [{&lt;&lt;"type"&gt;&gt;, T}],
+        |                                                   children = []})
+        |              end,
+<font color=red>     0..|              case Push of</font>
+        |                  {push, Item} -&gt;
+<font color=red>     0..|                      if Item#roster.subscription == none,</font>
+        |                         Item#roster.ask == in -&gt;
+<font color=red>     0..|                             ok;</font>
+        |                         true -&gt;
+<font color=red>     0..|                             push_item(User, Server,</font>
+        |                                       jid:make(User, Server, &lt;&lt;""&gt;&gt;), Item)
+        |                      end,
+<font color=red>     0..|                      true;</font>
+<font color=red>     0..|                  none -&gt; false</font>
+        |              end;
+<font color=red>     0..|          _ -&gt; false</font>
+        |      end.
+        |  
+        |  %% in_state_change(Subscription, Pending, Type) -&gt; NewState
+        |  %% NewState = none | {NewSubscription, NewPending}
+        |  -ifdef(ROSTER_GATEWAY_WORKAROUND).
+        |  
+        |  -define(NNSD, {to, none}).
+        |  
+        |  -define(NISD, {to, in}).
+        |  
+        |  -else.
+        |  
+        |  -define(NNSD, none).
+        |  
+        |  -define(NISD, none).
+        |  
+        |  -endif.
+        |  
+<font color=red>     0..|  in_state_change(none, none, subscribe) -&gt; {none, in};</font>
+<font color=red>     0..|  in_state_change(none, none, subscribed) -&gt; ?NNSD;</font>
+<font color=red>     0..|  in_state_change(none, none, unsubscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(none, none, unsubscribed) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(none, out, subscribe) -&gt; {none, both};</font>
+<font color=red>     0..|  in_state_change(none, out, subscribed) -&gt; {to, none};</font>
+<font color=red>     0..|  in_state_change(none, out, unsubscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(none, out, unsubscribed) -&gt; {none, none};</font>
+<font color=red>     0..|  in_state_change(none, in, subscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(none, in, subscribed) -&gt; ?NISD;</font>
+<font color=red>     0..|  in_state_change(none, in, unsubscribe) -&gt; {none, none};</font>
+<font color=red>     0..|  in_state_change(none, in, unsubscribed) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(none, both, subscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(none, both, subscribed) -&gt; {to, in};</font>
+<font color=red>     0..|  in_state_change(none, both, unsubscribe) -&gt; {none, out};</font>
+<font color=red>     0..|  in_state_change(none, both, unsubscribed) -&gt; {none, in};</font>
+<font color=red>     0..|  in_state_change(to, none, subscribe) -&gt; {to, in};</font>
+<font color=red>     0..|  in_state_change(to, none, subscribed) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(to, none, unsubscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(to, none, unsubscribed) -&gt; {none, none};</font>
+<font color=red>     0..|  in_state_change(to, in, subscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(to, in, subscribed) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(to, in, unsubscribe) -&gt; {to, none};</font>
+<font color=red>     0..|  in_state_change(to, in, unsubscribed) -&gt; {none, in};</font>
+<font color=red>     0..|  in_state_change(from, none, subscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(from, none, subscribed) -&gt; {both, none};</font>
+<font color=red>     0..|  in_state_change(from, none, unsubscribe) -&gt; {none, none};</font>
+<font color=red>     0..|  in_state_change(from, none, unsubscribed) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(from, out, subscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(from, out, subscribed) -&gt; {both, none};</font>
+<font color=red>     0..|  in_state_change(from, out, unsubscribe) -&gt; {none, out};</font>
+<font color=red>     0..|  in_state_change(from, out, unsubscribed) -&gt; {from, none};</font>
+<font color=red>     0..|  in_state_change(both, none, subscribe) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(both, none, subscribed) -&gt; none;</font>
+<font color=red>     0..|  in_state_change(both, none, unsubscribe) -&gt; {to, none};</font>
+<font color=red>     0..|  in_state_change(both, none, unsubscribed) -&gt; {from, none}.</font>
+        |  
+<font color=red>     0..|  out_state_change(none, none, subscribe) -&gt; {none, out};</font>
+<font color=red>     0..|  out_state_change(none, none, subscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(none, none, unsubscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(none, none, unsubscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(none, out, subscribe) -&gt;{none, out}; %% We need to resend query (RFC3921, section 9.2)</font>
+<font color=red>     0..|  out_state_change(none, out, subscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(none, out, unsubscribe) -&gt; {none, none};</font>
+<font color=red>     0..|  out_state_change(none, out, unsubscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(none, in, subscribe) -&gt; {none, both};</font>
+<font color=red>     0..|  out_state_change(none, in, subscribed) -&gt; {from, none};</font>
+<font color=red>     0..|  out_state_change(none, in, unsubscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(none, in, unsubscribed) -&gt; {none, none};</font>
+<font color=red>     0..|  out_state_change(none, both, subscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(none, both, subscribed) -&gt; {from, out};</font>
+<font color=red>     0..|  out_state_change(none, both, unsubscribe) -&gt; {none, in};</font>
+<font color=red>     0..|  out_state_change(none, both, unsubscribed) -&gt; {none, out};</font>
+<font color=red>     0..|  out_state_change(to, none, subscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(to, none, subscribed) -&gt; {both, none};</font>
+<font color=red>     0..|  out_state_change(to, none, unsubscribe) -&gt; {none, none};</font>
+<font color=red>     0..|  out_state_change(to, none, unsubscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(to, in, subscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(to, in, subscribed) -&gt; {both, none};</font>
+<font color=red>     0..|  out_state_change(to, in, unsubscribe) -&gt; {none, in};</font>
+<font color=red>     0..|  out_state_change(to, in, unsubscribed) -&gt; {to, none};</font>
+<font color=red>     0..|  out_state_change(from, none, subscribe) -&gt; {from, out};</font>
+<font color=red>     0..|  out_state_change(from, none, subscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(from, none, unsubscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(from, none, unsubscribed) -&gt; {none, none};</font>
+<font color=red>     0..|  out_state_change(from, out, subscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(from, out, subscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(from, out, unsubscribe) -&gt; {from, none};</font>
+<font color=red>     0..|  out_state_change(from, out, unsubscribed) -&gt; {none, out};</font>
+<font color=red>     0..|  out_state_change(both, none, subscribe) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(both, none, subscribed) -&gt; none;</font>
+<font color=red>     0..|  out_state_change(both, none, unsubscribe) -&gt; {from, none};</font>
+<font color=red>     0..|  out_state_change(both, none, unsubscribed) -&gt; {to, none}.</font>
+        |  
+<font color=red>     0..|  in_auto_reply(from, none, subscribe) -&gt; subscribed;</font>
+<font color=red>     0..|  in_auto_reply(from, out, subscribe) -&gt; subscribed;</font>
+<font color=red>     0..|  in_auto_reply(both, none, subscribe) -&gt; subscribed;</font>
+<font color=red>     0..|  in_auto_reply(none, in, unsubscribe) -&gt; unsubscribed;</font>
+<font color=red>     0..|  in_auto_reply(none, both, unsubscribe) -&gt; unsubscribed;</font>
+<font color=red>     0..|  in_auto_reply(to, in, unsubscribe) -&gt; unsubscribed;</font>
+<font color=red>     0..|  in_auto_reply(from, none, unsubscribe) -&gt; unsubscribed;</font>
+<font color=red>     0..|  in_auto_reply(from, out, unsubscribe) -&gt; unsubscribed;</font>
+<font color=red>     0..|  in_auto_reply(both, none, unsubscribe) -&gt; unsubscribed;</font>
+<font color=red>     0..|  in_auto_reply(_, _, _) -&gt; none.</font>
+        |  
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      send_unsubscription_to_rosteritems(LUser, LServer),</font>
+<font color=red>     0..|      ?BACKEND:remove_user(LUser, LServer).</font>
+        |  
+        |  %% For each contact with Subscription:
+        |  %% Both or From, send a "unsubscribed" presence stanza;
+        |  %% Both or To, send a "unsubscribe" presence stanza.
+        |  send_unsubscription_to_rosteritems(LUser, LServer) -&gt;
+<font color=red>     0..|      RosterItems = get_user_roster([], {LUser, LServer}),</font>
+<font color=red>     0..|      From = jid:make({LUser, LServer, &lt;&lt;""&gt;&gt;}),</font>
+<font color=red>     0..|      lists:foreach(fun (RosterItem) -&gt;</font>
+<font color=red>     0..|                            send_unsubscribing_presence(From, RosterItem)</font>
+        |                    end,
+        |                    RosterItems).
+        |  
+        |  %% @spec (From::jid(), Item::roster()) -&gt; ok
+        |  send_unsubscribing_presence(From, Item) -&gt;
+<font color=red>     0..|      IsTo = case Item#roster.subscription of</font>
+<font color=red>     0..|                 both -&gt; true;</font>
+<font color=red>     0..|                 to -&gt; true;</font>
+<font color=red>     0..|                 _ -&gt; false</font>
+        |             end,
+<font color=red>     0..|      IsFrom = case Item#roster.subscription of</font>
+<font color=red>     0..|                   both -&gt; true;</font>
+<font color=red>     0..|                   from -&gt; true;</font>
+<font color=red>     0..|                   _ -&gt; false</font>
+        |               end,
+<font color=red>     0..|      if IsTo -&gt;</font>
+<font color=red>     0..|             send_presence_type(jid:to_bare(From),</font>
+        |                                jid:make(Item#roster.jid),
+        |                                &lt;&lt;"unsubscribe"&gt;&gt;);
+<font color=red>     0..|         true -&gt; ok</font>
+        |      end,
+<font color=red>     0..|      if IsFrom -&gt;</font>
+<font color=red>     0..|             send_presence_type(jid:to_bare(From),</font>
+        |                                jid:make(Item#roster.jid),
+        |                                &lt;&lt;"unsubscribed"&gt;&gt;);
+<font color=red>     0..|         true -&gt; ok</font>
+        |      end,
+<font color=red>     0..|      ok.</font>
+        |  
+        |  send_presence_type(From, To, Type) -&gt;
+<font color=red>     0..|      ejabberd_router:route(From, To,</font>
+        |                            #xmlel{name = &lt;&lt;"presence"&gt;&gt;,
+        |                                   attrs = [{&lt;&lt;"type"&gt;&gt;, Type}], children = []}).
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  
+        |  set_items(User, Server, SubEl) -&gt;
+<font color=red>     0..|      #xmlel{children = Els} = SubEl,</font>
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      F = fun () -&gt;</font>
+<font color=red>     0..|                  lists:foreach(fun (El) -&gt;</font>
+<font color=red>     0..|                                        process_item_set_t(LUser, LServer, El)</font>
+        |                                end,
+        |                                Els)
+        |          end,
+<font color=red>     0..|      transaction(LServer, F).</font>
+        |  
+        |  update_roster_t(LUser, LServer, LJID, Item) -&gt;
+<font color=red>     0..|      ?BACKEND:update_roster_t(LUser, LServer, LJID, Item).</font>
+        |  
+        |  del_roster_t(LUser, LServer, LJID) -&gt;
+<font color=red>     0..|      ?BACKEND:del_roster_t(LUser, LServer, LJID).</font>
+        |  
+        |  process_item_set_t(LUser, LServer,
+        |                     #xmlel{attrs = Attrs, children = Els}) -&gt;
+<font color=red>     0..|      JID1 = jid:from_binary(xml:get_attr_s(&lt;&lt;"jid"&gt;&gt;, Attrs)),</font>
+<font color=red>     0..|      case JID1 of</font>
+<font color=red>     0..|          error -&gt; ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              JID = {JID1#jid.user, JID1#jid.server,</font>
+        |                     JID1#jid.resource},
+<font color=red>     0..|              LJID = {JID1#jid.luser, JID1#jid.lserver,</font>
+        |                      JID1#jid.lresource},
+<font color=red>     0..|              Item = #roster{usj = {LUser, LServer, LJID},</font>
+        |                             us = {LUser, LServer}, jid = JID},
+<font color=red>     0..|              Item1 = process_item_attrs_ws(Item, Attrs),</font>
+<font color=red>     0..|              Item2 = process_item_els(Item1, Els),</font>
+<font color=red>     0..|              case Item2#roster.subscription of</font>
+<font color=red>     0..|                  remove -&gt; del_roster_t(LUser, LServer, LJID);</font>
+<font color=red>     0..|                  _ -&gt; update_roster_t(LUser, LServer, LJID, Item2)</font>
+        |              end
+        |      end;
+<font color=red>     0..|  process_item_set_t(_LUser, _LServer, _) -&gt; ok.</font>
+        |  
+        |  process_item_attrs_ws(Item, [{&lt;&lt;"jid"&gt;&gt;, Val} | Attrs]) -&gt;
+<font color=red>     0..|      case jid:from_binary(Val) of</font>
+        |          error -&gt;
+<font color=red>     0..|              process_item_attrs_ws(Item, Attrs);</font>
+        |          JID1 -&gt;
+<font color=red>     0..|              JID = {JID1#jid.luser, JID1#jid.lserver, JID1#jid.lresource},</font>
+<font color=red>     0..|              process_item_attrs_ws(Item#roster{jid = JID}, Attrs)</font>
+        |      end;
+        |  process_item_attrs_ws(Item, [{&lt;&lt;"name"&gt;&gt;, Val} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs_ws(Item#roster{name = Val}, Attrs);</font>
+        |  process_item_attrs_ws(Item, [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"remove"&gt;&gt;} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs_ws(Item#roster{subscription = remove}, Attrs);</font>
+        |  process_item_attrs_ws(Item, [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"none"&gt;&gt;} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs_ws(Item#roster{subscription = none}, Attrs);</font>
+        |  process_item_attrs_ws(Item, [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"both"&gt;&gt;} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs_ws(Item#roster{subscription = both}, Attrs);</font>
+        |  process_item_attrs_ws(Item, [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"from"&gt;&gt;} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs_ws(Item#roster{subscription = from}, Attrs);</font>
+        |  process_item_attrs_ws(Item, [{&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"to"&gt;&gt;} | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs_ws(Item#roster{subscription = to}, Attrs);</font>
+        |  process_item_attrs_ws(Item, [_ | Attrs]) -&gt;
+<font color=red>     0..|      process_item_attrs_ws(Item, Attrs);</font>
+        |  process_item_attrs_ws(Item, []) -&gt;
+<font color=red>     0..|      Item.</font>
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  
+        |  read_subscription_and_groups(User, Server, LJID) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      ?BACKEND:read_subscription_and_groups(LUser, LServer, LJID).</font>
+        |  
+        |  get_jid_info(_, User, Server, JID) -&gt;
+<font color=red>     0..|      LJID = jid:to_lower(JID),</font>
+<font color=red>     0..|      case read_subscription_and_groups(User, Server, LJID) of</font>
+<font color=red>     0..|          {Subscription, Groups} -&gt; {Subscription, Groups};</font>
+        |          error -&gt;
+<font color=red>     0..|              LRJID = jid:to_lower(jid:to_bare(JID)),</font>
+<font color=red>     0..|              if LRJID == LJID -&gt; {none, []};</font>
+        |                 true -&gt;
+<font color=red>     0..|                     case read_subscription_and_groups(User, Server, LRJID)</font>
+        |                     of
+<font color=red>     0..|                         {Subscription, Groups} -&gt; {Subscription, Groups};</font>
+<font color=red>     0..|                         error -&gt; {none, []}</font>
+        |                     end
+        |              end
+        |      end.
+</pre>
+</body>
+</html>

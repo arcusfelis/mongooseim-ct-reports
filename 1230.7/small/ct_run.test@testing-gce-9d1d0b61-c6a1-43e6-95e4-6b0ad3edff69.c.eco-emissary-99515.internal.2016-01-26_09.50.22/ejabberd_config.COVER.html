@@ -1,0 +1,1361 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/ejabberd_config.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_config.erl by COVER 2016-01-26 at 09:51:21
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_config.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Load config file
+        |  %%% Created : 14 Dec 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_config).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([start/0,
+        |           load_file/1,
+        |           add_global_option/2,
+        |           get_global_option/1,
+        |           add_local_option/2,
+        |           get_local_option/1,
+        |           get_local_option/2,
+        |           del_local_option/1,
+        |           get_local_option_or_default/2]).
+        |  -export([get_vh_by_auth_method/1]).
+        |  -export([is_file_readable/1]).
+        |  
+        |  %% for unit tests
+        |  -export([check_hosts/2,
+        |           compare_modules/2,
+        |           compare_listeners/2,
+        |           group_host_changes/1]).
+        |  
+        |  %% conf reload
+        |  -export([reload_local/0,
+        |           reload_cluster/0,
+        |           apply_changes_remote/4,
+        |           apply_changes/5]).
+        |  
+        |  -export([compute_config_version/2,
+        |           get_local_config/0,
+        |           get_host_local_config/0]).
+        |  
+        |  -export([fips_mode/0]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_config.hrl").
+        |  -include_lib("kernel/include/file.hrl").
+        |  
+        |  -define(CONFIG_RELOAD_TIMEOUT, 30000).
+        |  
+        |  -type key() :: atom()
+        |               | {key(), ejabberd:server() | atom() | list()}
+        |               | {atom(), atom(), atom()}
+        |               | binary(). % TODO: binary is questionable here
+        |  
+        |  -type value() :: atom()
+        |                 | binary()
+        |                 | integer()
+        |                 | string()
+        |                 | [value()]
+        |                 | tuple().
+        |  
+        |  -export_type([key/0, value/0]).
+        |  
+        |  -record(state, { opts = []  :: list(),
+        |                   hosts = [] :: [host()],
+        |                   override_local = false  :: boolean(),
+        |                   override_global = false :: boolean(),
+        |                   override_acls = false   :: boolean() }).
+        |  
+        |  -record(compare_result, {to_start  = [] :: list(),
+        |                           to_stop   = [] :: list(),
+        |                           to_reload = [] :: list()}).
+        |  
+        |  -type compare_result() :: #compare_result{}.
+        |  
+        |  -type host() :: any(). % TODO: specify this
+        |  -type state() :: #state{}.
+        |  -type macro() :: {macro_key(), macro_value()}.
+        |  
+        |  %% The atom must have all characters in uppercase.
+        |  -type macro_key() :: atom().
+        |  
+        |  -type macro_value() :: term().
+        |  
+        |  -type known_term() :: override_global
+        |                      | override_local
+        |                      | override_acls
+        |                      | {acl, _, _}
+        |                      | {alarms, _}
+        |                      | {access, _, _}
+        |                      | {shaper, _, _}
+        |                      | {host, _}
+        |                      | {hosts, _}
+        |                      | {host_config, _, _}
+        |                      | {listen, _}
+        |                      | {language, _}
+        |                      | {sm_backend, _}
+        |                      | {outgoing_s2s_port, integer()}
+        |                      | {outgoing_s2s_options, _, integer()}
+        |                      | {{s2s_addr, _}, _}
+        |                      | {s2s_dns_options, [tuple()]}
+        |                      | {s2s_use_starttls, integer()}
+        |                      | {s2s_certfile, _}
+        |                      | {domain_certfile, _, _}
+        |                      | {node_type, _}
+        |                      | {cluster_nodes, _}
+        |                      | {registration_timeout, integer()}
+        |                      | {mongooseimctl_access_commands, list()}
+        |                      | {loglevel, _}
+        |                      | {max_fsm_queue, _}
+        |                      | host_term().
+        |  
+        |  -type host_term() :: {acl, _, _}
+        |                     | {access, _, _}
+        |                     | {shaper, _, _}
+        |                     | {host, _}
+        |                     | {hosts, _}
+        |                     | {odbc_server, _}.
+        |  
+        |  
+        |  -spec start() -&gt; ok.
+        |  start() -&gt;
+<font color=red>     0..|      mnesia:create_table(config,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {storage_properties,
+        |                            [{ets, [{read_concurrency,true}]}]},
+        |                           {attributes, record_info(fields, config)}]),
+<font color=red>     0..|      mnesia:add_table_copy(config, node(), ram_copies),</font>
+<font color=red>     0..|      mnesia:create_table(local_config,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {storage_properties,
+        |                            [{ets, [{read_concurrency,true}]}]},
+        |                           {local_content, true},
+        |                           {attributes, record_info(fields, local_config)}]),
+<font color=red>     0..|      mnesia:add_table_copy(local_config, node(), ram_copies),</font>
+<font color=red>     0..|      Config = get_ejabberd_config_path(),</font>
+<font color=red>     0..|      ejabberd_config:load_file(Config),</font>
+        |      %% This start time is used by mod_last:
+<font color=red>     0..|      add_local_option(node_start, now()),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% @doc Get the filename of the ejabberd configuration file.
+        |  %% The filename can be specified with: erl -config "/path/to/ejabberd.cfg".
+        |  %% It can also be specified with the environtment variable EJABBERD_CONFIG_PATH.
+        |  %% If not specified, the default value 'ejabberd.cfg' is assumed.
+        |  -spec get_ejabberd_config_path() -&gt; string().
+        |  get_ejabberd_config_path() -&gt;
+<font color=red>     0..|      DefaultPath = case os:getenv("EJABBERD_CONFIG_PATH") of</font>
+        |                        false -&gt;
+<font color=red>     0..|                            ?CONFIG_PATH;</font>
+        |                        Path -&gt;
+<font color=red>     0..|                            Path</font>
+        |                    end,
+        |  
+<font color=red>     0..|      application:get_env(ejabberd, config, DefaultPath).</font>
+        |  
+        |  %% @doc Load the ejabberd configuration file.
+        |  %% It also includes additional configuration files and replaces macros.
+        |  %% This function will crash if finds some error in the configuration file.
+        |  -spec load_file(File::string()) -&gt; ok.
+        |  load_file(File) -&gt;
+<font color=red>     0..|      Terms = get_plain_terms_file(File),</font>
+<font color=red>     0..|      State = lists:foldl(fun search_hosts/2, #state{}, Terms),</font>
+<font color=red>     0..|      Terms_macros = replace_macros(Terms),</font>
+<font color=red>     0..|      Res = lists:foldl(fun process_term/2, State, Terms_macros),</font>
+<font color=red>     0..|      set_opts(Res).</font>
+        |  
+        |  
+        |  %% @doc Read an ejabberd configuration file and return the terms.
+        |  %% Input is an absolute or relative path to an ejabberd config file.
+        |  %% Returns a list of plain terms,
+        |  %% in which the options 'include_config_file' were parsed
+        |  %% and the terms in those files were included.
+        |  -spec get_plain_terms_file(string()) -&gt; [term()].
+        |  get_plain_terms_file(File1) -&gt;
+<font color=red>     0..|      File = get_absolute_path(File1),</font>
+<font color=red>     0..|      case file:consult(File) of</font>
+        |          {ok, Terms} -&gt;
+<font color=red>     0..|              include_config_files(Terms);</font>
+        |          {error, {LineNumber, erl_parse, _ParseMessage} = Reason} -&gt;
+<font color=red>     0..|              ExitText = describe_config_problem(File, Reason, LineNumber),</font>
+<font color=red>     0..|              ?ERROR_MSG(ExitText, []),</font>
+<font color=red>     0..|              exit_or_halt(ExitText);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ExitText = describe_config_problem(File, Reason),</font>
+<font color=red>     0..|              ?ERROR_MSG(ExitText, []),</font>
+<font color=red>     0..|              exit_or_halt(ExitText)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Convert configuration filename to absolute path.
+        |  %% Input is an absolute or relative path to an ejabberd configuration file.
+        |  %% And returns an absolute path to the configuration file.
+        |  -spec get_absolute_path(string()) -&gt; string().
+        |  get_absolute_path(File) -&gt;
+<font color=red>     0..|      case filename:pathtype(File) of</font>
+        |          absolute -&gt;
+<font color=red>     0..|              File;</font>
+        |          relative -&gt;
+<font color=red>     0..|              {ok, Cwd} = file:get_cwd(),</font>
+<font color=red>     0..|              filename:absname_join(Cwd, File)</font>
+        |      end.
+        |  
+        |  
+        |  -spec search_hosts({host|hosts, [host()] | host()}, state()) -&gt; any().
+        |  search_hosts(Term, State) -&gt;
+<font color=red>     0..|      case Term of</font>
+        |          {host, Host} -&gt;
+<font color=red>     0..|              if</font>
+        |                  State#state.hosts == [] -&gt;
+<font color=red>     0..|                      add_hosts_to_option([Host], State);</font>
+        |                  true -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("Can't load config file: "</font>
+        |                                 "too many hosts definitions", []),
+<font color=red>     0..|                      exit("too many hosts definitions")</font>
+        |              end;
+        |          {hosts, Hosts} -&gt;
+<font color=red>     0..|              if</font>
+        |                  State#state.hosts == [] -&gt;
+<font color=red>     0..|                      add_hosts_to_option(Hosts, State);</font>
+        |                  true -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("Can't load config file: "</font>
+        |                                 "too many hosts definitions", []),
+<font color=red>     0..|                      exit("too many hosts definitions")</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              State</font>
+        |      end.
+        |  
+        |  
+        |  -spec add_hosts_to_option(Hosts :: [host()],
+        |                            State :: state()) -&gt; state().
+        |  add_hosts_to_option(Hosts, State) -&gt;
+<font color=red>     0..|      PrepHosts = normalize_hosts(Hosts),</font>
+<font color=red>     0..|      add_option(hosts, PrepHosts, State#state{hosts = PrepHosts}).</font>
+        |  
+        |  
+        |  -spec normalize_hosts([host()]) -&gt; [binary() | tuple()].
+        |  normalize_hosts(Hosts) -&gt;
+<font color=red>     0..|      normalize_hosts(Hosts,[]).</font>
+        |  
+        |  
+        |  normalize_hosts([], PrepHosts) -&gt;
+<font color=red>     0..|      lists:reverse(PrepHosts);</font>
+        |  normalize_hosts([Host|Hosts], PrepHosts) -&gt;
+<font color=red>     0..|      case jid:nodeprep(host_to_binary(Host)) of</font>
+        |          error -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Can't load config file: "</font>
+        |                         "invalid host name [~p]", [Host]),
+<font color=red>     0..|              exit("invalid hostname");</font>
+        |          PrepHost -&gt;
+<font color=red>     0..|              normalize_hosts(Hosts, [PrepHost|PrepHosts])</font>
+        |      end.
+        |  
+        |  -ifdef(latin1_characters).
+        |  host_to_binary(Host) -&gt;
+        |      list_to_binary(Host).
+        |  -else.
+        |  host_to_binary(Host) -&gt;
+<font color=red>     0..|      unicode:characters_to_binary(Host).</font>
+        |  -endif.
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  %%% Errors reading the config file
+        |  
+        |  -type config_problem() :: atom() | {integer(),atom() | tuple(),_}. % spec me better
+        |  -type config_line() :: [[any()] | non_neg_integer(),...]. % spec me better
+        |  
+        |  -spec describe_config_problem(Filename :: string(),
+        |                                Reason :: config_problem()) -&gt; string().
+        |  describe_config_problem(Filename, Reason) -&gt;
+<font color=red>     0..|      Text1 = lists:flatten("Problem loading ejabberd config file " ++ Filename),</font>
+<font color=red>     0..|      Text2 = lists:flatten(" : " ++ file:format_error(Reason)),</font>
+<font color=red>     0..|      ExitText = Text1 ++ Text2,</font>
+<font color=red>     0..|      ExitText.</font>
+        |  
+        |  
+        |  -spec describe_config_problem(Filename :: string(),
+        |                                Reason :: config_problem(),
+        |                                Line :: pos_integer()) -&gt; string().
+        |  describe_config_problem(Filename, Reason, LineNumber) -&gt;
+<font color=red>     0..|      Text1 = lists:flatten("Problem loading ejabberd config file " ++ Filename),</font>
+<font color=red>     0..|      Text2 = lists:flatten(" approximately in the line "</font>
+        |                            ++ file:format_error(Reason)),
+<font color=red>     0..|      ExitText = Text1 ++ Text2,</font>
+<font color=red>     0..|      Lines = get_config_lines(Filename, LineNumber, 10, 3),</font>
+<font color=red>     0..|      ?ERROR_MSG("The following lines from your configuration file might be"</font>
+        |                 " relevant to the error: ~n~s", [Lines]),
+<font color=red>     0..|      ExitText.</font>
+        |  
+        |  
+        |  -spec get_config_lines(Filename :: string(),
+        |                         TargetNumber :: integer(),
+        |                         PreContext :: 10,
+        |                         PostContext :: 3) -&gt; [config_line()].
+        |  get_config_lines(Filename, TargetNumber, PreContext, PostContext) -&gt;
+<font color=red>     0..|      {ok, Fd} = file:open(Filename, [read]),</font>
+<font color=red>     0..|      LNumbers = lists:seq(TargetNumber-PreContext, TargetNumber+PostContext),</font>
+<font color=red>     0..|      NextL = io:get_line(Fd, no_prompt),</font>
+<font color=red>     0..|      R = get_config_lines2(Fd, NextL, 1, LNumbers, []),</font>
+<font color=red>     0..|      file:close(Fd),</font>
+<font color=red>     0..|      R.</font>
+        |  
+        |  
+        |  get_config_lines2(_Fd, eof, _CurrLine, _LNumbers, R) -&gt;
+<font color=red>     0..|      lists:reverse(R);</font>
+        |  get_config_lines2(_Fd, _NewLine, _CurrLine, [], R) -&gt;
+<font color=red>     0..|      lists:reverse(R);</font>
+        |  get_config_lines2(Fd, Data, CurrLine, [NextWanted | LNumbers], R) when is_list(Data) -&gt;
+<font color=red>     0..|      NextL = io:get_line(Fd, no_prompt),</font>
+<font color=red>     0..|      if</font>
+        |          CurrLine &gt;= NextWanted -&gt;
+<font color=red>     0..|              Line2 = [integer_to_list(CurrLine), ": " | Data],</font>
+<font color=red>     0..|              get_config_lines2(Fd, NextL, CurrLine+1, LNumbers, [Line2 | R]);</font>
+        |          true -&gt;
+<font color=red>     0..|              get_config_lines2(Fd, NextL, CurrLine+1, [NextWanted | LNumbers], R)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc If ejabberd isn't yet running in this node, then halt the node
+        |  -spec exit_or_halt(ExitText :: string()) -&gt; none().
+        |  exit_or_halt(ExitText) -&gt;
+<font color=red>     0..|      case [Vsn || {ejabberd, _Desc, Vsn} &lt;- application:which_applications()] of</font>
+        |          [] -&gt;
+<font color=red>     0..|              timer:sleep(1000),</font>
+<font color=red>     0..|              halt(string:substr(ExitText, 1, 199));</font>
+        |          [_] -&gt;
+<font color=red>     0..|              exit(ExitText)</font>
+        |      end.
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  %%% Support for 'include_config_file'
+        |  
+        |  %% @doc Include additional configuration files in the list of terms.
+        |  -spec include_config_files([term()]) -&gt; [term()].
+        |  include_config_files(Terms) -&gt;
+<font color=red>     0..|      include_config_files(Terms, []).</font>
+        |  
+        |  
+        |  include_config_files([], Res) -&gt;
+<font color=red>     0..|      Res;</font>
+        |  include_config_files([{include_config_file, Filename} | Terms], Res) -&gt;
+<font color=red>     0..|      include_config_files([{include_config_file, Filename, []} | Terms], Res);</font>
+        |  include_config_files([{include_config_file, Filename, Options} | Terms], Res) -&gt;
+<font color=red>     0..|      Included_terms = get_plain_terms_file(Filename),</font>
+<font color=red>     0..|      Disallow = proplists:get_value(disallow, Options, []),</font>
+<font color=red>     0..|      Included_terms2 = delete_disallowed(Disallow, Included_terms),</font>
+<font color=red>     0..|      Allow_only = proplists:get_value(allow_only, Options, all),</font>
+<font color=red>     0..|      Included_terms3 = keep_only_allowed(Allow_only, Included_terms2),</font>
+<font color=red>     0..|      include_config_files(Terms, Res ++ Included_terms3);</font>
+        |  include_config_files([Term | Terms], Res) -&gt;
+<font color=red>     0..|      include_config_files(Terms, Res ++ [Term]).</font>
+        |  
+        |  
+        |  %% @doc Filter from the list of terms the disallowed.
+        |  %% Returns a sublist of Terms without the ones which first element is
+        |  %% included in Disallowed.
+        |  -spec delete_disallowed(Disallowed :: [atom()],
+        |                          Terms :: [term()]) -&gt; [term()].
+        |  delete_disallowed(Disallowed, Terms) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun(Dis, Ldis) -&gt;
+<font color=red>     0..|                delete_disallowed2(Dis, Ldis)</font>
+        |        end,
+        |        Terms,
+        |        Disallowed).
+        |  
+        |  
+        |  delete_disallowed2(Disallowed, [H|T]) -&gt;
+<font color=red>     0..|      case element(1, H) of</font>
+        |          Disallowed -&gt;
+<font color=red>     0..|              ?WARNING_MSG("The option '~p' is disallowed, "</font>
+        |                           "and will not be accepted", [Disallowed]),
+<font color=red>     0..|              delete_disallowed2(Disallowed, T);</font>
+        |          _ -&gt;
+<font color=red>     0..|              [H|delete_disallowed2(Disallowed, T)]</font>
+        |      end;
+        |  delete_disallowed2(_, []) -&gt;
+<font color=red>     0..|      [].</font>
+        |  
+        |  
+        |  %% @doc Keep from the list only the allowed terms.
+        |  %% Returns a sublist of Terms with only the ones which first element is
+        |  %% included in Allowed.
+        |  -spec keep_only_allowed(Allowed :: [atom()],
+        |                          Terms::[term()]) -&gt; [term()].
+        |  keep_only_allowed(all, Terms) -&gt;
+<font color=red>     0..|      Terms;</font>
+        |  keep_only_allowed(Allowed, Terms) -&gt;
+<font color=red>     0..|      {As, NAs} = lists:partition(</font>
+        |                    fun(Term) -&gt;
+<font color=red>     0..|                            lists:member(element(1, Term), Allowed)</font>
+        |                    end,
+        |                    Terms),
+<font color=red>     0..|      [?WARNING_MSG("This option is not allowed, "</font>
+        |                    "and will not be accepted:~n~p", [NA])
+<font color=red>     0..|       || NA &lt;- NAs],</font>
+<font color=red>     0..|      As.</font>
+        |  
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  %%% Support for Macro
+        |  
+        |  %% @doc Replace the macros with their defined values.
+        |  -spec replace_macros(Terms :: [term()]) -&gt; [term()].
+        |  replace_macros(Terms) -&gt;
+<font color=red>     0..|      {TermsOthers, Macros} = split_terms_macros(Terms),</font>
+<font color=red>     0..|      replace(TermsOthers, Macros).</font>
+        |  
+        |  
+        |  %% @doc Split Terms into normal terms and macro definitions.
+        |  -spec split_terms_macros(Terms :: [term()]) -&gt; {[term()], [macro()]}.
+        |  split_terms_macros(Terms) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun(Term, {TOs, Ms}) -&gt;
+<font color=red>     0..|                case Term of</font>
+        |                    {define_macro, Key, Value} -&gt;
+<font color=red>     0..|                        case is_atom(Key) and is_all_uppercase(Key) of</font>
+        |                            true -&gt;
+<font color=red>     0..|                                {TOs, Ms++[{Key, Value}]};</font>
+        |                            false -&gt;
+<font color=red>     0..|                                exit({macro_not_properly_defined, Term})</font>
+        |                        end;
+        |                    Term -&gt;
+<font color=red>     0..|                        {TOs ++ [Term], Ms}</font>
+        |                end
+        |        end,
+        |        {[], []},
+        |        Terms).
+        |  
+        |  
+        |  %% @doc Recursively replace in Terms macro usages with the defined value.
+        |  -spec replace(Terms :: [term()],
+        |                Macros :: [macro()]) -&gt; [term()].
+        |  replace([], _) -&gt;
+<font color=red>     0..|      [];</font>
+        |  replace([Term|Terms], Macros) -&gt;
+<font color=red>     0..|      [replace_term(Term, Macros) | replace(Terms, Macros)].</font>
+        |  
+        |  
+        |  replace_term(Key, Macros) when is_atom(Key) -&gt;
+<font color=red>     0..|      case is_all_uppercase(Key) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case proplists:get_value(Key, Macros) of</font>
+<font color=red>     0..|                  undefined -&gt; exit({undefined_macro, Key});</font>
+<font color=red>     0..|                  Value -&gt; Value</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              Key</font>
+        |      end;
+        |  replace_term({use_macro, Key, Value}, Macros) -&gt;
+<font color=red>     0..|      proplists:get_value(Key, Macros, Value);</font>
+        |  replace_term(Term, Macros) when is_list(Term) -&gt;
+<font color=red>     0..|      replace(Term, Macros);</font>
+        |  replace_term(Term, Macros) when is_tuple(Term) -&gt;
+<font color=red>     0..|      List = tuple_to_list(Term),</font>
+<font color=red>     0..|      List2 = replace(List, Macros),</font>
+<font color=red>     0..|      list_to_tuple(List2);</font>
+        |  replace_term(Term, _) -&gt;
+<font color=red>     0..|      Term.</font>
+        |  
+        |  
+        |  -spec is_all_uppercase(atom()) -&gt; boolean().
+        |  is_all_uppercase(Atom) -&gt;
+<font color=red>     0..|      String = erlang:atom_to_list(Atom),</font>
+<font color=red>     0..|      lists:all(fun(C) when C &gt;= $a, C =&lt; $z -&gt; false;</font>
+<font color=red>     0..|                   (_) -&gt; true</font>
+        |                end, String).
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  %%% Process terms
+        |  
+        |  -spec process_term(Term :: known_term(),
+        |                     State :: state()) -&gt; state().
+        |  process_term(Term, State) -&gt;
+<font color=red>     0..|      case Term of</font>
+        |          override_global -&gt;
+<font color=red>     0..|              State#state{override_global = true};</font>
+        |          override_local -&gt;
+<font color=red>     0..|              State#state{override_local = true};</font>
+        |          override_acls -&gt;
+<font color=red>     0..|              State#state{override_acls = true};</font>
+        |          {acl, _ACLName, _ACLData} -&gt;
+<font color=red>     0..|              process_host_term(Term, global, State);</font>
+        |          {alarms, Env} -&gt;
+<font color=red>     0..|              add_option(alarms, Env, State);</font>
+        |          {access, _RuleName, _Rules} -&gt;
+<font color=red>     0..|              process_host_term(Term, global, State);</font>
+        |          {shaper, _Name, _Data} -&gt;
+        |              %%lists:foldl(fun(Host, S) -&gt; process_host_term(Term, Host, S) end,
+        |              %%    	State, State#state.hosts);
+<font color=red>     0..|              process_host_term(Term, global, State);</font>
+        |          {host, _Host} -&gt;
+<font color=red>     0..|              State;</font>
+        |          {hosts, _Hosts} -&gt;
+<font color=red>     0..|              State;</font>
+        |          {host_config, Host, Terms} -&gt;
+<font color=red>     0..|              lists:foldl(fun(T, S) -&gt;</font>
+<font color=red>     0..|                              process_host_term(T, list_to_binary(Host), S) end,</font>
+        |                          State, Terms);
+        |          {listen, Listeners} -&gt;
+<font color=red>     0..|              Listeners2 =</font>
+        |                  lists:map(
+        |                    fun({PortIP, Module, Opts}) -&gt;
+<font color=red>     0..|                            {Port, IPT, _, _, Proto, OptsClean} =</font>
+        |                                ejabberd_listener:parse_listener_portip(PortIP, Opts),
+<font color=red>     0..|                            {{Port, IPT, Proto}, Module, OptsClean}</font>
+        |                    end,
+        |                    Listeners),
+<font color=red>     0..|              add_option(listen, Listeners2, State);</font>
+        |          {language, Val} -&gt;
+<font color=red>     0..|              add_option(language, list_to_binary(Val), State);</font>
+        |          {sm_backend, Val} -&gt;
+<font color=red>     0..|              add_option(sm_backend, Val, State);</font>
+        |          {outgoing_s2s_port, Port} -&gt;
+<font color=red>     0..|              add_option(outgoing_s2s_port, Port, State);</font>
+        |          {outgoing_s2s_options, Methods, Timeout} -&gt;
+<font color=red>     0..|              add_option(outgoing_s2s_options, {Methods, Timeout}, State);</font>
+        |          {{s2s_addr, Host}, Addr} -&gt;
+<font color=red>     0..|              add_option({s2s_addr, list_to_binary(Host)}, Addr, State);</font>
+        |          {s2s_dns_options, PropList} -&gt;
+<font color=red>     0..|              add_option(s2s_dns_options, PropList, State);</font>
+        |          {s2s_use_starttls, Port} -&gt;
+<font color=red>     0..|              add_option(s2s_use_starttls, Port, State);</font>
+        |          {s2s_ciphers, Ciphers} -&gt;
+<font color=red>     0..|              add_option(s2s_ciphers, Ciphers, State);</font>
+        |          {s2s_certfile, CertFile} -&gt;
+<font color=red>     0..|              case ejabberd_config:is_file_readable(CertFile) of</font>
+<font color=red>     0..|                  true -&gt; add_option(s2s_certfile, CertFile, State);</font>
+        |                  false -&gt;
+<font color=red>     0..|                      ErrorText = "There is a problem in the configuration: "</font>
+        |                          "the specified file is not readable: ",
+<font color=red>     0..|                      throw({error, ErrorText ++ CertFile})</font>
+        |              end;
+        |          {domain_certfile, Domain, CertFile} -&gt;
+<font color=red>     0..|              case ejabberd_config:is_file_readable(CertFile) of</font>
+<font color=red>     0..|                  true -&gt; add_option({domain_certfile, Domain}, CertFile, State);</font>
+        |                  false -&gt;
+<font color=red>     0..|                      ErrorText = "There is a problem in the configuration: "</font>
+        |                          "the specified file is not readable: ",
+<font color=red>     0..|                      throw({error, ErrorText ++ CertFile})</font>
+        |              end;
+        |          {node_type, NodeType} -&gt;
+<font color=red>     0..|              add_option(node_type, NodeType, State);</font>
+        |          {cluster_nodes, Nodes} -&gt;
+<font color=red>     0..|              add_option(cluster_nodes, Nodes, State);</font>
+        |          {watchdog_admins, Admins} -&gt;
+<font color=red>     0..|              add_option(watchdog_admins, Admins, State);</font>
+        |          {watchdog_large_heap, LH} -&gt;
+<font color=red>     0..|              add_option(watchdog_large_heap, LH, State);</font>
+        |          {registration_timeout, Timeout} -&gt;
+<font color=red>     0..|              add_option(registration_timeout, Timeout, State);</font>
+        |          {mongooseimctl_access_commands, ACs} -&gt;
+<font color=red>     0..|              add_option(mongooseimctl_access_commands, ACs, State);</font>
+        |          {loglevel, Loglevel} -&gt;
+<font color=red>     0..|              ejabberd_loglevel:set(Loglevel),</font>
+<font color=red>     0..|              State;</font>
+        |          {max_fsm_queue, N} -&gt;
+<font color=red>     0..|              add_option(max_fsm_queue, N, State);</font>
+        |          {_Opt, _Val} -&gt;
+<font color=red>     0..|              lists:foldl(fun(Host, S) -&gt; process_host_term(Term, Host, S) end,</font>
+        |                          State, State#state.hosts)
+        |      end.
+        |  
+        |  
+        |  -spec process_host_term(Term :: host_term(),
+        |                          Host :: acl:host(),
+        |                          State :: state()) -&gt; state().
+        |  process_host_term(Term, Host, State) -&gt;
+<font color=red>     0..|      case Term of</font>
+        |          {acl, ACLName, ACLData} -&gt;
+<font color=red>     0..|              State#state{opts =</font>
+        |                      [acl:to_record(Host, ACLName, ACLData) | State#state.opts]};
+        |          {access, RuleName, Rules} -&gt;
+<font color=red>     0..|              State#state{opts = [#config{key = {access, RuleName, Host},</font>
+        |                                          value = Rules} |
+        |                                  State#state.opts]};
+        |          {shaper, Name, Data} -&gt;
+<font color=red>     0..|              State#state{opts = [#config{key = {shaper, Name, Host},</font>
+        |                                          value = Data} |
+        |                                  State#state.opts]};
+        |          {host, Host} -&gt;
+<font color=red>     0..|              State;</font>
+        |          {hosts, _Hosts} -&gt;
+<font color=red>     0..|              State;</font>
+        |          {odbc_server, ODBC_server} -&gt;
+<font color=red>     0..|              add_option({odbc_server, Host}, ODBC_server, State);</font>
+        |          {riak_server, RiakConfig} -&gt;
+<font color=red>     0..|              add_option(riak_server, RiakConfig, State);</font>
+        |          {Opt, Val} -&gt;
+<font color=red>     0..|              add_option({Opt, Host}, Val, State)</font>
+        |      end.
+        |  
+        |  
+        |  -spec add_option(Opt :: key(),
+        |                   Val :: value(),
+        |                   State :: state()) -&gt; state().
+        |  add_option(Opt, Val, State) -&gt;
+<font color=red>     0..|      Table = case Opt of</font>
+        |                  hosts -&gt;
+<font color=red>     0..|                      config;</font>
+        |                  language -&gt;
+<font color=red>     0..|                      config;</font>
+        |                  sm_backend -&gt;
+<font color=red>     0..|                      config;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      local_config</font>
+        |              end,
+<font color=red>     0..|      case Table of</font>
+        |          config -&gt;
+<font color=red>     0..|              State#state{opts = [#config{key = Opt, value = Val} |</font>
+        |                                  State#state.opts]};
+        |          local_config -&gt;
+<font color=red>     0..|              case Opt of</font>
+        |                  {{add, OptName}, Host} -&gt;
+<font color=red>     0..|                      State#state{opts = compact({OptName, Host}, Val,</font>
+        |                                                 State#state.opts, [])};
+        |                  _ -&gt;
+<font color=red>     0..|                      State#state{opts = [#local_config{key = Opt, value = Val} |</font>
+        |                                          State#state.opts]}
+        |              end
+        |      end.
+        |  
+        |  
+        |  compact({OptName, Host} = Opt, Val, [], Os) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("The option '~p' is defined for the host ~p using host_config "</font>
+        |                   "before the global '~p' option. This host_config option may "
+        |                   "get overwritten.", [OptName, Host, OptName]),
+<font color=red>     0..|      [#local_config{key = Opt, value = Val}] ++ Os;</font>
+        |  %% Traverse the list of the options already parsed
+        |  compact(Opt, Val, [O | Os1], Os2) -&gt;
+<font color=red>     0..|      case catch O#local_config.key of</font>
+        |          %% If the key of a local_config matches the Opt that wants to be added
+        |          Opt -&gt;
+        |              %% Then prepend the new value to the list of old values
+<font color=red>     0..|              Os2 ++ [#local_config{key = Opt,</font>
+        |                                    value = Val++O#local_config.value}
+        |                     ] ++ Os1;
+        |          _ -&gt;
+<font color=red>     0..|              compact(Opt, Val, Os1, Os2++[O])</font>
+        |      end.
+        |  
+        |  
+        |  -spec set_opts(state()) -&gt; 'ok' | none().
+        |  set_opts(State) -&gt;
+<font color=red>     0..|      Opts = lists:reverse(State#state.opts),</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  if</font>
+        |                      State#state.override_global -&gt;
+<font color=red>     0..|                          Ksg = mnesia:all_keys(config),</font>
+<font color=red>     0..|                          lists:foreach(fun(K) -&gt;</font>
+<font color=red>     0..|                                                mnesia:delete({config, K})</font>
+        |                                        end, Ksg);
+        |                      true -&gt;
+<font color=red>     0..|                          ok</font>
+        |                  end,
+<font color=red>     0..|                  if</font>
+        |                      State#state.override_local -&gt;
+<font color=red>     0..|                          Ksl = mnesia:all_keys(local_config),</font>
+<font color=red>     0..|                          lists:foreach(fun(K) -&gt;</font>
+<font color=red>     0..|                                                mnesia:delete({local_config, K})</font>
+        |                                        end, lists:delete(node_start, Ksl));
+        |                      true -&gt;
+<font color=red>     0..|                          ok</font>
+        |                  end,
+<font color=red>     0..|                  if</font>
+        |                      State#state.override_acls -&gt;
+<font color=red>     0..|                          Ksa = mnesia:all_keys(acl),</font>
+<font color=red>     0..|                          lists:foreach(fun(K) -&gt;</font>
+<font color=red>     0..|                                                mnesia:delete({acl, K})</font>
+        |                                        end, Ksa);
+        |                      true -&gt;
+<font color=red>     0..|                          ok</font>
+        |                  end,
+<font color=red>     0..|                  lists:foreach(fun(R) -&gt;</font>
+<font color=red>     0..|                                        mnesia:write(R)</font>
+        |                                end, Opts)
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+<font color=red>     0..|          {atomic, _} -&gt; ok;</font>
+        |          {aborted,{no_exists,Table}} -&gt;
+<font color=red>     0..|              MnesiaDirectory = mnesia:system_info(directory),</font>
+<font color=red>     0..|              ?ERROR_MSG("Error reading Mnesia database spool files:~n"</font>
+        |                         "The Mnesia database couldn't read the spool file for the table '~p'.~n"
+        |                         "ejabberd needs read and write access in the directory:~n   ~s~n"
+        |                         "Maybe the problem is a change in the computer hostname,~n"
+        |                         "or a change in the Erlang node name, which is currently:~n   ~p~n"
+        |                         "Check the ejabberd guide for details about changing the~n"
+        |                         "computer hostname or Erlang node name.~n",
+        |                         [Table, MnesiaDirectory, node()]),
+<font color=red>     0..|              exit("Error reading Mnesia database")</font>
+        |      end.
+        |  
+        |  
+        |  -spec add_global_option(Opt :: key(), Val :: value()) -&gt; {atomic|aborted, _}.
+        |  add_global_option(Opt, Val) -&gt;
+<font color=red>     0..|      mnesia:transaction(fun() -&gt;</font>
+<font color=red>     0..|                                 mnesia:write(#config{key = Opt,</font>
+        |                                                      value = Val})
+        |                         end).
+        |  
+        |  
+        |  -spec add_local_option(Opt :: key(), Val :: value()) -&gt; {atomic|aborted, _}.
+        |  add_local_option(Opt, Val) -&gt;
+<font color=red>     0..|      mnesia:transaction(fun() -&gt;</font>
+<font color=red>     0..|                                 mnesia:write(#local_config{key = Opt,</font>
+        |                                                            value = Val})
+        |                         end).
+        |  
+        |  -spec del_local_option(Opt :: key()) -&gt; {atomic | aborted, _}.
+        |  del_local_option(Opt) -&gt;
+<font color=red>     0..|      mnesia:transaction(fun mnesia:delete/1, [{local_config, Opt}]).</font>
+        |  
+        |  -spec get_global_option(key()) -&gt; value() | undefined.
+        |  get_global_option(Opt) -&gt;
+<font color=red>     0..|      case ets:lookup(config, Opt) of</font>
+        |          [#config{value = Val}] -&gt;
+<font color=red>     0..|              Val;</font>
+        |          _ -&gt;
+<font color=red>     0..|              undefined</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_local_option(key()) -&gt; value() | undefined.
+        |  get_local_option(Opt) -&gt;
+<font color=red>     0..|      case ets:lookup(local_config, Opt) of</font>
+        |          [#local_config{value = Val}] -&gt;
+<font color=red>     0..|              Val;</font>
+        |          _ -&gt;
+<font color=red>     0..|              undefined</font>
+        |      end.
+        |  
+        |  -spec get_local_option(key(), host()) -&gt; value() | undefined.
+        |  get_local_option(Opt, Host) -&gt;
+<font color=red>     0..|      case get_local_option({Opt, Host}) of</font>
+<font color=red>     0..|          undefined -&gt; get_global_option(Opt);</font>
+<font color=red>     0..|          Val -&gt; Val</font>
+        |      end.
+        |  
+        |  -spec get_local_option_or_default(key(), value()) -&gt; value().
+        |  get_local_option_or_default(Opt, Default) -&gt;
+<font color=red>     0..|      case get_local_option(Opt) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              Default;</font>
+        |          Value -&gt;
+<font color=red>     0..|              Value</font>
+        |      end.
+        |  
+        |  %% @doc Return the list of hosts handled by a given module
+        |  get_vh_by_auth_method(AuthMethod) -&gt;
+<font color=red>     0..|      mnesia:dirty_select(local_config,</font>
+        |                          [{#local_config{key = {auth_method, '$1'},
+        |                                          value=AuthMethod},[],['$1']}]).
+        |  
+        |  
+        |  -spec is_file_readable(Path :: string()) -&gt; boolean().
+        |  is_file_readable(Path) -&gt;
+<font color=red>     0..|      case file:read_file_info(Path) of</font>
+        |          {ok, FileInfo} -&gt;
+<font color=red>     0..|              case {FileInfo#file_info.type, FileInfo#file_info.access} of</font>
+<font color=red>     0..|                  {regular, read} -&gt; true;</font>
+<font color=red>     0..|                  {regular, read_write} -&gt; true;</font>
+<font color=red>     0..|                  _ -&gt; false</font>
+        |              end;
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Configuration reload
+        |  %%--------------------------------------------------------------------
+        |  -spec parse_file(file:name()) -&gt; state().
+        |  parse_file(ConfigFile) -&gt;
+<font color=red>     0..|      Terms = get_plain_terms_file(ConfigFile),</font>
+<font color=red>     0..|      State = lists:foldl(fun search_hosts/2, #state{}, Terms),</font>
+<font color=red>     0..|      TermsWExpandedMacros = replace_macros(Terms),</font>
+<font color=red>     0..|      lists:foldl(fun process_term/2, State, TermsWExpandedMacros).</font>
+        |  
+        |  -spec reload_local() -&gt; {ok, iolist()} | no_return().
+        |  reload_local() -&gt;
+<font color=red>     0..|      ConfigFile = get_ejabberd_config_path(),</font>
+<font color=red>     0..|      State0 = parse_file(ConfigFile),</font>
+<font color=red>     0..|      {CC, LC, LHC} = get_config_diff(State0),</font>
+<font color=red>     0..|      ConfigVersion = compute_config_version(get_local_config(),</font>
+        |                                             get_host_local_config()),
+<font color=red>     0..|      State1 = State0#state{override_global = true,</font>
+        |                            override_local = true,
+        |                            override_acls = true},
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          {ok, _} = apply_changes(CC, LC, LHC, State1, ConfigVersion),</font>
+<font color=red>     0..|          ?WARNING_MSG("node config reloaded from ~s", [ConfigFile]),</font>
+<font color=red>     0..|          {ok, io_lib:format("# Reloaded: ~s", [node()])}</font>
+        |      catch
+        |          Error:Reason -&gt;
+<font color=red>     0..|              Msg = msg("failed to apply config on node: ~p~nreason: ~p",</font>
+        |                        [node(), {Error, Reason}]),
+<font color=red>     0..|              ?WARNING_MSG("node config reload failed!~n"</font>
+        |                           "current config version: ~p~n"
+        |                           "config file: ~s~n"
+        |                           "reason: ~p~n"
+        |                           "stacktrace: ~ts",
+        |                           [ConfigVersion, ConfigFile, Msg,
+        |                            msg("~p", [erlang:get_stacktrace()])]),
+<font color=red>     0..|              error(Msg)</font>
+        |      end.
+        |  
+        |  %% Won't be unnecessarily evaluated if used as an argument
+        |  %% to lager parse transform.
+        |  msg(Fmt, Args) -&gt;
+<font color=red>     0..|      lists:flatten(io_lib:format(Fmt, Args)).</font>
+        |  
+        |  -spec reload_cluster() -&gt; {ok, string()} | no_return().
+        |  reload_cluster() -&gt;
+<font color=red>     0..|      CurrentNode = node(),</font>
+<font color=red>     0..|      ConfigFile = get_ejabberd_config_path(),</font>
+<font color=red>     0..|      State0 = parse_file(ConfigFile),</font>
+<font color=red>     0..|      ConfigDiff = {CC, LC, LHC} = get_config_diff(State0),</font>
+        |  
+<font color=red>     0..|      ConfigVersion = compute_config_version(get_local_config(),</font>
+        |                                             get_host_local_config()),
+<font color=red>     0..|      FileVersion = compute_config_file_version(State0),</font>
+<font color=red>     0..|      ?WARNING_MSG("cluster config reload from ~s scheduled", [ConfigFile]),</font>
+        |      %% first apply on local
+<font color=red>     0..|      State1 = State0#state{override_global = true,</font>
+        |                            override_local = true, override_acls = true},
+<font color=red>     0..|      case catch apply_changes(CC, LC, LHC, State1, ConfigVersion) of</font>
+        |          {ok, CurrentNode} -&gt;
+        |              %% apply on other nodes
+<font color=red>     0..|              {S,F} = rpc:multicall(nodes(), ?MODULE, apply_changes_remote,</font>
+        |                                    [ConfigFile, ConfigDiff,
+        |                                     ConfigVersion, FileVersion],
+        |                                    30000),
+<font color=red>     0..|              {S1,F1} = group_nodes_results([{ok,node()} | S],F),</font>
+<font color=red>     0..|              ResultText = (groups_to_string("# Reloaded:", S1)</font>
+        |                            ++ groups_to_string("\n# Failed:", F1)),
+<font color=red>     0..|              case F1 of</font>
+<font color=red>     0..|                  []    -&gt; ?WARNING_MSG("cluster config reloaded successfully", []);</font>
+        |                  [_|_] -&gt;
+<font color=red>     0..|                      FailedUpdateOrRPC = F ++ [Node || {error, Node, _} &lt;- S],</font>
+<font color=red>     0..|                      ?WARNING_MSG("cluster config reload failed on nodes: ~p",</font>
+        |                                   [FailedUpdateOrRPC])
+        |              end,
+<font color=red>     0..|              {ok,  ResultText};</font>
+        |          Error -&gt;
+<font color=red>     0..|              Reason = msg("failed to apply config on node: ~p~nreason: ~p",</font>
+        |                           [CurrentNode, Error]),
+<font color=red>     0..|              ?WARNING_MSG("cluster config reload failed!~n"</font>
+        |                           "config file: ~s~n"
+        |                           "reason: ~ts", [ConfigFile, Reason]),
+<font color=red>     0..|              exit(Reason)</font>
+        |      end.
+        |  
+        |  -spec groups_to_string(string(), [string()]) -&gt; string().
+        |  groups_to_string(_Header, []) -&gt;
+<font color=red>     0..|      "";</font>
+        |  groups_to_string(Header, S) -&gt;
+<font color=red>     0..|      Header++"\n"++string:join(S,"\n").</font>
+        |  
+        |  -spec group_nodes_results(list(), [atom]) -&gt; {[string()],[string()]}.
+        |  group_nodes_results(SuccessfullRPC, FailedRPC) -&gt;
+<font color=red>     0..|      {S,F} = lists:foldl(fun (El, {SN,FN}) -&gt;</font>
+<font color=red>     0..|                                  case El of</font>
+        |                                      {ok, Node} -&gt;
+<font color=red>     0..|                                          {[atom_to_list(Node) | SN], FN};</font>
+        |                                      {error, Node, Reason} -&gt;
+<font color=red>     0..|                                          {SN, [atom_to_list(Node)++" "++Reason|FN]}</font>
+        |                                  end
+        |                          end, {[],[]}, SuccessfullRPC),
+<font color=red>     0..|      {S,F ++ lists:map(fun (E) -&gt; {atom_to_list(E)++" "++"RPC failed"} end, FailedRPC)}.</font>
+        |  
+        |  -spec get_config_diff(state()) -&gt; {ConfigChanges,
+        |                                     LocalConfigChanges,
+        |                                     LocalHostsChanges} when
+        |        ConfigChanges :: compare_result(),
+        |        LocalConfigChanges :: compare_result(),
+        |        LocalHostsChanges :: compare_result().
+        |  get_config_diff(State) -&gt;
+        |      % New Options
+<font color=red>     0..|      {NewConfig, NewLocal, NewHostsLocal} = categorize_options(State#state.opts),</font>
+        |      % Current Options
+<font color=red>     0..|      Config = get_global_config(),</font>
+<font color=red>     0..|      Local = get_local_config(),</font>
+<font color=red>     0..|      HostsLocal = get_host_local_config(),</font>
+        |      %% global config diff
+<font color=red>     0..|      CC = compare_terms(Config, NewConfig, 2, 3),</font>
+<font color=red>     0..|      LC = compare_terms(Local, NewLocal, 2, 3),</font>
+<font color=red>     0..|      LHC = compare_terms(group_host_changes(HostsLocal), group_host_changes(NewHostsLocal), 1, 2),</font>
+<font color=red>     0..|      {CC, LC, LHC}.</font>
+        |  
+        |  -spec apply_changes_remote(file:name(), term(), binary(), binary()) -&gt;
+        |                                  {ok, node()}| {error,node(),string()}.
+        |  apply_changes_remote(NewConfigFilePath, ConfigDiff,
+        |                       DesiredConfigVersion, DesiredFileVersion) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("remote config reload scheduled", []),</font>
+<font color=red>     0..|      ?DEBUG("~ndesired config version: ~p"</font>
+        |             "~ndesired file version: ~p",
+        |             [DesiredConfigVersion, DesiredFileVersion]),
+<font color=red>     0..|      Node = node(),</font>
+<font color=red>     0..|      {CC, LC, LHC} = ConfigDiff,</font>
+<font color=red>     0..|      State0 = parse_file(NewConfigFilePath),</font>
+<font color=red>     0..|      case compute_config_file_version(State0) of</font>
+        |          DesiredFileVersion -&gt;
+<font color=red>     0..|              State1 = State0#state{override_global = false,</font>
+        |                                    override_local = true,
+        |                                    override_acls = false},
+<font color=red>     0..|              case catch apply_changes(CC, LC, LHC, State1,</font>
+        |                                       DesiredConfigVersion) of
+        |                  {ok, Node} = R -&gt;
+<font color=red>     0..|                      ?WARNING_MSG("remote config reload succeeded", []),</font>
+<font color=red>     0..|                      R;</font>
+        |                  UnknownResult -&gt;
+<font color=red>     0..|                      ?WARNING_MSG("remote config reload failed! "</font>
+        |                                   "can't apply desired config", []),
+<font color=red>     0..|                      {error, Node,</font>
+        |                       lists:flatten(io_lib:format("~p", [UnknownResult]))}
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              ?WARNING_MSG("remote config reload failed! "</font>
+        |                           "can't compute current config version", []),
+<font color=red>     0..|              {error, Node, io_lib:format("Mismatching config file", [])}</font>
+        |      end.
+        |  
+        |  -spec apply_changes(term(), term(), term(), state(), binary()) -&gt;
+        |                             {ok, node()} | {error, node(), string()}.
+        |  apply_changes(ConfigChanges, LocalConfigChanges, LocalHostsChanges,
+        |                State, DesiredConfigVersion) -&gt;
+<font color=red>     0..|      ConfigVersion = compute_config_version(get_local_config(),</font>
+        |                                             get_host_local_config()),
+<font color=red>     0..|      ?DEBUG("config version: ~p", [ConfigVersion]),</font>
+<font color=red>     0..|      case ConfigVersion of</font>
+        |          DesiredConfigVersion  -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              exit("Outdated configuration on node; cannot apply new one")</font>
+        |      end,
+        |      %% apply config
+<font color=red>     0..|      set_opts(State),</font>
+        |  
+<font color=red>     0..|      reload_config(ConfigChanges),</font>
+<font color=red>     0..|      reload_local_config(LocalConfigChanges),</font>
+<font color=red>     0..|      reload_local_hosts_config(LocalHostsChanges),</font>
+        |  
+<font color=red>     0..|      {ok, node()}.</font>
+        |  
+        |  reload_config(#compare_result{to_start = CAdd, to_stop = CDel,
+        |                                to_reload = CChange}) -&gt;
+<font color=red>     0..|      lists:foreach(fun handle_config_change/1, CChange),</font>
+<font color=red>     0..|      lists:foreach(fun handle_config_add/1, CAdd),</font>
+<font color=red>     0..|      lists:foreach(fun handle_config_del/1, CDel).</font>
+        |  
+        |  reload_local_config(#compare_result{to_start = LCAdd, to_stop = LCDel,
+        |                                      to_reload = LCChange}) -&gt;
+<font color=red>     0..|      lists:foreach(fun handle_local_config_change/1, LCChange),</font>
+<font color=red>     0..|      lists:foreach(fun handle_local_config_add/1, LCAdd),</font>
+<font color=red>     0..|      lists:foreach(fun handle_local_config_del/1, LCDel).</font>
+        |  
+        |  reload_local_hosts_config(#compare_result{to_start = LCHAdd, to_stop = LCHDel,
+        |                                            to_reload = LCHChange}) -&gt;
+<font color=red>     0..|      lists:foreach(fun handle_local_hosts_config_change/1, LCHChange),</font>
+<font color=red>     0..|      lists:foreach(fun handle_local_hosts_config_add/1, LCHAdd),</font>
+<font color=red>     0..|      lists:foreach(fun handle_local_hosts_config_del/1, LCHDel).</font>
+        |  
+        |  %% ----------------------------------------------------------------
+        |  %% CONFIG
+        |  %% ----------------------------------------------------------------
+        |  handle_config_add(#config{key = hosts, value = Hosts}) when is_list(Hosts) -&gt;
+<font color=red>     0..|      lists:foreach(fun(Host) -&gt; add_virtual_host(Host) end, Hosts).</font>
+        |  
+        |  handle_config_del(#config{key = hosts,value =  Hosts}) -&gt;
+<font color=red>     0..|      lists:foreach(fun(Host) -&gt; remove_virtual_host(Host) end, Hosts).</font>
+        |  
+        |  %% handle add/remove new hosts
+        |  handle_config_change({hosts, OldHosts, NewHosts})-&gt;
+<font color=red>     0..|      {ToDel, ToAdd} = check_hosts(NewHosts, OldHosts),</font>
+<font color=red>     0..|      lists:foreach(fun remove_virtual_host/1, ToDel),</font>
+<font color=red>     0..|      lists:foreach(fun add_virtual_host/1, ToAdd);</font>
+        |  handle_config_change({language, _Old, _New}) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  handle_config_change({_Key, _OldValue, _NewValue}) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% ----------------------------------------------------------------
+        |  %% LOCAL CONFIG
+        |  %% ----------------------------------------------------------------
+        |  handle_local_config_add(#local_config{key = riak_server}) -&gt;
+<font color=red>     0..|      mongoose_riak:start();</font>
+        |  handle_local_config_add(#local_config{key=Key} = El) -&gt;
+<font color=red>     0..|      case Key of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ?WARNING_MSG("local config add ~p option unhandled",[El])</font>
+        |      end.
+        |  
+        |  handle_local_config_del(#local_config{key = riak_server}) -&gt;
+<font color=red>     0..|      mongoose_riak:stop();</font>
+        |  handle_local_config_del(#local_config{key = node_start}) -&gt;
+        |      %% do nothing with it
+<font color=red>     0..|      ok;</font>
+        |  handle_local_config_del(#local_config{key=Key} = El) -&gt;
+<font color=red>     0..|      case can_be_ignored(Key) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ?WARNING_MSG("local config change: ~p unhandled",[El])</font>
+        |      end.
+        |  
+        |  handle_local_config_change({listen, Old, New}) -&gt;
+<font color=red>     0..|      reload_listeners(compare_listeners(Old, New));</font>
+        |  handle_local_config_change({riak_server, _Old, _New}) -&gt;
+<font color=red>     0..|      mongoose_riak:stop(),</font>
+<font color=red>     0..|      mongoose_riak:start(),</font>
+<font color=red>     0..|      ok;</font>
+        |  
+        |  handle_local_config_change({Key, _Old, _New} = El) -&gt;
+<font color=red>     0..|      case can_be_ignored(Key) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ?WARNING_MSG("local config change: ~p unhandled",[El])</font>
+        |      end.
+        |  
+        |  %% ----------------------------------------------------------------
+        |  %% LOCAL HOST CONFIG
+        |  %% ----------------------------------------------------------------
+        |  
+        |  handle_local_hosts_config_add({{auth, Host}, _}) -&gt;
+<font color=red>     0..|      ejabberd_auth:start(Host);</font>
+        |  handle_local_hosts_config_add({{odbc, Host}, _}) -&gt;
+<font color=red>     0..|      ejabberd_rdbms:start(Host);</font>
+        |  handle_local_hosts_config_add({{ldap, _Host}, _}) -&gt;
+        |      %% ignore ldap section
+<font color=red>     0..|      ok;</font>
+        |  handle_local_hosts_config_add({{modules, Host}, Modules}) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun({Module, Args}) -&gt;
+<font color=red>     0..|                gen_mod:start_module(Host, Module, Args)</font>
+        |        end, Modules);
+        |  handle_local_hosts_config_add({{Key,_Host}, _} = El) -&gt;
+<font color=red>     0..|      case can_be_ignored(Key) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ?WARNING_MSG("local hosts config add option: ~p unhandled",[El])</font>
+        |      end.
+        |  
+        |  handle_local_hosts_config_del({{auth, Host}, Opts}) -&gt;
+<font color=red>     0..|      case lists:keyfind(auth_method, 1, Opts) of</font>
+        |          false -&gt;
+<font color=red>     0..|              ok;%nothing to stop?</font>
+        |          {auth_method, Val} -&gt;
+<font color=red>     0..|              AuthModules = methods_to_auth_modules(Val),</font>
+<font color=red>     0..|              lists:foreach(fun(M) -&gt;</font>
+<font color=red>     0..|                                    M:stop(Host)</font>
+        |                            end, AuthModules)
+        |      end;
+        |  handle_local_hosts_config_del({{odbc, Host}, _}) -&gt;
+<font color=red>     0..|      ejabberd_rdbms:stop_odbc(Host);</font>
+        |  handle_local_hosts_config_del({{ldap, _Host}, _I}) -&gt;
+        |      %% ignore ldap section, only appli
+<font color=red>     0..|      ok;</font>
+        |  handle_local_hosts_config_del({{modules, Host}, Modules}) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun({Module, _Args}) -&gt;
+<font color=red>     0..|                gen_mod:stop_module(Host, Module)</font>
+        |        end, Modules);
+        |  handle_local_hosts_config_del({{Key,_}, _} =El) -&gt;
+<font color=red>     0..|      case can_be_ignored(Key) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ?WARNING_MSG("local hosts config delete option: ~p unhandled",[El])</font>
+        |      end.
+        |  
+        |  handle_local_hosts_config_change({{odbc,Host}, Old, _}) -&gt;
+        |      %% stop rdbms
+<font color=red>     0..|      case lists:keyfind({odbc_server, Host},1 ,Old) of</font>
+        |          false -&gt;
+<font color=red>     0..|              ok;</font>
+        |          #local_config{} -&gt;
+<font color=red>     0..|              ejabberd_rdbms:stop_odbc(Host)</font>
+        |      end,
+<font color=red>     0..|      ejabberd_rdbms:start(Host);</font>
+        |  handle_local_hosts_config_change({{auth, Host}, OldVals, _}) -&gt;
+<font color=red>     0..|      case lists:keyfind(auth_method, 1, OldVals) of</font>
+        |          false -&gt;
+<font color=red>     0..|              ejabberd_auth:stop(Host);</font>
+        |          {auth_method, Val} -&gt;
+        |              %% stop old modules
+<font color=red>     0..|              AuthModules = methods_to_auth_modules(Val),</font>
+<font color=red>     0..|              lists:foreach(fun (M) -&gt;</font>
+<font color=red>     0..|                                    M:stop(Host)</font>
+        |                            end, AuthModules)
+        |      end,
+<font color=red>     0..|      ejabberd_auth:start(Host);</font>
+        |  handle_local_hosts_config_change({{ldap, Host}, _OldConfig, NewConfig}) -&gt;
+<font color=red>     0..|      ok = ejabberd_hooks:run_fold(host_config_update, Host, ok, [Host, ldap, NewConfig]);</font>
+        |  handle_local_hosts_config_change({{modules,Host}, OldModules, NewModules}) -&gt;
+<font color=red>     0..|      Res = compare_modules(OldModules, NewModules),</font>
+<font color=red>     0..|      reload_modules(Host, Res);</font>
+        |  handle_local_hosts_config_change({{Key,_Host},_Old,_New} = El) -&gt;
+<font color=red>     0..|      case can_be_ignored(Key) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ?WARNING_MSG("local hosts config change option: ~p unhandled",[El])</font>
+        |      end.
+        |  
+        |  methods_to_auth_modules(L) when is_list(L) -&gt;
+<font color=red>     0..|      [list_to_atom("ejabberd_auth_" ++ atom_to_list(M)) || M &lt;- L];</font>
+        |  methods_to_auth_modules(A) when is_atom(A) -&gt;
+<font color=red>     0..|      methods_to_auth_modules([A]).</font>
+        |  
+        |  
+        |  compute_config_version(LC, LCH) -&gt;
+<font color=red>     0..|      L0 = lists:filter(mk_node_start_filter(), LC ++ LCH),</font>
+<font color=red>     0..|      L1 = sort_config(L0),</font>
+<font color=red>     0..|      crypto:hash(sha, term_to_binary(L1)).</font>
+        |  
+        |  compute_config_file_version(#state{opts = Opts, hosts = Hosts}) -&gt;
+<font color=red>     0..|      L = sort_config(Opts ++ Hosts),</font>
+<font color=red>     0..|      crypto:hash(sha, term_to_binary(L)).</font>
+        |  
+        |  -spec check_hosts([ejabberd:server()], [ejabberd:server()]) -&gt; {[ejabberd:server()],
+        |                                                                  [ejabberd:server()]}.
+        |  check_hosts(NewHosts, OldHosts) -&gt;
+<font color=red>     0..|      Old = sets:from_list(OldHosts),</font>
+<font color=red>     0..|      New = sets:from_list(NewHosts),</font>
+<font color=red>     0..|      ListToAdd = sets:to_list(sets:subtract(New,Old)),</font>
+<font color=red>     0..|      ListToDel = sets:to_list(sets:subtract(Old,New)),</font>
+<font color=red>     0..|      {ListToDel, ListToAdd}.</font>
+        |  
+        |  -spec add_virtual_host(Host :: ejabberd:server()) -&gt; any().
+        |  add_virtual_host(Host) -&gt;
+<font color=red>     0..|      ?DEBUG("Register host:~p",[Host]),</font>
+<font color=red>     0..|      ejabberd_local:register_host(Host).</font>
+        |  
+        |  -spec can_be_ignored(Key :: atom()) -&gt; boolean().
+        |  can_be_ignored(Key) when is_atom(Key) -&gt;
+<font color=red>     0..|      L = [domain_certfile, s2s],</font>
+<font color=red>     0..|      lists:member(Key,L).</font>
+        |  
+        |  -spec remove_virtual_host(ejabberd:server()) -&gt; any().
+        |  remove_virtual_host(Host) -&gt;
+<font color=red>     0..|      ?DEBUG("Unregister host :~p", [Host]),</font>
+<font color=red>     0..|      ejabberd_local:unregister_host(Host).</font>
+        |  
+        |  -spec reload_modules(Host :: ejabberd:server(),
+        |                       ChangedModules :: compare_result()) -&gt; 'ok'.
+        |  reload_modules(Host, #compare_result{to_start = Start, to_stop = Stop,
+        |                                       to_reload = Reload} = ChangedModules) -&gt;
+<font color=red>     0..|      ?DEBUG("reload modules: ~p", [lager:pr(ChangedModules, ?MODULE)]),</font>
+<font color=red>     0..|      lists:foreach(fun ({M, _}) -&gt;</font>
+<font color=red>     0..|                            gen_mod:stop_module(Host, M)</font>
+        |                    end, Stop),
+<font color=red>     0..|      lists:foreach(fun ({M, Args}) -&gt;</font>
+<font color=red>     0..|                            gen_mod:start_module(Host, M, Args)</font>
+        |                    end, Start),
+<font color=red>     0..|      lists:foreach(fun({M, _, Args}) -&gt;</font>
+<font color=red>     0..|                            gen_mod:reload_module(Host, M, Args)</font>
+        |                    end, Reload).
+        |  
+        |  -spec reload_listeners(ChangedListeners :: compare_result()) -&gt; 'ok'.
+        |  reload_listeners(#compare_result{to_start = Add, to_stop = Del,
+        |                                   to_reload = Change} = ChangedListeners) -&gt;
+<font color=red>     0..|      ?DEBUG("reload listeners: ~p", [lager:pr(ChangedListeners, ?MODULE)]),</font>
+<font color=red>     0..|      lists:foreach(fun ({{PortIP, Module}, Opts}) -&gt;</font>
+<font color=red>     0..|                            ejabberd_listener:delete_listener(PortIP, Module, Opts)</font>
+        |                    end, Del),
+<font color=red>     0..|      lists:foreach(fun ({{PortIP, Module}, Opts}) -&gt;</font>
+<font color=red>     0..|                            ejabberd_listener:add_listener(PortIP, Module, Opts)</font>
+        |                    end, Add),
+<font color=red>     0..|      lists:foreach(fun ({{PortIP,Module}, OldOpts, NewOpts}) -&gt;</font>
+<font color=red>     0..|                            ejabberd_listener:delete_listener(PortIP, Module, OldOpts),</font>
+<font color=red>     0..|                            ejabberd_listener:add_listener(PortIP, Module, NewOpts)</font>
+        |                    end, Change).
+        |  
+        |  -spec compare_modules(term(), term()) -&gt; compare_result().
+        |  compare_modules(OldMods, NewMods) -&gt;
+<font color=red>     0..|      compare_terms(OldMods, NewMods, 1, 2).</font>
+        |  
+        |  -spec compare_listeners(term(), term()) -&gt; compare_result().
+        |  compare_listeners(OldListeners, NewListeners) -&gt;
+<font color=red>     0..|      compare_terms(map_listeners(OldListeners), map_listeners(NewListeners), 1, 2).</font>
+        |  
+        |  map_listeners(Listeners) -&gt;
+<font color=red>     0..|      lists:map(fun ({PortIP,Module,Opts})-&gt;</font>
+<font color=red>     0..|                        {{PortIP,Module},Opts}</font>
+        |                end, Listeners).
+        |  
+        |  % group values which can be grouped like odbc ones
+        |  -spec group_host_changes([term()]) -&gt; [{atom(), [term()]}].
+        |  group_host_changes(Changes) when is_list(Changes) -&gt;
+<font color=red>     0..|      D = lists:foldl(fun (#local_config{key = {Key, Host}, value = Val}, Dict) -&gt;</font>
+<font color=red>     0..|                              BKey = atom_to_binary(Key, utf8),</font>
+<font color=red>     0..|                              case get_key_group(BKey,Key) of</font>
+        |                                  Key -&gt;
+<font color=red>     0..|                                      dict:append({Key,Host}, Val, Dict);</font>
+        |                                  NewKey -&gt;
+<font color=red>     0..|                                      dict:append({NewKey,Host}, {Key, Val}, Dict)</font>
+        |                              end
+        |                      end, dict:new(), Changes),
+<font color=red>     0..|      [{Group, lists:sort(lists:flatten(MaybeDeepList))}</font>
+<font color=red>     0..|       || {Group, MaybeDeepList} &lt;- dict:to_list(D)].</font>
+        |  
+        |  %% match all hosts
+        |  -spec get_host_local_config() -&gt; [{local_config, {term(), ejabberd:server()}, term()}].
+        |  get_host_local_config() -&gt;
+<font color=red>     0..|      mnesia:dirty_match_object({local_config, {'_','_'}, '_'}).</font>
+        |  
+        |  -spec get_local_config() -&gt; [{local_config, term(), term()}].
+        |  get_local_config() -&gt;
+<font color=red>     0..|      Keys = lists:filter(fun is_not_host_specific/1,mnesia:dirty_all_keys(local_config)),</font>
+<font color=red>     0..|      lists:flatten(lists:map(fun (Key) -&gt;</font>
+<font color=red>     0..|                                      mnesia:dirty_read(local_config, Key)</font>
+        |                              end,
+        |                              Keys)).
+        |  
+        |  -spec get_global_config() -&gt; [{config, term(), term()}].
+        |  get_global_config() -&gt;
+<font color=red>     0..|      mnesia:dirty_match_object(config, {config, '_', '_'}).</font>
+        |  
+        |  -spec is_not_host_specific(atom() | {atom(), ejabberd:server()}) -&gt; boolean().
+        |  is_not_host_specific( Key ) when is_atom(Key) -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_not_host_specific({Key, Host}) when is_atom(Key), is_binary(Host) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  -spec categorize_options([term()]) -&gt; {GlobalConfig, LocalConfig, HostsConfig} when
+        |        GlobalConfig :: list(),
+        |        LocalConfig :: list(),
+        |        HostsConfig :: list().
+        |  categorize_options(Opts) -&gt;
+<font color=red>     0..|      lists:foldl(fun ({config, _, _} = El, Acc) -&gt;</font>
+<font color=red>     0..|                          as_global(El, Acc);</font>
+        |                      ({local_config, {Key, Host}, _} = El, Acc)
+        |                        when is_atom(Key), is_binary(Host) -&gt;
+<font color=red>     0..|                          as_hosts(El, Acc);</font>
+        |                      ({local_config, _, _} = El, Acc) -&gt;
+<font color=red>     0..|                          as_local(El, Acc);</font>
+        |                      ({acl, _, _}, R) -&gt;
+        |                          %% no need to do extra work here
+<font color=red>     0..|                          R;</font>
+        |                      (R, R2) -&gt;
+<font color=red>     0..|                          ?ERROR_MSG("not matched ~p", [R]),</font>
+<font color=red>     0..|                          R2</font>
+        |                  end, {[], [], []}, Opts).
+        |  
+<font color=red>     0..|  as_global(El, {Config, Local, HostLocal}) -&gt; {[El | Config], Local, HostLocal}.</font>
+<font color=red>     0..|  as_local(El, {Config, Local, HostLocal}) -&gt; {Config, [El | Local],  HostLocal}.</font>
+<font color=red>     0..|  as_hosts(El, {Config, Local, HostLocal}) -&gt; {Config, Local, [El | HostLocal]}.</font>
+        |  
+        |  -spec get_key_group(binary(), atom()) -&gt; atom().
+        |  get_key_group(&lt;&lt;"ldap_", _/binary&gt;&gt;, _) -&gt;
+<font color=red>     0..|      ldap;</font>
+        |  get_key_group(&lt;&lt;"odbc_", _/binary&gt;&gt;, _) -&gt;
+<font color=red>     0..|      odbc;</font>
+        |  get_key_group(&lt;&lt;"pgsql_", _/binary&gt;&gt;, _) -&gt;
+<font color=red>     0..|      odbc;</font>
+        |  get_key_group(&lt;&lt;"auth_", _/binary&gt;&gt;, _) -&gt;
+<font color=red>     0..|      auth;</font>
+        |  get_key_group(&lt;&lt;"ext_auth_", _/binary&gt;&gt;, _) -&gt;
+<font color=red>     0..|      auth;</font>
+        |  get_key_group(&lt;&lt;"s2s_",_/binary&gt;&gt;, _) -&gt;
+<font color=red>     0..|      s2s;</font>
+        |  get_key_group(_, Key) when is_atom(Key)-&gt;
+<font color=red>     0..|      Key.</font>
+        |  
+        |  -spec compare_terms(OldTerms :: [tuple()],
+        |                      NewTerms :: [tuple()],
+        |                      KeyPos :: non_neg_integer(),
+        |                      ValuePos :: non_neg_integer()) -&gt; compare_result().
+        |  compare_terms(OldTerms, NewTerms, KeyPos, ValuePos)
+        |    when is_integer(KeyPos), is_integer(ValuePos) -&gt;
+<font color=red>     0..|      {ToStop, ToReload} = lists:foldl(pa:bind(fun find_modules_to_change/5,</font>
+        |                                               KeyPos, NewTerms, ValuePos),
+        |                                       {[], []}, OldTerms),
+<font color=red>     0..|      ToStart = lists:foldl(pa:bind(fun find_modules_to_start/4,</font>
+        |                                    KeyPos, OldTerms), [], NewTerms),
+<font color=red>     0..|      #compare_result{to_start  = ToStart,</font>
+        |                      to_stop   = ToStop,
+        |                      to_reload = ToReload}.
+        |  
+        |  find_modules_to_start(KeyPos, OldTerms, Element, ToStart) -&gt;
+<font color=red>     0..|      case lists:keyfind(element(KeyPos, Element), KeyPos, OldTerms) of</font>
+<font color=red>     0..|          false -&gt; [ Element | ToStart ];</font>
+<font color=red>     0..|          _ -&gt; ToStart</font>
+        |      end.
+        |  
+        |  find_modules_to_change(KeyPos, NewTerms, ValuePos,
+        |                         Element, {ToStop, ToReload}) -&gt;
+<font color=red>     0..|      case lists:keyfind(element(KeyPos, Element), KeyPos, NewTerms) of</font>
+        |          false -&gt;
+<font color=red>     0..|              { [Element | ToStop], ToReload };</font>
+        |          NewElement -&gt;
+<font color=red>     0..|              OldVal = element(ValuePos, Element),</font>
+<font color=red>     0..|              NewVal = element(ValuePos, NewElement),</font>
+<font color=red>     0..|              case OldVal == NewVal of</font>
+        |                  true  -&gt;
+<font color=red>     0..|                      {ToStop, ToReload};</font>
+        |                  false -&gt;
+        |                      %% add also old value
+<font color=red>     0..|                      {ToStop,</font>
+        |                       [ {element(KeyPos, Element), OldVal, NewVal} | ToReload ]}
+        |              end
+        |      end.
+        |  
+        |  mk_node_start_filter() -&gt;
+<font color=red>     0..|      fun(#local_config{key = node_start}) -&gt;</font>
+<font color=red>     0..|              false;</font>
+        |         (_) -&gt;
+<font color=red>     0..|              true</font>
+        |      end.
+        |  
+        |  sort_config(Config) when is_list(Config) -&gt;
+<font color=red>     0..|      L = lists:map(fun(ConfigItem) when is_list(ConfigItem) -&gt;</font>
+<font color=red>     0..|                            sort_config(ConfigItem);</font>
+        |                       (ConfigItem) when is_tuple(ConfigItem) -&gt;
+<font color=red>     0..|                            sort_config(tuple_to_list(ConfigItem));</font>
+        |                       (ConfigItem) -&gt;
+<font color=red>     0..|                            ConfigItem</font>
+        |                    end, Config),
+<font color=red>     0..|      lists:sort(L).</font>
+        |  
+        |  fips_mode() -&gt;
+<font color=red>     0..|      case erlang:function_exported(crypto, info_fips, 0) of</font>
+        |          true -&gt;
+<font color=red>     0..|              crypto:info_fips();</font>
+        |          _ -&gt;
+<font color=red>     0..|              disabled</font>
+        |      end.</pre>
+</body>
+</html>

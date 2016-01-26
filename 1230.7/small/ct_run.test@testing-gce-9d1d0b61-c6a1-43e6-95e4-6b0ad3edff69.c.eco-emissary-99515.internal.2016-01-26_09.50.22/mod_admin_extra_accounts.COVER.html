@@ -1,0 +1,305 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_admin_extra_accounts.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_accounts.erl by COVER 2016-01-26 at 09:50:54
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_accounts.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_accounts).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([
+        |      commands/0,
+        |  
+        |      %% Accounts
+        |      set_password/3,
+        |      check_password_hash/4,
+        |      delete_old_users/1,
+        |      delete_old_users_vhost/2,
+        |      ban_account/3,
+        |      num_active_users/2,
+        |      check_account/2,
+        |      check_password/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = change_password, tags = [accounts],
+        |                             desc = "Change the password of an account",
+        |                             module = ?MODULE, function = set_password,
+        |                             args = [{user, binary}, {host, binary}, {newpass, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = check_password_hash, tags = [accounts],
+        |                             desc = "Check if the password hash is correct",
+        |                             longdesc = "Allowed hash methods: md5, sha.",
+        |                             module = ?MODULE, function = check_password_hash,
+        |                             args = [{user, binary}, {host, binary}, {passwordhash, string}, {hashmethod, string}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = delete_old_users, tags = [accounts, purge],
+        |                             desc = "Delete users that didn't log in last days, or that never logged",
+        |                             module = ?MODULE, function = delete_old_users,
+        |                             args = [{days, integer}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = delete_old_users_vhost, tags = [accounts, purge],
+        |                             desc = "Delete users that didn't log in last days in vhost, or that never logged",
+        |                             module = ?MODULE, function = delete_old_users_vhost,
+        |                             args = [{host, binary}, {days, integer}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = ban_account, tags = [accounts],
+        |                             desc = "Ban an account: kick sessions and set random password",
+        |                             module = ?MODULE, function = ban_account,
+        |                             args = [{user, binary}, {host, binary}, {reason, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = num_active_users, tags = [accounts, stats],
+        |                             desc = "Get number of users active in the last days",
+        |                             module = ?MODULE, function = num_active_users,
+        |                             args = [{host, binary}, {days, integer}],
+        |                             result = {users, integer}},
+        |          #ejabberd_commands{name = check_account, tags = [accounts],
+        |                             desc = "Check if an account exists or not",
+        |                             module = ?MODULE, function = check_account,
+        |                             args = [{user, binary}, {host, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = check_password, tags = [accounts],
+        |                             desc = "Check if a password is correct",
+        |                             module = ?MODULE, function = check_password,
+        |                             args = [{user, binary}, {host, binary}, {password, binary}],
+        |                             result = {res, restuple}}
+        |          ].
+        |  
+        |  %%%
+        |  %%% Accounts
+        |  %%%
+        |  
+        |  -spec set_password(ejabberd:user(), ejabberd:server(), binary()) -&gt; {'error', string()} | {'ok', string()}.
+        |  set_password(User, Host, Password) -&gt;
+<font color=red>     0..|      case ejabberd_auth:set_password(User, Host, Password) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, io_lib:format("Password for user ~s@~s successfully changed", [User, Host])};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  -spec check_password(ejabberd:user(), ejabberd:server(), binary()) -&gt;  {Res, string()} when
+        |      Res :: ok | incorrect | user_does_not_exist.
+        |  check_password(User, Host, Password) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case ejabberd_auth:check_password(User, Host, Password) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      {ok, io_lib:format("Password '~s' for user ~s@~s is correct", [Password, User, Host])};</font>
+        |                  false -&gt;
+<font color=red>     0..|                      {incorrect, io_lib:format("Password '~s' for user ~s@~s is incorrect", [Password, User, Host])}</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("Password '~s' for user ~s@~s is incorrect because this user does not</font>
+        |              exist", [Password, User, Host])}
+        |      end.
+        |  
+        |  -spec check_account(ejabberd:user(), ejabberd:server()) -&gt; {Res, string()} when
+        |      Res :: ok | user_does_not_exist.
+        |  check_account(User, Host) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              {ok, io_lib:format("User ~s@~s exists", [User, Host])};</font>
+        |          false -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("User ~s@~s does not exist", [User, Host])}</font>
+        |      end.
+        |  
+        |  
+        |  -spec check_password_hash(ejabberd:user(), ejabberd:server(), Hash :: binary(),
+        |                           Method :: string()) -&gt; {'error', string()} | {'ok', string()} | {'incorrect', string()}.
+        |  check_password_hash(User, Host, PasswordHash, HashMethod) -&gt;
+<font color=red>     0..|      AccountPass = ejabberd_auth:get_password_s(User, Host),</font>
+<font color=red>     0..|      AccountPassHash = case HashMethod of</font>
+<font color=red>     0..|          "md5" -&gt; get_md5(AccountPass);</font>
+<font color=red>     0..|          "sha" -&gt; get_sha(AccountPass);</font>
+<font color=red>     0..|          _ -&gt; undefined</font>
+        |      end,
+<font color=red>     0..|      case AccountPassHash of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              {error, "Hash for password is undefined"};</font>
+        |          PasswordHash -&gt;
+<font color=red>     0..|              {ok, "Password hash is correct"};</font>
+        |          _-&gt;
+<font color=red>     0..|              {incorrect, "Password hash is incorrect"}</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_md5(binary()) -&gt; string().
+        |  get_md5(AccountPass) -&gt;
+<font color=red>     0..|      lists:flatten([io_lib:format("~.16B", [X])</font>
+<font color=red>     0..|                     || X &lt;- binary_to_list(crypto:hash(md5, AccountPass))]).</font>
+        |  get_sha(AccountPass) -&gt;
+<font color=red>     0..|      lists:flatten([io_lib:format("~.16B", [X])</font>
+<font color=red>     0..|                     || X &lt;- binary_to_list(crypto:hash(sha, AccountPass))]).</font>
+        |  
+        |  
+        |  -spec num_active_users(ejabberd:server(), integer()) -&gt; non_neg_integer().
+        |  num_active_users(Host, Days) -&gt;
+<font color=red>     0..|      {MegaSecs, Secs, _MicroSecs} = now(),</font>
+<font color=red>     0..|      TimeStamp = MegaSecs * 1000000 + Secs,</font>
+<font color=red>     0..|      TS = TimeStamp - Days * 86400,</font>
+<font color=red>     0..|      case catch mod_last:count_active_users(Host, TS) of</font>
+        |          {'EXIT', _Reason} -&gt;
+<font color=red>     0..|              0;</font>
+        |          Val -&gt;
+<font color=red>     0..|              Val</font>
+        |      end.
+        |  
+        |  
+        |  -spec delete_old_users(integer()) -&gt; {'ok', string()}.
+        |  delete_old_users(Days) -&gt;
+        |      %% Get the list of registered users
+<font color=red>     0..|      Users = ejabberd_auth:dirty_get_registered_users(),</font>
+        |  
+<font color=red>     0..|      {removed, N, UR} = delete_old_users(Days, Users),</font>
+<font color=red>     0..|      {ok, io_lib:format("Deleted ~p users: ~p", [N, UR])}.</font>
+        |  
+        |  
+        |  -spec delete_old_users_vhost(ejabberd:server(), integer()) -&gt; {'ok', string()}.
+        |  delete_old_users_vhost(Host, Days) -&gt;
+        |      %% Get the list of registered users
+<font color=red>     0..|      Users = ejabberd_auth:get_vh_registered_users(Host),</font>
+        |  
+<font color=red>     0..|      {removed, N, UR} = delete_old_users(Days, Users),</font>
+<font color=red>     0..|      {ok, io_lib:format("Deleted ~p users: ~p", [N, UR])}.</font>
+        |  
+        |  
+        |  -spec delete_old_users(Days :: integer(), Users :: [ejabberd:simple_jid()])
+        |              -&gt; {'removed', non_neg_integer(), [ejabberd:simple_jid()]}.
+        |  delete_old_users(Days, Users) -&gt;
+        |      %% Convert older time
+<font color=red>     0..|      SecOlder = Days*24*60*60,</font>
+        |  
+        |      %% Get current time
+<font color=red>     0..|      {MegaSecs, Secs, _MicroSecs} = now(),</font>
+<font color=red>     0..|      TimeStamp_now = MegaSecs * 1000000 + Secs,</font>
+        |  
+        |      %% For a user, remove if required and answer true
+<font color=red>     0..|      F = fun({LUser, LServer}) -&gt;</font>
+        |              %% Check if the user is logged
+<font color=red>     0..|              case ejabberd_sm:get_user_resources(LUser, LServer) of</font>
+        |                  %% If it isnt
+        |                  [] -&gt;
+        |                      %% Look for his last_activity
+<font color=red>     0..|                      case (get_lastactivity_module(LServer)):get_last_info(LUser, LServer) of</font>
+        |                          %% If it is
+        |                          %% existent:
+        |                          {ok, TimeStamp, _Status} -&gt;
+        |                              %% get his age
+<font color=red>     0..|                              Sec = TimeStamp_now - TimeStamp,</font>
+        |                              %% If he is
+<font color=red>     0..|                              if</font>
+        |                                  %% younger than SecOlder:
+        |                                  Sec &lt; SecOlder -&gt;
+        |                                      %% do nothing
+<font color=red>     0..|                                      false;</font>
+        |                                  %% older:
+        |                                  true -&gt;
+        |                                      %% remove the user
+<font color=red>     0..|                                      ejabberd_auth:remove_user(LUser, LServer),</font>
+<font color=red>     0..|                                      true</font>
+        |                              end;
+        |                          %% nonexistent:
+        |                          not_found -&gt;
+        |                              %% remove the user
+<font color=red>     0..|                              ejabberd_auth:remove_user(LUser, LServer),</font>
+<font color=red>     0..|                              true</font>
+        |                      end;
+        |                  %% Else
+        |                  _ -&gt;
+        |                      %% do nothing
+<font color=red>     0..|                      false</font>
+        |              end
+        |      end,
+        |      %% Apply the function to every user in the list
+<font color=red>     0..|      Users_removed = lists:filter(F, Users),</font>
+<font color=red>     0..|      {removed, length(Users_removed), Users_removed}.</font>
+        |  
+        |  
+        |  -spec get_lastactivity_module(ejabberd:server()) -&gt; 'mod_last' | 'mod_last_odbc'.
+        |  get_lastactivity_module(Server) -&gt;
+<font color=red>     0..|      case lists:member(mod_last, gen_mod:loaded_modules(Server)) of</font>
+<font color=red>     0..|          true -&gt; mod_last;</font>
+<font color=red>     0..|          _ -&gt; mod_last_odbc</font>
+        |      end.
+        |  
+        |  
+        |  -spec ban_account(ejabberd:user(), ejabberd:server(), binary() | string()) -&gt; {'ok', string()} | {'error', string()}.
+        |  ban_account(User, Host, ReasonText) -&gt;
+<font color=red>     0..|      Reason = mod_admin_extra_sessions:prepare_reason(ReasonText),</font>
+<font color=red>     0..|      kick_sessions(User, Host, Reason),</font>
+<font color=red>     0..|      case set_random_password(User, Host, Reason) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, io_lib:format("User ~s@~s successfully banned with reason: ~s",[User, Host, ReasonText])};</font>
+        |          {error, ErrorReason} -&gt;
+<font color=red>     0..|              {error, ErrorReason}</font>
+        |      end.
+        |  
+        |  -spec kick_sessions(ejabberd:user(), ejabberd:server(), binary()) -&gt; [ok].
+        |  kick_sessions(User, Server, Reason) -&gt;
+<font color=red>     0..|      lists:map(</font>
+        |          fun(Resource) -&gt;
+<font color=red>     0..|                  mod_admin_extra_sessions:kick_this_session(User, Server, Resource, Reason)</font>
+        |          end,
+        |          ejabberd_sm:get_user_resources(User, Server)).
+        |  
+        |  
+        |  -spec set_random_password(ejabberd:user(), ejabberd:server(), binary()) -&gt; 'ok'.
+        |  set_random_password(User, Server, Reason) -&gt;
+<font color=red>     0..|      NewPass = build_random_password(Reason),</font>
+<font color=red>     0..|      ejabberd_auth:set_password(User, Server, NewPass).</font>
+        |  
+        |  
+        |  -spec build_random_password(Reason :: binary()) -&gt; binary().
+        |  build_random_password(Reason) -&gt;
+<font color=red>     0..|      {{Year,Month,Day},{Hour,Minute,Second}} = calendar:universal_time(),</font>
+<font color=red>     0..|      Date = list_to_binary(</font>
+        |               lists:flatten(
+        |                 io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0wZ",
+        |                               [Year, Month, Day, Hour, Minute, Second]))),
+<font color=red>     0..|      RandomString = list_to_binary(randoms:get_string()),</font>
+<font color=red>     0..|      &lt;&lt;"BANNED_ACCOUNT--", Date/binary, "--", RandomString/binary, "--", Reason/binary&gt;&gt;.</font>
+        |  
+        |  
+</pre>
+</body>
+</html>

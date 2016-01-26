@@ -1,0 +1,301 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_mam_cache_user.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_cache_user.erl by COVER 2016-01-26 at 09:50:57
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc Stores cache using ETS-table.
+        |  %%% This module is a proxy for `mod_mam_odbc_user' (it should be started).
+        |  %%%
+        |  %%% There are 2 hooks for `mam_archive_id':
+        |  %%% `cached_archive_id/3' and `store_archive_id/3'.
+        |  %%%
+        |  %%% This module supports several hosts.
+        |  %%% 
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_mam_cache_user).
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2, stop/1]).
+        |  
+        |  %% ejabberd handlers
+        |  -export([cached_archive_id/3,
+        |           store_archive_id/3,
+        |           remove_archive/3]).
+        |  
+        |  %% API
+        |  -export([clean_cache/1]).
+        |  
+        |  %% Internal exports
+        |  -export([start_link/0]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(state, {}).
+        |  
+        |  %% @private
+        |  srv_name() -&gt;
+<font color=red>     0..|      mod_mam_cache.</font>
+        |  
+        |  tbl_name_archive_id() -&gt;
+<font color=red>     0..|      mod_mam_cache_table_archive_id.</font>
+        |  
+        |  group_name() -&gt;
+<font color=red>     0..|      mod_mam_cache.</font>
+        |  
+        |  
+        |  -spec su_key(ejabberd:jid()) -&gt; ejabberd:simple_bare_jid().
+        |  su_key(#jid{lserver = LServer, luser = LUser}) -&gt;
+<font color=red>     0..|      {LServer, LUser}.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %% Starting and stopping functions for users' archives
+        |  
+        |  -spec start(Host :: ejabberd:server(), Opts :: list()) -&gt; any().
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      start_server(Host),</font>
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_pm(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_muc(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec stop(Host :: ejabberd:server()) -&gt; any().
+        |  stop(Host) -&gt;
+<font color=red>     0..|      stop_server(Host),</font>
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_pm(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_muc(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  writer_child_spec() -&gt;
+<font color=red>     0..|      {?MODULE,</font>
+        |       {?MODULE, start_link, []},
+        |       permanent,
+        |       5000,
+        |       worker,
+        |       [?MODULE]}.
+        |  
+        |  start_server(_Host) -&gt;
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, writer_child_spec()).</font>
+        |  
+        |  stop_server(_Host) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam
+        |  
+        |  -spec start_pm(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start_pm(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_archive_id, Host, ?MODULE, cached_archive_id, 30),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_archive_id, Host, ?MODULE, store_archive_id, 70),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop_pm(ejabberd:server()) -&gt; 'ok'.
+        |  stop_pm(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_archive_id, Host, ?MODULE, cached_archive_id, 30),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_archive_id, Host, ?MODULE, store_archive_id, 70),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam_muc
+        |  
+        |  -spec start_muc(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start_muc(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_archive_id, Host, ?MODULE, cached_archive_id, 30),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_archive_id, Host, ?MODULE, store_archive_id, 70),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop_muc(ejabberd:server()) -&gt; 'ok'.
+        |  stop_muc(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_archive_id, Host, ?MODULE, cached_archive_id, 30),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_archive_id, Host, ?MODULE, store_archive_id, 70),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  
+        |  -spec start_link() -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link() -&gt;
+<font color=red>     0..|      gen_server:start_link({local, srv_name()}, ?MODULE, [], []).</font>
+        |  
+        |  
+        |  -spec cached_archive_id('undefined', _Host :: ejabberd:server(),
+        |                          ArcJID :: ejabberd:jid()) -&gt; ejabberd:user().
+        |  cached_archive_id(undefined, _Host, ArcJID) -&gt;
+<font color=red>     0..|      case lookup_archive_id(ArcJID) of</font>
+        |          not_found -&gt;
+<font color=red>     0..|              put(mam_not_cached_flag, true),</font>
+<font color=red>     0..|              undefined;</font>
+        |          UserID -&gt;
+<font color=red>     0..|              UserID</font>
+        |      end.
+        |  
+        |  
+        |  -spec store_archive_id(ejabberd:user(), ejabberd:server(), ejabberd:jid())
+        |          -&gt; ejabberd:user().
+        |  store_archive_id(UserID, _Host, ArcJID) -&gt;
+<font color=red>     0..|      maybe_cache_archive_id(ArcJID, UserID),</font>
+<font color=red>     0..|      UserID.</font>
+        |  
+        |  
+        |  -spec remove_archive(_Host :: ejabberd:server(), _UserID :: ejabberd:user(),
+        |                      ArcJID :: ejabberd:jid()) -&gt; 'ok'.
+        |  remove_archive(_Host, _UserID, ArcJID) -&gt;
+<font color=red>     0..|      clean_cache(ArcJID).</font>
+        |  
+        |  %%====================================================================
+        |  %% Internal functions
+        |  %%====================================================================
+        |  
+        |  -spec maybe_cache_archive_id(ejabberd:jid(), ejabberd:user()) -&gt; ejabberd:user() | ok.
+        |  maybe_cache_archive_id(ArcJID, UserID) -&gt;
+<font color=red>     0..|      case erase(mam_not_cached_flag) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              UserID;</font>
+        |          true -&gt;
+<font color=red>     0..|              cache_archive_id(ArcJID, UserID)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Put the user id into cache.
+        |  %% @private
+        |  -spec cache_archive_id(ejabberd:jid(), ejabberd:user()) -&gt; ok.
+        |  cache_archive_id(ArcJID, UserID) -&gt;
+<font color=red>     0..|      gen_server:call(srv_name(), {cache_archive_id, ArcJID, UserID}).</font>
+        |  
+        |  
+        |  -spec lookup_archive_id(ejabberd:jid()) -&gt; ejabberd:user() | not_found.
+        |  lookup_archive_id(ArcJID) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          ets:lookup_element(tbl_name_archive_id(), su_key(ArcJID), 2)</font>
+        |      catch error:badarg -&gt;
+<font color=red>     0..|          not_found</font>
+        |      end.
+        |  
+        |  
+        |  -spec clean_cache(ejabberd:jid()) -&gt; 'ok'.
+        |  clean_cache(ArcJID) -&gt;
+        |      %% Send a broadcast message.
+<font color=red>     0..|      case pg2:get_members(group_name()) of</font>
+        |          Pids when is_list(Pids) -&gt;
+<font color=red>     0..|              [gen_server:cast(Pid, {remove_user, ArcJID})</font>
+<font color=red>     0..|              || Pid &lt;- Pids],</font>
+<font color=red>     0..|              ok;</font>
+<font color=red>     0..|          {error, _Reason} -&gt; ok</font>
+        |      end.
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  init([]) -&gt;
+<font color=red>     0..|      pg2:create(group_name()),</font>
+<font color=red>     0..|      pg2:join(group_name(), self()),</font>
+<font color=red>     0..|      TOpts = [named_table, protected,</font>
+        |               {write_concurrency, false},
+        |               {read_concurrency, true}],
+<font color=red>     0..|      ets:new(tbl_name_archive_id(), TOpts),</font>
+<font color=red>     0..|      {ok, #state{}}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call({cache_archive_id, ArcJID, UserID}, _From, State) -&gt;
+<font color=red>     0..|      ets:insert(tbl_name_archive_id(), {su_key(ArcJID), UserID}),</font>
+<font color=red>     0..|      {reply, ok, State}.</font>
+        |  
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_cast({remove_user, ArcJID}, State) -&gt;
+<font color=red>     0..|      ets:delete(tbl_name_archive_id(), su_key(ArcJID)),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_cast(Msg, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("Strange message ~p.", [Msg]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_info(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+</pre>
+</body>
+</html>

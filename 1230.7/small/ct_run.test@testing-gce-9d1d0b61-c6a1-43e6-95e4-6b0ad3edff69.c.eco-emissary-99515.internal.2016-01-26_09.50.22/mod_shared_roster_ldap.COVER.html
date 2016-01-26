@@ -1,0 +1,600 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_shared_roster_ldap.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_shared_roster_ldap.erl by COVER 2016-01-26 at 09:50:58
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_shared_roster_ldap.erl
+        |  %%% Author  : Realloc &lt;realloc@realloc.spb.ru&gt;
+        |  %%%           Marcin Owsiany &lt;marcin@owsiany.pl&gt;
+        |  %%%           Evgeniy Khramtsov &lt;ekhramtsov@process-one.net&gt;
+        |  %%% Description : LDAP shared roster management
+        |  %%% Created :  5 Mar 2005 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_shared_roster_ldap).
+        |  
+        |  -behaviour(gen_server).
+        |  
+        |  -behaviour(gen_mod).
+        |  
+        |  %% API
+        |  -export([start_link/2, start/2, stop/1]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2,
+        |           handle_info/2, terminate/2, code_change/3]).
+        |  
+        |  -export([get_user_roster/2, get_subscription_lists/3,
+        |           get_jid_info/4, process_item/2, in_subscription/6,
+        |           out_subscription/4]).
+        |  
+        |  -export([config_change/4]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_roster.hrl").
+        |  
+        |  -include("eldap.hrl").
+        |  
+        |  -define(CACHE_SIZE, 1000).
+        |  
+        |  -define(USER_CACHE_VALIDITY, 300).
+        |  
+        |  -define(GROUP_CACHE_VALIDITY, 300).
+        |  
+        |  -define(LDAP_SEARCH_TIMEOUT, 5).
+        |  
+        |  -record(state,
+        |          {host = &lt;&lt;""&gt;&gt;                                :: binary(),
+        |           eldap_id = &lt;&lt;""&gt;&gt;                            :: binary(),
+        |           servers = []                                 :: [binary()],
+        |           backups = []                                 :: [binary()],
+        |           port = ?LDAP_PORT                            :: inet:port_number(),
+        |           tls_options = []                             :: list(),
+        |           dn = &lt;&lt;""&gt;&gt;                                  :: binary(),
+        |           base = &lt;&lt;""&gt;&gt;                                :: binary(),
+        |           password = &lt;&lt;""&gt;&gt;                            :: binary(),
+        |           uid = &lt;&lt;""&gt;&gt;                                 :: binary(),
+        |           deref_aliases = never                        :: never | searching |
+        |           finding | always,
+        |           group_attr = &lt;&lt;""&gt;&gt;                          :: binary(),
+        |           group_desc = &lt;&lt;""&gt;&gt;                          :: binary(),
+        |           user_desc = &lt;&lt;""&gt;&gt;                           :: binary(),
+        |           user_uid = &lt;&lt;""&gt;&gt;                            :: binary(),
+        |           uid_format = &lt;&lt;""&gt;&gt;                          :: binary(),
+        |           uid_format_re = &lt;&lt;""&gt;&gt;                       :: binary(),
+        |           filter = &lt;&lt;""&gt;&gt;                              :: binary(),
+        |           ufilter = &lt;&lt;""&gt;&gt;                             :: binary(),
+        |           rfilter = &lt;&lt;""&gt;&gt;                             :: binary(),
+        |           gfilter = &lt;&lt;""&gt;&gt;                             :: binary(),
+        |           auth_check = true                            :: boolean(),
+        |           user_cache_size = ?CACHE_SIZE                :: non_neg_integer(),
+        |           group_cache_size = ?CACHE_SIZE               :: non_neg_integer(),
+        |           user_cache_validity = ?USER_CACHE_VALIDITY   :: non_neg_integer(),
+        |           group_cache_validity = ?GROUP_CACHE_VALIDITY :: non_neg_integer()}).
+        |  
+        |  -record(group_info, {desc, members}).
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  start_link(Host, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?MODULE),</font>
+<font color=red>     0..|      gen_server:start_link({local, Proc}, ?MODULE,</font>
+        |                            [Host, Opts], []).
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?MODULE),</font>
+<font color=red>     0..|      ChildSpec = {Proc, {?MODULE, start_link, [Host, Opts]},</font>
+        |                   permanent, 1000, worker, [?MODULE]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, ChildSpec).</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?MODULE),</font>
+<font color=red>     0..|      supervisor:terminate_child(ejabberd_sup, Proc),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup, Proc).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Hooks
+        |  %%--------------------------------------------------------------------
+        |  get_user_roster(Items, {U, S} = US) -&gt;
+<font color=red>     0..|      SRUsers = get_user_to_groups_map(US, true),</font>
+<font color=red>     0..|      {NewItems1, SRUsersRest} =</font>
+        |          lists:mapfoldl(
+        |            fun (Item, SRUsers1) -&gt;
+<font color=red>     0..|                    {_, _, {U1, S1, _}} = Item#roster.usj,</font>
+<font color=red>     0..|                    US1 = {U1, S1},</font>
+<font color=red>     0..|                    case dict:find(US1, SRUsers1) of</font>
+        |                        {ok, _GroupNames} -&gt;
+<font color=red>     0..|                            {Item#roster{subscription = both, ask = none},</font>
+        |                             dict:erase(US1, SRUsers1)};
+        |                        error -&gt;
+<font color=red>     0..|                            {Item, SRUsers1}</font>
+        |                    end
+        |            end,
+        |            SRUsers, Items),
+<font color=red>     0..|      SRItems = [#roster{usj = {U, S, {U1, S1, &lt;&lt;""&gt;&gt;}},</font>
+        |                         us = US, jid = {U1, S1, &lt;&lt;""&gt;&gt;},
+        |                         name = get_user_name(U1, S1), subscription = both,
+        |                         ask = none, groups = GroupNames}
+<font color=red>     0..|                 || {{U1, S1}, GroupNames} &lt;- dict:to_list(SRUsersRest)],</font>
+<font color=red>     0..|      SRItems ++ NewItems1.</font>
+        |  
+        |  %% This function in use to rewrite the roster entries when moving or renaming
+        |  %% them in the user contact list.
+        |  process_item(RosterItem, _Host) -&gt;
+<font color=red>     0..|      USFrom = RosterItem#roster.us,</font>
+<font color=red>     0..|      {User, Server, _Resource} = RosterItem#roster.jid,</font>
+<font color=red>     0..|      USTo = {User, Server},</font>
+<font color=red>     0..|      Map = get_user_to_groups_map(USFrom, false),</font>
+<font color=red>     0..|      case dict:find(USTo, Map) of</font>
+<font color=red>     0..|          error -&gt; RosterItem;</font>
+<font color=red>     0..|          {ok, []} -&gt; RosterItem;</font>
+        |          {ok, GroupNames}
+        |            when RosterItem#roster.subscription == remove -&gt;
+<font color=red>     0..|              RosterItem#roster{subscription = both, ask = none,</font>
+        |                                groups = GroupNames};
+<font color=red>     0..|          _ -&gt; RosterItem#roster{subscription = both, ask = none}</font>
+        |      end.
+        |  
+        |  get_subscription_lists({F, T, P}, User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      DisplayedGroups = get_user_displayed_groups(US),</font>
+<font color=red>     0..|      SRUsers = lists:usort(lists:flatmap(fun (Group) -&gt;</font>
+<font color=red>     0..|                                                  get_group_users(LServer, Group)</font>
+        |                                          end,
+        |                                          DisplayedGroups)),
+<font color=red>     0..|      SRJIDs = [{U1, S1, &lt;&lt;""&gt;&gt;} || {U1, S1} &lt;- SRUsers],</font>
+<font color=red>     0..|      {lists:usort(SRJIDs ++ F), lists:usort(SRJIDs ++ T), P}.</font>
+        |  
+        |  get_jid_info({Subscription, Groups}, User, Server, JID) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      {U1, S1, _} = jid:to_lower(JID),</font>
+<font color=red>     0..|      US1 = {U1, S1},</font>
+<font color=red>     0..|      SRUsers = get_user_to_groups_map(US, false),</font>
+<font color=red>     0..|      case dict:find(US1, SRUsers) of</font>
+        |          {ok, GroupNames} -&gt;
+<font color=red>     0..|              NewGroups = if Groups == [] -&gt; GroupNames;</font>
+<font color=red>     0..|                             true -&gt; Groups</font>
+        |                          end,
+<font color=red>     0..|              {both, NewGroups};</font>
+<font color=red>     0..|          error -&gt; {Subscription, Groups}</font>
+        |      end.
+        |  
+        |  in_subscription(Acc, User, Server, JID, Type, _Reason) -&gt;
+<font color=red>     0..|      process_subscription(in, User, Server, JID, Type, Acc).</font>
+        |  
+        |  out_subscription(User, Server, JID, Type) -&gt;
+<font color=red>     0..|      process_subscription(out, User, Server, JID, Type, false).</font>
+        |  
+        |  process_subscription(Direction, User, Server, JID, _Type, Acc) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      {U1, S1, _} = jid:to_lower(jid:to_bare(JID)),</font>
+<font color=red>     0..|      US1 = {U1, S1},</font>
+<font color=red>     0..|      DisplayedGroups = get_user_displayed_groups(US),</font>
+<font color=red>     0..|      SRUsers = lists:usort(lists:flatmap(</font>
+        |                              fun (Group) -&gt;
+<font color=red>     0..|                                      get_group_users(LServer, Group)</font>
+        |                              end,
+        |                              DisplayedGroups)),
+<font color=red>     0..|      case lists:member(US1, SRUsers) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case Direction of</font>
+<font color=red>     0..|                  in -&gt; {stop, false};</font>
+<font color=red>     0..|                  out -&gt; stop</font>
+        |              end;
+<font color=red>     0..|          false -&gt; Acc</font>
+        |      end.
+        |  
+        |  %%====================================================================
+        |  %% config change hook
+        |  %%====================================================================
+        |  %% react to "global" config change
+        |  config_change(Acc, Host, ldap, _NewConfig) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?MODULE),</font>
+<font color=red>     0..|      Mods = ejabberd_config:get_local_option({modules, Host}),</font>
+<font color=red>     0..|      Opts = proplists:get_value(?MODULE,Mods,[]),</font>
+<font color=red>     0..|      ok = gen_server:call(Proc,{new_config, Host, Opts}),</font>
+<font color=red>     0..|      Acc;</font>
+        |  config_change(Acc, _, _, _) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  init([Host, Opts]) -&gt;
+<font color=red>     0..|      State = parse_options(Host, Opts),</font>
+<font color=red>     0..|      process_flag(trap_exit,true),</font>
+<font color=red>     0..|      cache_tab:new(shared_roster_ldap_user,</font>
+        |                    [{max_size, State#state.user_cache_size}, {lru, false},
+        |                     {life_time, State#state.user_cache_validity}]),
+<font color=red>     0..|      cache_tab:new(shared_roster_ldap_group,</font>
+        |                    [{max_size, State#state.group_cache_size}, {lru, false},
+        |                     {life_time, State#state.group_cache_validity}]),
+<font color=red>     0..|      ejabberd_hooks:add(host_config_update, Host, ?MODULE,</font>
+        |                         config_change, 50),
+<font color=red>     0..|      ejabberd_hooks:add(roster_get, Host, ?MODULE,</font>
+        |                         get_user_roster, 70),
+<font color=red>     0..|      ejabberd_hooks:add(roster_in_subscription, Host, ?MODULE,</font>
+        |                         in_subscription, 30),
+<font color=red>     0..|      ejabberd_hooks:add(roster_out_subscription, Host, ?MODULE,</font>
+        |                         out_subscription, 30),
+<font color=red>     0..|      ejabberd_hooks:add(roster_get_subscription_lists, Host, ?MODULE,</font>
+        |                         get_subscription_lists, 70),
+<font color=red>     0..|      ejabberd_hooks:add(roster_get_jid_info, Host, ?MODULE,</font>
+        |                         get_jid_info, 70),
+<font color=red>     0..|      ejabberd_hooks:add(roster_process_item, Host, ?MODULE,</font>
+        |                         process_item, 50),
+<font color=red>     0..|      eldap_pool:start_link(State#state.eldap_id,</font>
+        |                            State#state.servers, State#state.backups,
+        |                            State#state.port, State#state.dn,
+        |                            State#state.password, State#state.tls_options),
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  handle_call(get_state, _From, State) -&gt;
+<font color=red>     0..|      {reply, {ok, State}, State};</font>
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      {reply, {error, badarg}, State}.</font>
+        |  
+<font color=red>     0..|  handle_cast(_Msg, State) -&gt; {noreply, State}.</font>
+        |  
+<font color=red>     0..|  handle_info(_Info, State) -&gt; {noreply, State}.</font>
+        |  
+        |  terminate(_Reason, State) -&gt;
+<font color=red>     0..|      Host = State#state.host,</font>
+<font color=red>     0..|      ejabberd_hooks:delete(host_config_update, Host, ?MODULE, config_change, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(roster_get, Host, ?MODULE,</font>
+        |                            get_user_roster, 70),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_in_subscription, Host,</font>
+        |                            ?MODULE, in_subscription, 30),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_out_subscription, Host,</font>
+        |                            ?MODULE, out_subscription, 30),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_get_subscription_lists,</font>
+        |                            Host, ?MODULE, get_subscription_lists, 70),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_get_jid_info, Host,</font>
+        |                            ?MODULE, get_jid_info, 70),
+<font color=red>     0..|      ejabberd_hooks:delete(roster_process_item, Host,</font>
+        |                            ?MODULE, process_item, 50).
+        |  
+<font color=red>     0..|  code_change(_OldVsn, State, _Extra) -&gt; {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  %% For a given user, map all his shared roster contacts to groups they are
+        |  %% members of. Skip the user himself iff SkipUS is true.
+        |  get_user_to_groups_map({_, Server} = US, SkipUS) -&gt;
+<font color=red>     0..|      DisplayedGroups = get_user_displayed_groups(US),</font>
+        |      %% Pass given FilterParseArgs to eldap_filter:parse, and if successful, run and
+        |      %% return the resulting filter, retrieving given AttributesList. Return the
+        |      %% result entries. On any error silently return an empty list of results.
+        |      %%
+        |      %% Eldap server ID and base DN for the query are both retrieved from the State
+        |      %% record.
+<font color=red>     0..|      lists:foldl(fun (Group, Dict1) -&gt;</font>
+<font color=red>     0..|                          GroupName = get_group_name(Server, Group),</font>
+<font color=red>     0..|                          lists:foldl(fun (Contact, Dict) -&gt;</font>
+<font color=red>     0..|                                              if</font>
+<font color=red>     0..|                                                  SkipUS, Contact == US -&gt; Dict;</font>
+<font color=red>     0..|                                                  true -&gt; dict:append(Contact, GroupName, Dict)</font>
+        |                                              end
+        |                                      end,
+        |                                      Dict1, get_group_users(Server, Group))
+        |                  end,
+        |                  dict:new(), DisplayedGroups).
+        |  
+        |  eldap_search(State, FilterParseArgs, AttributesList) -&gt;
+<font color=red>     0..|      case apply(eldap_filter, parse, FilterParseArgs) of</font>
+        |          {ok, EldapFilter} -&gt;
+<font color=red>     0..|              case eldap_pool:search(State#state.eldap_id,</font>
+        |                                     [{base, State#state.base},
+        |                                      {filter, EldapFilter},
+        |                                      {timeout, ?LDAP_SEARCH_TIMEOUT},
+        |                                      {deref_aliases, State#state.deref_aliases},
+        |                                      {attributes, AttributesList}])
+        |              of
+        |                  #eldap_search_result{entries = Es} -&gt;
+        |                      %% A result with entries. Return their list.
+<font color=red>     0..|                      Es;</font>
+        |                  _ -&gt;
+        |                      %% Something else. Pretend we got no results.
+<font color=red>     0..|                      []</font>
+        |              end;
+        |          _-&gt;
+        |              %% Filter parsing failed. Pretend we got no results.
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  get_user_displayed_groups({User, Host}) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(Host, ?MODULE),</font>
+<font color=red>     0..|      GroupAttr = State#state.group_attr,</font>
+<font color=red>     0..|      Entries = eldap_search(State,</font>
+        |                             [eldap_filter:do_sub(State#state.rfilter, [{&lt;&lt;"%u"&gt;&gt;, User}])],
+        |                             [GroupAttr]),
+<font color=red>     0..|      Reply = lists:flatmap(fun (#eldap_entry{attributes = Attrs}) -&gt;</font>
+<font color=red>     0..|                                    case eldap_utils:singleton_value(Attrs) of</font>
+<font color=red>     0..|                                        {GroupAttr, Value} -&gt; [Value];</font>
+<font color=red>     0..|                                        _ -&gt; []</font>
+        |                                    end
+        |                            end,
+        |                            Entries),
+<font color=red>     0..|      lists:usort(Reply).</font>
+        |  
+        |  get_group_users(Host, Group) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(Host, ?MODULE),</font>
+<font color=red>     0..|      case cache_tab:dirty_lookup(shared_roster_ldap_group,</font>
+        |                                  {Group, Host},
+<font color=red>     0..|                                  fun () -&gt; search_group_info(State, Group) end)</font>
+        |      of
+        |          {ok, #group_info{members = Members}}
+        |            when Members /= undefined -&gt;
+<font color=red>     0..|              Members;</font>
+<font color=red>     0..|          _ -&gt; []</font>
+        |      end.
+        |  
+        |  get_group_name(Host, Group) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(Host, ?MODULE),</font>
+<font color=red>     0..|      case cache_tab:dirty_lookup(shared_roster_ldap_group,</font>
+        |                                  {Group, Host},
+<font color=red>     0..|                                  fun () -&gt; search_group_info(State, Group) end)</font>
+        |      of
+        |          {ok, #group_info{desc = GroupName}}
+        |            when GroupName /= undefined -&gt;
+<font color=red>     0..|              GroupName;</font>
+<font color=red>     0..|          _ -&gt; Group</font>
+        |      end.
+        |  
+        |  get_user_name(User, Host) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(Host, ?MODULE),</font>
+<font color=red>     0..|      case cache_tab:dirty_lookup(shared_roster_ldap_user,</font>
+        |                                  {User, Host},
+<font color=red>     0..|                                  fun () -&gt; search_user_name(State, User) end)</font>
+        |      of
+<font color=red>     0..|          {ok, UserName} -&gt; UserName;</font>
+<font color=red>     0..|          error -&gt; User</font>
+        |      end.
+        |  
+        |  search_group_info(State, Group) -&gt;
+<font color=red>     0..|      Extractor = case State#state.uid_format_re of</font>
+        |                      &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                          fun (UID) -&gt;</font>
+<font color=red>     0..|                                  catch eldap_utils:get_user_part(</font>
+        |                                          UID,
+        |                                          State#state.uid_format)
+        |                          end;
+        |                      _ -&gt;
+<font color=red>     0..|                          fun (UID) -&gt;</font>
+<font color=red>     0..|                                  catch get_user_part_re(</font>
+        |                                          UID,
+        |                                          State#state.uid_format_re)
+        |                          end
+        |                  end,
+<font color=red>     0..|      AuthChecker = case State#state.auth_check of</font>
+<font color=red>     0..|                        true -&gt; fun ejabberd_auth:is_user_exists/2;</font>
+<font color=red>     0..|                        _ -&gt; fun (_U, _S) -&gt; true end</font>
+        |                    end,
+<font color=red>     0..|      Host = State#state.host,</font>
+<font color=red>     0..|      case eldap_search(State,</font>
+        |                        [eldap_filter:do_sub(State#state.gfilter,
+        |                                             [{&lt;&lt;"%g"&gt;&gt;, Group}])],
+        |                        [State#state.group_attr, State#state.group_desc,
+        |                         State#state.uid])
+        |      of
+        |          [] -&gt;
+<font color=red>     0..|              error;</font>
+        |          LDAPEntries -&gt;
+<font color=red>     0..|              {GroupDesc, MembersLists} =</font>
+        |                  lists:foldl(
+        |                    fun (#eldap_entry{attributes = Attrs}, {DescAcc, JIDsAcc}) -&gt;
+<font color=red>     0..|                            case</font>
+        |                                {eldap_utils:get_ldap_attr(State#state.group_attr, Attrs),
+        |                                 eldap_utils:get_ldap_attr(State#state.group_desc, Attrs),
+        |                                 lists:keysearch(State#state.uid, 1, Attrs)}
+        |                            of
+        |                                {ID, Desc, {value, {GroupMemberAttr, MemberIn}}}
+        |                                  when ID /= &lt;&lt;""&gt;&gt;, GroupMemberAttr == State#state.uid -&gt;
+<font color=red>     0..|                                    Member = case MemberIn of</font>
+        |                                                 [M] -&gt;
+<font color=red>     0..|                                                     M;</font>
+        |                                                 _ -&gt;
+<font color=red>     0..|                                                     MemberIn</font>
+        |                                             end,
+<font color=red>     0..|                                    JIDs = lists:foldl(</font>
+        |                                             fun ({ok, UID}, L) -&gt;
+<font color=red>     0..|                                                     PUID = jid:nodeprep(UID),</font>
+<font color=red>     0..|                                                     case PUID of</font>
+        |                                                         error -&gt;
+<font color=red>     0..|                                                             L;</font>
+        |                                                         _ -&gt;
+<font color=red>     0..|                                                             case AuthChecker(PUID, Host) of</font>
+        |                                                                 true -&gt;
+<font color=red>     0..|                                                                     [{PUID, Host} | L];</font>
+        |                                                                 _ -&gt;
+<font color=red>     0..|                                                                     L</font>
+        |                                                             end
+        |                                                     end;
+<font color=red>     0..|                                                 (_, L) -&gt; L</font>
+        |                                             end,
+        |                                             [],
+        |                                             [Extractor(Member)]),
+<font color=red>     0..|                                    {Desc, [JIDs | JIDsAcc]};</font>
+        |                                _ -&gt;
+<font color=red>     0..|                                    {DescAcc, JIDsAcc}</font>
+        |                            end
+        |                    end,
+        |                    {Group, []}, LDAPEntries),
+<font color=red>     0..|              {ok,</font>
+        |               #group_info{desc = GroupDesc,
+        |                           members = lists:usort(lists:flatten(MembersLists))}}
+        |      end.
+        |  
+        |  search_user_name(State, User) -&gt;
+<font color=red>     0..|      case eldap_search(State,</font>
+        |                        [eldap_filter:do_sub(State#state.ufilter,
+        |                                             [{&lt;&lt;"%u"&gt;&gt;, User}])],
+        |                        [State#state.user_desc, State#state.user_uid])
+        |      of
+        |          [#eldap_entry{attributes = Attrs} | _] -&gt;
+<font color=red>     0..|              case {eldap_utils:get_ldap_attr(State#state.user_uid, Attrs),</font>
+        |                    eldap_utils:get_ldap_attr(State#state.user_desc, Attrs)}
+        |              of
+<font color=red>     0..|                  {UID, Desc} when UID /= &lt;&lt;""&gt;&gt; -&gt; {ok, Desc};</font>
+<font color=red>     0..|                  _ -&gt; error</font>
+        |              end;
+<font color=red>     0..|          [] -&gt; error</font>
+        |      end.
+        |  
+        |  %% Getting User ID part by regex pattern
+        |  get_user_part_re(String, Pattern) -&gt;
+<font color=red>     0..|      case catch re:run(String, Pattern) of</font>
+        |          {match, Captured} -&gt;
+<font color=red>     0..|              {First, Len} = lists:nth(2, Captured),</font>
+<font color=red>     0..|              Result = binary:part(String, First, Len),</font>
+<font color=red>     0..|              {ok, Result};</font>
+<font color=red>     0..|          _ -&gt; {error, badmatch}</font>
+        |      end.
+        |  
+        |  parse_options(Host, Opts) -&gt;
+<font color=red>     0..|      Eldap_ID = atom_to_binary(gen_mod:get_module_proc(Host, ?MODULE),utf8),</font>
+<font color=red>     0..|      Cfg = eldap_utils:get_config(Host, Opts),</font>
+<font color=red>     0..|      GroupAttr = eldap_utils:get_mod_opt(ldap_groupattr, Opts,</font>
+        |                                          fun iolist_to_binary/1,
+        |                                          &lt;&lt;"cn"&gt;&gt;),
+<font color=red>     0..|      GroupDesc = eldap_utils:get_mod_opt(ldap_groupdesc, Opts,</font>
+        |                                          fun iolist_to_binary/1,
+        |                                          GroupAttr),
+<font color=red>     0..|      UserDesc = eldap_utils:get_mod_opt(ldap_userdesc, Opts,</font>
+        |                                         fun iolist_to_binary/1,
+        |                                         &lt;&lt;"cn"&gt;&gt;),
+<font color=red>     0..|      UserUID = eldap_utils:get_mod_opt(ldap_useruid, Opts,</font>
+        |                                        fun iolist_to_binary/1,
+        |                                        &lt;&lt;"cn"&gt;&gt;),
+<font color=red>     0..|      UIDAttr = eldap_utils:get_mod_opt(ldap_memberattr, Opts,</font>
+        |                                        fun iolist_to_binary/1,
+        |                                        &lt;&lt;"memberUid"&gt;&gt;),
+<font color=red>     0..|      UIDAttrFormat = eldap_utils:get_mod_opt(ldap_memberattr_format, Opts,</font>
+        |                                              fun iolist_to_binary/1,
+        |                                              &lt;&lt;"%u"&gt;&gt;),
+<font color=red>     0..|      UIDAttrFormatRe = eldap_utils:get_mod_opt(ldap_memberattr_format_re, Opts,</font>
+        |                                                fun(S) -&gt;
+<font color=red>     0..|                                                        Re = iolist_to_binary(S),</font>
+<font color=red>     0..|                                                        {ok, MP} = re:compile(Re),</font>
+<font color=red>     0..|                                                        MP</font>
+        |                                                end, &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      AuthCheck = eldap_utils:get_mod_opt(ldap_auth_check, Opts,</font>
+<font color=red>     0..|                                          fun(on) -&gt; true;</font>
+<font color=red>     0..|                                             (off) -&gt; false;</font>
+<font color=red>     0..|                                             (false) -&gt; false;</font>
+<font color=red>     0..|                                             (true) -&gt; true</font>
+        |                                          end, true),
+<font color=red>     0..|      UserCacheValidity = eldap_utils:get_opt(</font>
+        |                            {ldap_user_cache_validity, Host}, Opts,
+<font color=red>     0..|                            fun(I) when is_integer(I), I&gt;0 -&gt; I end,</font>
+        |                            ?USER_CACHE_VALIDITY),
+<font color=red>     0..|      GroupCacheValidity = eldap_utils:get_opt(</font>
+        |                             {ldap_group_cache_validity, Host}, Opts,
+<font color=red>     0..|                             fun(I) when is_integer(I), I&gt;0 -&gt; I end,</font>
+        |                             ?GROUP_CACHE_VALIDITY),
+<font color=red>     0..|      UserCacheSize = eldap_utils:get_opt(</font>
+        |                        {ldap_user_cache_size, Host}, Opts,
+<font color=red>     0..|                        fun(I) when is_integer(I), I&gt;0 -&gt; I end,</font>
+        |                        ?CACHE_SIZE),
+<font color=red>     0..|      GroupCacheSize = eldap_utils:get_opt(</font>
+        |                         {ldap_group_cache_size, Host}, Opts,
+<font color=red>     0..|                         fun(I) when is_integer(I), I&gt;0 -&gt; I end,</font>
+        |                         ?CACHE_SIZE),
+<font color=red>     0..|      ConfigFilter = eldap_utils:get_opt({ldap_filter, Host}, Opts,</font>
+        |                                         fun check_filter/1, &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      ConfigUserFilter = eldap_utils:get_opt({ldap_ufilter, Host}, Opts,</font>
+        |                                             fun check_filter/1, &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      ConfigGroupFilter = eldap_utils:get_opt({ldap_gfilter, Host}, Opts,</font>
+        |                                              fun check_filter/1, &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      RosterFilter = eldap_utils:get_opt({ldap_rfilter, Host}, Opts,</font>
+        |                                         fun check_filter/1, &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      SubFilter = &lt;&lt;"(&amp;(", UIDAttr/binary, "=", UIDAttrFormat/binary,</font>
+        |                    ")(", GroupAttr/binary, "=%g))"&gt;&gt;,
+<font color=red>     0..|      UserSubFilter = case ConfigUserFilter of</font>
+        |                          &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                              eldap_filter:do_sub(SubFilter, [{&lt;&lt;"%g"&gt;&gt;, &lt;&lt;"*"&gt;&gt;}]);</font>
+<font color=red>     0..|                          UString -&gt; UString</font>
+        |                      end,
+<font color=red>     0..|      GroupSubFilter = case ConfigGroupFilter of</font>
+        |                           &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                               eldap_filter:do_sub(SubFilter, [{&lt;&lt;"%u"&gt;&gt;, &lt;&lt;"*"&gt;&gt;}]);</font>
+<font color=red>     0..|                           GString -&gt; GString</font>
+        |                       end,
+<font color=red>     0..|      Filter = case ConfigFilter of</font>
+<font color=red>     0..|                   &lt;&lt;""&gt;&gt; -&gt; SubFilter;</font>
+        |                   _ -&gt;
+<font color=red>     0..|                       &lt;&lt;"(&amp;", SubFilter/binary, ConfigFilter/binary, ")"&gt;&gt;</font>
+        |               end,
+<font color=red>     0..|      UserFilter = case ConfigFilter of</font>
+<font color=red>     0..|                       &lt;&lt;""&gt;&gt; -&gt; UserSubFilter;</font>
+        |                       _ -&gt;
+<font color=red>     0..|                           &lt;&lt;"(&amp;", UserSubFilter/binary, ConfigFilter/binary, ")"&gt;&gt;</font>
+        |                   end,
+<font color=red>     0..|      GroupFilter = case ConfigFilter of</font>
+<font color=red>     0..|                        &lt;&lt;""&gt;&gt; -&gt; GroupSubFilter;</font>
+        |                        _ -&gt;
+<font color=red>     0..|                            &lt;&lt;"(&amp;", GroupSubFilter/binary, ConfigFilter/binary,")"&gt;&gt;</font>
+        |                    end,
+<font color=red>     0..|      #state{host = Host, eldap_id = Eldap_ID,</font>
+        |             servers = Cfg#eldap_config.servers,
+        |             backups = Cfg#eldap_config.backups,
+        |             port = Cfg#eldap_config.port,
+        |             tls_options = Cfg#eldap_config.tls_options,
+        |             dn = Cfg#eldap_config.dn,
+        |             password = Cfg#eldap_config.password,
+        |             base = Cfg#eldap_config.base,
+        |             deref_aliases = Cfg#eldap_config.deref_aliases,
+        |             uid = UIDAttr,
+        |             group_attr = GroupAttr, group_desc = GroupDesc,
+        |             user_desc = UserDesc, user_uid = UserUID,
+        |             uid_format = UIDAttrFormat,
+        |             uid_format_re = UIDAttrFormatRe, filter = Filter,
+        |             ufilter = UserFilter, rfilter = RosterFilter,
+        |             gfilter = GroupFilter, auth_check = AuthCheck,
+        |             user_cache_size = UserCacheSize,
+        |             user_cache_validity = UserCacheValidity,
+        |             group_cache_size = GroupCacheSize,
+        |             group_cache_validity = GroupCacheValidity}.
+        |  
+        |  check_filter(F) -&gt;
+<font color=red>     0..|      NewF = iolist_to_binary(F),</font>
+<font color=red>     0..|      {ok, _} = eldap_filter:parse(NewF),</font>
+<font color=red>     0..|      NewF.</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_offline_mnesia.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_offline_mnesia.erl by COVER 2016-01-26 at 09:50:53
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% Copyright notice from the originam mod_offline.erl
+        |  %%%
+        |  %%% File    : mod_offline.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Store and manage offline messages in Mnesia database.
+        |  %%% Created :  5 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_offline_mnesia).
+        |  -behaviour(mod_offline).
+        |  -export([init/2,
+        |           pop_messages/2,
+        |           write_messages/3,
+        |           count_offline_messages/3,
+        |           remove_expired_messages/1,
+        |           remove_old_messages/2,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_offline.hrl").
+        |  
+        |  -define(OFFLINE_TABLE_LOCK_THRESHOLD, 1000).
+        |  -define(BATCHSIZE, 100).
+        |  
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(offline_msg,</font>
+        |  			[{disc_only_copies, [node()]},
+        |  			 {type, bag},
+        |  			 {attributes, record_info(fields, offline_msg)}]),
+<font color=red>     0..|      mnesia:add_table_copy(offline_msg, node(), disc_only_copies),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  pop_messages(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|  		Rs = mnesia:wread({offline_msg, US}),</font>
+<font color=red>     0..|  		mnesia:delete({offline_msg, US}),</font>
+<font color=red>     0..|  		Rs</font>
+        |  	end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, Rs} -&gt;
+<font color=red>     0..|              {ok, Rs};</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  write_messages(_LUser, _LServer, Msgs) -&gt;
+<font color=red>     0..|      F = fun() -&gt; write_messages_t(Msgs) end,</font>
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, Result} -&gt;
+<font color=red>     0..|              Result;</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}}</font>
+        |      end.
+        |  
+        |  write_messages_t(Msgs) -&gt;
+<font color=red>     0..|      Len = length(Msgs),</font>
+<font color=red>     0..|      write_all_messages_t(Len, Msgs).</font>
+        |  
+        |  write_all_messages_t(Len, Msgs) -&gt;
+<font color=red>     0..|      if</font>
+        |          Len &gt;= ?OFFLINE_TABLE_LOCK_THRESHOLD -&gt;
+<font color=red>     0..|              mnesia:write_lock_table(offline_msg);</font>
+        |          true -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      [mnesia:write(M) || M &lt;- Msgs],</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  count_offline_messages(LUser, LServer, _MaxNeeded) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun () -&gt;</font>
+<font color=red>     0..|          Result = mnesia:read(offline_msg, US, read),</font>
+<font color=red>     0..|          length(Result)</font>
+        |      end,
+<font color=red>     0..|      case catch mnesia:async_dirty(F) of</font>
+<font color=red>     0..|          I when is_integer(I) -&gt; I;</font>
+<font color=red>     0..|          _ -&gt; 0</font>
+        |      end.
+        |  
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|  		mnesia:delete({offline_msg, US})</font>
+        |  	end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  -spec remove_expired_messages(ejabberd:lserver()) -&gt; {error, term()} | {ok, HowManyRemoved} when
+        |      HowManyRemoved :: integer().
+        |  remove_expired_messages(_Host) -&gt;
+<font color=red>     0..|      TimeStamp = now(),</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|  		mnesia:write_lock_table(offline_msg),</font>
+<font color=red>     0..|  		mnesia:foldl(</font>
+        |  		  fun(Rec, Acc) -&gt;
+<font color=red>     0..|                Acc + remove_expired_message(TimeStamp, Rec)</font>
+        |  		  end, 0, offline_msg)
+        |  	end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          {atomic, Result} -&gt;
+<font color=red>     0..|              {ok, Result}</font>
+        |      end.
+        |  
+        |  -spec remove_old_messages(ejabberd:lserver(), erlang:timestamp()) -&gt;
+        |      {error, term()} | {ok, HowManyRemoved} when
+        |      HowManyRemoved :: integer().
+        |  remove_old_messages(_Host, TimeStamp) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  mnesia:write_lock_table(offline_msg),</font>
+<font color=red>     0..|                  mnesia:foldl(</font>
+        |                    fun(Rec, Acc) -&gt;
+<font color=red>     0..|                            Acc + remove_old_message(TimeStamp, Rec)</font>
+        |                    end, 0, offline_msg)
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          {atomic, Result} -&gt;
+<font color=red>     0..|              {ok, Result}</font>
+        |      end.
+        |  
+        |  remove_expired_message(TimeStamp, Rec) -&gt;
+<font color=red>     0..|      case mod_offline:is_expired_message(TimeStamp, Rec) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case  mnesia:delete_object(Rec) of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      1;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      0</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              0</font>
+        |      end.
+        |  
+        |  remove_old_message(TimeStamp, Rec) -&gt;
+<font color=red>     0..|      case is_old_message(TimeStamp, Rec) of</font>
+        |          true -&gt;
+<font color=red>     0..|             case  mnesia:delete_object(Rec) of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      1;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      0</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              0</font>
+        |      end.
+        |  
+        |  is_old_message(MaxAllowedTimeStamp, #offline_msg{timestamp=TimeStamp}) -&gt;
+<font color=red>     0..|      TimeStamp &lt; MaxAllowedTimeStamp.</font>
+        |  
+</pre>
+</body>
+</html>

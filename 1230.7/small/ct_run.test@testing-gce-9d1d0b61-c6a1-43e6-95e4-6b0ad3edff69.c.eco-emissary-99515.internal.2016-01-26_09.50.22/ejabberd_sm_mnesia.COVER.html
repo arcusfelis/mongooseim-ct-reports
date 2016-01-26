@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/ejabberd_sm_mnesia.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_sm_mnesia.erl by COVER 2016-01-26 at 09:50:52
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Michal Ptaszek &lt;michal.ptaszek@erlang-solutions.com&gt;
+        |  %%% @copyright (C) 2011, Erlang Solutions Ltd.
+        |  %%% @doc Implementation of Mnesia-based session manager
+        |  %%%
+        |  %%% @end
+        |  %%% Created : 17 Nov 2011 by Michal Ptaszek &lt;michal.ptaszek@erlang-solutions.com&gt;
+        |  %%%-------------------------------------------------------------------
+        |  -module(ejabberd_sm_mnesia).
+        |  
+        |  -behavior(ejabberd_gen_sm).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -export([start/1,
+        |           get_sessions/0,
+        |           get_sessions/1,
+        |           get_sessions/2,
+        |           get_sessions/3,
+        |           create_session/4,
+        |           delete_session/4,
+        |           cleanup/1,
+        |           total_count/0,
+        |           unique_count/0]).
+        |  
+        |  -spec start(list()) -&gt; any().
+        |  start(_Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(session,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {attributes, record_info(fields, session)}]),
+<font color=red>     0..|      mnesia:add_table_index(session, usr),</font>
+<font color=red>     0..|      mnesia:add_table_index(session, us),</font>
+<font color=red>     0..|      mnesia:add_table_copy(session, node(), ram_copies).</font>
+        |  
+        |  
+        |  -spec get_sessions() -&gt; [ejabberd_sm:ses_tuple()].
+        |  get_sessions() -&gt;
+<font color=red>     0..|      mnesia:activity(transaction,</font>
+        |          fun() -&gt;
+<font color=red>     0..|              mnesia:foldl(fun(#session{ usr = Usr, sid = Sid, priority = Pri, info = Inf}, AccIn) -&gt;</font>
+<font color=red>     0..|                             [{Usr, Sid, Pri, Inf}|AccIn]</font>
+        |                           end,
+        |                  [],
+        |                  session)
+        |          end).
+        |  
+        |  
+        |  -spec get_sessions(ejabberd:server()) -&gt; [ejabberd_sm:ses_tuple()].
+        |  get_sessions(Server) -&gt;
+<font color=red>     0..|      Sessions = mnesia:dirty_select(</font>
+        |          session,
+        |            [{#session{usr = '$1', sid='$2', priority='$3', info='$4', _ = '_' },
+        |            [{'==', {element, 2, '$1'}, Server}],
+        |            ['$$']}]),
+<font color=red>     0..|      [ {USR, SID, Pri, Info} || [USR, SID, Pri, Info] &lt;- Sessions ].</font>
+        |  
+        |  
+        |  -spec get_sessions(ejabberd:user(), ejabberd:server()) -&gt; [ejabberd_sm:session()].
+        |  get_sessions(User, Server) -&gt;
+<font color=red>     0..|      mnesia:dirty_index_read(session, {User, Server}, #session.us).</font>
+        |  
+        |  
+        |  -spec get_sessions(ejabberd:user(), ejabberd:server(), ejabberd:resource()
+        |                    ) -&gt; [ejabberd_sm:session()].
+        |  get_sessions(User, Server, Resource) -&gt;
+<font color=red>     0..|      mnesia:dirty_index_read(session, {User, Server, Resource}, #session.usr).</font>
+        |  
+        |  
+        |  -spec create_session(_User :: ejabberd:user(),
+        |                       _Server :: ejabberd:server(),
+        |                       _Resource :: ejabberd:resource(),
+        |                       Session :: ejabberd_sm:session()) -&gt; ok | {error, term()}.
+        |  create_session(_User, _Server, _Resource, Session) -&gt;
+<font color=red>     0..|      mnesia:sync_dirty(fun() -&gt;</font>
+<font color=red>     0..|                                mnesia:write(Session)</font>
+        |                        end).
+        |  
+        |  
+        |  -spec delete_session(ejabberd_sm:sid(),
+        |                       _User :: ejabberd:user(),
+        |                       _Server :: ejabberd:server(),
+        |                       _Resource :: ejabberd:resource()) -&gt; ok.
+        |  delete_session(SID, _User, _Server, _Resource) -&gt;
+<font color=red>     0..|      mnesia:sync_dirty(fun() -&gt;</font>
+<font color=red>     0..|                                mnesia:delete({session, SID})</font>
+        |                        end).
+        |  
+        |  
+        |  -spec cleanup(atom()) -&gt; any().
+        |  cleanup(Node) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  Es = mnesia:select(</font>
+        |                         session,
+        |                         [{#session{sid = {'_', '$1'}, _ = '_'},
+        |                           [{'==', {node, '$1'}, Node}],
+        |                           ['$_']}]),
+<font color=red>     0..|                  lists:foreach(fun(#session{ usr = {U, S, R}, sid = SID }) -&gt;</font>
+<font color=red>     0..|                                        mnesia:delete({session, SID}),</font>
+<font color=red>     0..|                                        ejabberd_hooks:run(session_cleanup, S, [U, S, R, SID])</font>
+        |                                end, Es)
+        |  
+        |          end,
+<font color=red>     0..|      mnesia:async_dirty(F).</font>
+        |  
+        |  
+        |  -spec total_count() -&gt; integer().
+        |  total_count() -&gt;
+<font color=red>     0..|      mnesia:table_info(session, size).</font>
+        |  
+        |  
+        |  -spec unique_count() -&gt; integer().
+        |  unique_count() -&gt;
+<font color=red>     0..|      compute_unique(mnesia:dirty_first(session),</font>
+        |                     sets:new()).
+        |  
+        |  -spec compute_unique(term(), ejabberd:set_t()) -&gt; integer().
+        |  compute_unique('$end_of_table', Set) -&gt;
+<font color=red>     0..|      sets:size(Set);</font>
+        |  compute_unique(Key, Set) -&gt;
+<font color=red>     0..|      NewSet = case mnesia:dirty_read(session, Key) of</font>
+        |                   [Session] -&gt;
+<font color=red>     0..|                       sets:add_element(Session#session.us, Set);</font>
+        |                   _ -&gt;
+<font color=red>     0..|                       Set</font>
+        |               end,
+<font color=red>     0..|      compute_unique(mnesia:dirty_next(session, Key), NewSet).</font>
+</pre>
+</body>
+</html>

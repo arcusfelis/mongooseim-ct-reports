@@ -1,0 +1,268 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-9d1d0b61-c6a1-43e6-95e4-6b0ad3edff69.c.eco-emissary-99515.internal.2016-01-26_09.50.22/mod_admin_extra_vcard.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_vcard.erl by COVER 2016-01-26 at 09:50:53
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_vcard.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_vcard).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([
+        |      commands/0,
+        |  
+        |      get_vcard/3,
+        |      get_vcard/4,
+        |      get_vcard_multi/4,
+        |      set_vcard/4,
+        |      set_vcard/5
+        |  ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  -include("mod_roster.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      Vcard1FieldsString = "Some vcard field names in get/set_vcard are:\n"</font>
+        |                           " FN		- Full Name\n"
+        |                           " NICKNAME	- Nickname\n"
+        |                           " BDAY		- Birthday\n"
+        |                           " TITLE		- Work: Position\n"
+        |                           " ROLE		- Work: Role",
+        |  
+<font color=red>     0..|      Vcard2FieldsString = "Some vcard field names and subnames in get/set_vcard2 are:\n"</font>
+        |                           " N FAMILY	- Family name\n"
+        |                           " N GIVEN	- Given name\n"
+        |                           " N MIDDLE	- Middle name\n"
+        |                           " ADR CTRY	- Address: Country\n"
+        |                           " ADR LOCALITY	- Address: City\n"
+        |                           " EMAIL USERID	- E-Mail Address\n"
+        |                           " ORG ORGNAME	- Work: Company\n"
+        |                           " ORG ORGUNIT	- Work: Department",
+        |  
+<font color=red>     0..|      VcardXEP = "For a full list of vCard fields check XEP-0054: vcard-temp at "</font>
+        |                 "http://www.xmpp.org/extensions/xep-0054.html",
+        |  
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = get_vcard, tags = [vcard],
+        |                             desc = "Get content from a vCard field",
+        |                             longdesc = Vcard1FieldsString ++ "\n" ++ Vcard2FieldsString ++ "\n\n" ++ VcardXEP,
+        |                             module = ?MODULE, function = get_vcard,
+        |                             args = [{user, binary}, {host, binary}, {name, binary}],
+        |                             result = {content, binary}},
+        |          #ejabberd_commands{name = get_vcard2, tags = [vcard],
+        |                             desc = "Get content from a vCard field",
+        |                             longdesc = Vcard2FieldsString ++ "\n\n" ++ Vcard1FieldsString ++ "\n" ++ VcardXEP,
+        |                             module = ?MODULE, function = get_vcard,
+        |                             args = [{user, binary}, {host, binary}, {name, binary}, {subname, binary}],
+        |                             result = {content, binary}},
+        |          #ejabberd_commands{name = get_vcard2_multi, tags = [vcard],
+        |                             desc = "Get multiple contents from a vCard field",
+        |                             longdesc = Vcard2FieldsString ++ "\n\n" ++ Vcard1FieldsString ++ "\n" ++ VcardXEP,
+        |                             module = ?MODULE, function = get_vcard_multi,
+        |                             args = [{user, binary}, {host, binary}, {name, binary}, {subname, binary}],
+        |                             result = {contents, {list, {value, binary}}}},
+        |          #ejabberd_commands{name = set_vcard, tags = [vcard],
+        |                             desc = "Set content in a vCard field",
+        |                             longdesc = Vcard1FieldsString ++ "\n" ++ Vcard2FieldsString ++ "\n\n" ++ VcardXEP,
+        |                             module = ?MODULE, function = set_vcard,
+        |                             args = [{user, binary}, {host, binary}, {name, binary}, {content, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = set_vcard2, tags = [vcard],
+        |                             desc = "Set content in a vCard subfield",
+        |                             longdesc = Vcard2FieldsString ++ "\n\n" ++ Vcard1FieldsString ++ "\n" ++ VcardXEP,
+        |                             module = ?MODULE, function = set_vcard,
+        |                             args = [{user, binary}, {host, binary}, {name, binary}, {subname, binary}, {content, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = set_vcard2_multi, tags = [vcard],
+        |                             desc = "Set multiple contents in a vCard subfield",
+        |                             longdesc = Vcard2FieldsString ++ "\n\n" ++ Vcard1FieldsString ++ "\n" ++ VcardXEP,
+        |                             module = ?MODULE, function = set_vcard,
+        |                             args = [{user, binary}, {host, binary}, {name, binary}, {subname, binary}, {contents, {list, binary}}],
+        |                             result = {res, restuple}}
+        |      ].
+        |  
+        |  %%%
+        |  %%% Vcard
+        |  %%%
+        |  -spec get_vcard(ejabberd:user(), ejabberd:server(), any())
+        |                 -&gt; {error, string()} | [binary()].
+        |  get_vcard(User, Host, Name) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              get_vcard_content(User, Host, [Name]);</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, io_lib:format("User ~s@~s does not exist", [User, Host])}</font>
+        |      end.
+        |  
+        |  -spec get_vcard(ejabberd:user(), ejabberd:server(), any(), any())
+        |                 -&gt; {error, string()} | [binary()].
+        |  get_vcard(User, Host, Name, Subname) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              get_vcard_content(User, Host, [Name, Subname]);</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, io_lib:format("User ~s@~s does not exist", [User, Host])}</font>
+        |      end.
+        |  
+        |  -spec get_vcard_multi(ejabberd:user(), ejabberd:server(), any(), any())
+        |                       -&gt; {error, string()} | list(binary()).
+        |  get_vcard_multi(User, Host, Name, Subname) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              get_vcard_content(User, Host, [Name, Subname]);</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, io_lib:format("User ~s@~s does not exist", [User, Host])}</font>
+        |      end.
+        |  
+        |  -spec set_vcard(ejabberd:user(), ejabberd:server(), [binary()],
+        |                  binary() | [binary()]) -&gt; {ok, string()} | {user_does_not_exist, string()}.
+        |  set_vcard(User, Host, Name, SomeContent) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              set_vcard_content(User, Host, [Name], SomeContent);</font>
+        |          false -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("User ~s@~s does not exist", [User, Host])}</font>
+        |      end.
+        |  
+        |  -spec set_vcard(ejabberd:user(), ejabberd:server(), [binary()], [binary()],
+        |                  binary() | [binary()]) -&gt; {ok, string()} | {user_does_not_exist, string()}.
+        |  set_vcard(User, Host, Name, Subname, SomeContent) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              set_vcard_content(User, Host, [Name, Subname], SomeContent);</font>
+        |          false -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("User ~s@~s does not exist", [User, Host])}</font>
+        |      end.
+        |  
+        |  
+        |  %%
+        |  %% Internal vcard
+        |  
+        |  -spec get_module_resource(ejabberd:server()) -&gt; string().
+        |  get_module_resource(Server) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Server, ?MODULE, module_resource, none) of</font>
+<font color=red>     0..|          none -&gt; atom_to_list(?MODULE);</font>
+<font color=red>     0..|          R when is_list(R) -&gt; R</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_vcard_content(ejabberd:user(), ejabberd:server(), any())
+        |                         -&gt; {error, string()} | list(binary()).
+        |  get_vcard_content(User, Server, Data) -&gt;
+<font color=red>     0..|      [{_, Module, Function, _Opts}] = ets:lookup(sm_iqtable, {?NS_VCARD, Server}),</font>
+<font color=red>     0..|      JID = jid:make(User, Server, list_to_binary(get_module_resource(Server))),</font>
+<font color=red>     0..|      IQ = #iq{type = get, xmlns = ?NS_VCARD},</font>
+        |      %% TODO: This may benefit from better type control
+<font color=red>     0..|      IQr = Module:Function(JID, JID, IQ),</font>
+<font color=red>     0..|      case IQr#iq.sub_el of</font>
+        |          [A1] -&gt;
+<font color=red>     0..|              case get_vcard(Data, A1) of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      {error, "Value not found in vcard"};</font>
+        |                  ElemList -&gt;
+<font color=red>     0..|                      [exml_query:cdata(Elem) || Elem &lt;- ElemList]</font>
+        |              end;
+        |          [] -&gt;
+<font color=red>     0..|              {error, "Vcard not found"};</font>
+        |          [undefined, _] -&gt;
+<font color=red>     0..|              {error, "Vcard not found"}</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_vcard([binary()], jlib:xmlel()) -&gt; [jlib:xmlel()].
+        |  get_vcard([Data1, Data2], A1) -&gt;
+<font color=red>     0..|      A2List = exml_query:subelements(A1, Data1),</font>
+<font color=red>     0..|      lists:flatten([get_vcard([Data2], A2) || A2 &lt;- A2List]);</font>
+        |  get_vcard([Data], A1) -&gt;
+<font color=red>     0..|      exml_query:subelements(A1, Data).</font>
+        |  
+        |  -spec set_vcard_content(ejabberd:user(), ejabberd:server(), Data :: [binary()],
+        |                          ContentList :: binary() | [binary()]) -&gt; {ok, string()}.
+        |  set_vcard_content(U, S, D, SomeContent) when is_binary(SomeContent) -&gt;
+<font color=red>     0..|      set_vcard_content(U, S, D, [SomeContent]);</font>
+        |  set_vcard_content(User, Server, Data, ContentList) -&gt;
+<font color=red>     0..|      [{_, Module, Function, _Opts}] = ets:lookup(sm_iqtable, {?NS_VCARD, Server}),</font>
+<font color=red>     0..|      JID = jid:make(User, Server, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      IQ = #iq{type = get, xmlns = ?NS_VCARD},</font>
+<font color=red>     0..|      IQr = Module:Function(JID, JID, IQ),</font>
+        |  
+        |      %% Get old vcard
+<font color=red>     0..|      A4 = case IQr#iq.sub_el of</font>
+        |               [A1] -&gt;
+<font color=red>     0..|                   {_, _, _, A2} = A1,</font>
+<font color=red>     0..|                   update_vcard_els(Data, ContentList, A2);</font>
+        |               _ -&gt;
+<font color=red>     0..|                   update_vcard_els(Data, ContentList, [])</font>
+        |           end,
+        |  
+        |      %% Build new vcard
+<font color=red>     0..|      SubEl = #xmlel{name = &lt;&lt;"vCard"&gt;&gt;, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, &lt;&lt;"vcard-temp"&gt;&gt;}], children = A4},</font>
+<font color=red>     0..|      IQ2 = #iq{type = set, sub_el = SubEl},</font>
+<font color=red>     0..|      Module:Function(JID, JID, IQ2),</font>
+<font color=red>     0..|      {ok, ""}.</font>
+        |  
+        |  -spec update_vcard_els(Data :: [binary(),...],
+        |                         ContentList :: [binary() | string()],
+        |                         Els :: [jlib:xmlcdata() | jlib:xmlel()]
+        |                        ) -&gt; [jlib:xmlcdata() | jlib:xmlel()].
+        |  update_vcard_els(Data, ContentList, Els1) -&gt;
+<font color=red>     0..|      Els2 = lists:keysort(2, Els1),</font>
+<font color=red>     0..|      [Data1 | Data2] = Data,</font>
+<font color=red>     0..|      NewEls = case Data2 of</font>
+        |                   [] -&gt;
+<font color=red>     0..|                       [#xmlel{ name = Data1, children = [#xmlcdata{content = Content}] } || Content &lt;- ContentList];</font>
+        |                   [D2] -&gt;
+<font color=red>     0..|                       OldEl = case lists:keysearch(Data1, 2, Els2) of</font>
+<font color=red>     0..|                                   {value, A} -&gt; A;</font>
+<font color=red>     0..|                                   false -&gt; #xmlel{ name = Data1 }</font>
+        |                               end,
+<font color=red>     0..|                       ContentOld1 = OldEl#xmlel.children,</font>
+<font color=red>     0..|                       Content2 = [#xmlel{ name = D2, children = [#xmlcdata{content=Content}]} || Content &lt;- ContentList],</font>
+<font color=red>     0..|                       ContentOld2 = [A || {_, X, _, _} = A &lt;- ContentOld1, X/=D2],</font>
+<font color=red>     0..|                       ContentOld3 = lists:keysort(2, ContentOld2),</font>
+<font color=red>     0..|                       ContentNew = lists:keymerge(2, Content2, ContentOld3),</font>
+<font color=red>     0..|                       [#xmlel{ name = Data1, children = ContentNew}]</font>
+        |               end,
+<font color=red>     0..|      Els3 = lists:keydelete(Data1, 2, Els2),</font>
+<font color=red>     0..|      lists:keymerge(2, NewEls, Els3).</font>
+</pre>
+</body>
+</html>
