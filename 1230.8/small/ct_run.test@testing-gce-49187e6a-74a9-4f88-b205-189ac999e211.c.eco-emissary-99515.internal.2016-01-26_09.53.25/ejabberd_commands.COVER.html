@@ -1,0 +1,491 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/ejabberd_commands.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_commands.erl by COVER 2016-01-26 at 09:53:55
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_commands.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;
+        |  %%% Purpose : Management of ejabberd commands
+        |  %%% Created : 20 May 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%% @headerfile "ejabberd_commands.hrl"
+        |  
+        |  %%% @doc Management of ejabberd commands.
+        |  %%%
+        |  %%% An ejabberd command is an abstract function identified by a name,
+        |  %%% with a defined number and type of calling arguments and type of
+        |  %%% result, that can be defined in any Erlang module and executed
+        |  %%% using any valid frontend.
+        |  %%%
+        |  %%%
+        |  %%% == Define a new ejabberd command ==
+        |  %%%
+        |  %%% ejabberd commands can be defined and registered in
+        |  %%% any Erlang module.
+        |  %%%
+        |  %%% Some commands are procedures; and their purpose is to perform an
+        |  %%% action in the server, so the command result is only some result
+        |  %%% code or result tuple.  Other commands are inspectors, and their
+        |  %%% purpose is to gather some information about the server and return
+        |  %%% a detailed response: it can be integer, string, atom, tuple, list
+        |  %%% or a mix of those ones.
+        |  %%%
+        |  %%% The arguments and result of an ejabberd command are strictly
+        |  %%% defined.  The number and format of the arguments provided when
+        |  %%% calling an ejabberd command must match the definition of that
+        |  %%% command.  The format of the result provided by an ejabberd command
+        |  %%% must be exactly its definition. For example, if a command is said
+        |  %%% to return an integer, it must always return an integer (except in
+        |  %%% case of a crash).
+        |  %%%
+        |  %%% If you are developing an Erlang module that will run inside
+        |  %%% ejabberd and you want to provide a new ejabberd command to
+        |  %%% administer some task related to your module, you only need to:
+        |  %%% implement a function, define the command, and register it.
+        |  %%%
+        |  %%%
+        |  %%% === Define a new ejabberd command ===
+        |  %%%
+        |  %%% An ejabberd command is defined using the Erlang record
+        |  %%% 'ejabberd_commands'.  This record has several elements that you
+        |  %%% must define. Note that 'tags', 'desc' and 'longdesc' are optional.
+        |  %%%
+        |  %%% For example let's define an ejabberd command 'pow' that gets the
+        |  %%% integers 'base' and 'exponent'. Its result will be an integer
+        |  %%% 'power':
+        |  %%%
+        |  %%% &lt;pre&gt;#ejabberd_commands{name = pow, tags = [test],
+        |  %%%                 desc = "Return the power of base for exponent",
+        |  %%%                 longdesc = "This is an example command. The formula is:\n"
+        |  %%%                 "  power = base ^ exponent",
+        |  %%%                 module = ?MODULE, function = pow,
+        |  %%%                 args = [{base, integer}, {exponent, integer}],
+        |  %%%                 result = {power, integer}}&lt;/pre&gt;
+        |  %%%
+        |  %%%
+        |  %%% === Implement the function associated to the command ===
+        |  %%%
+        |  %%% Now implement a function in your module that matches the arguments
+        |  %%% and result of the ejabberd command.
+        |  %%%
+        |  %%% For example the function calc_power gets two integers Base and
+        |  %%% Exponent. It calculates the power and rounds to an integer:
+        |  %%%
+        |  %%% &lt;pre&gt;calc_power(Base, Exponent) -&gt;
+        |  %%%    PowFloat = math:pow(Base, Exponent),
+        |  %%%    round(PowFloat).&lt;/pre&gt;
+        |  %%%
+        |  %%% Since this function will be called by ejabberd_commands, it must be exported.
+        |  %%% Add to your module:
+        |  %%% &lt;pre&gt;-export([calc_power/2]).&lt;/pre&gt;
+        |  %%%
+        |  %%% Only some types of result formats are allowed.
+        |  %%% If the format is defined as 'rescode', then your function must return:
+        |  %%%   ok | true | atom()
+        |  %%% where the atoms ok and true as considered positive answers,
+        |  %%% and any other response atom is considered negative.
+        |  %%%
+        |  %%% If the format is defined as 'restuple', then the command must return:
+        |  %%%   {rescode(), string()}
+        |  %%%
+        |  %%% If the format is defined as '{list, something()}', then the command
+        |  %%% must return a list of something().
+        |  %%%
+        |  %%%
+        |  %%% === Register the command ===
+        |  %%%
+        |  %%% Define this function and put inside the #ejabberd_command you
+        |  %%% defined in the beginning:
+        |  %%%
+        |  %%% &lt;pre&gt;commands() -&gt;
+        |  %%%    [
+        |  %%%
+        |  %%%    ].&lt;/pre&gt;
+        |  %%%
+        |  %%% You need to include this header file in order to use the record:
+        |  %%%
+        |  %%% &lt;pre&gt;-include("ejabberd_commands.hrl").&lt;/pre&gt;
+        |  %%%
+        |  %%% When your module is initialized or started, register your commands:
+        |  %%%
+        |  %%% &lt;pre&gt;ejabberd_commands:register_commands(commands()),&lt;/pre&gt;
+        |  %%%
+        |  %%% And when your module is stopped, unregister your commands:
+        |  %%%
+        |  %%% &lt;pre&gt;ejabberd_commands:unregister_commands(commands()),&lt;/pre&gt;
+        |  %%%
+        |  %%% That's all! Now when your module is started, the command will be
+        |  %%% registered and any frontend can access it. For example:
+        |  %%%
+        |  %%% &lt;pre&gt;$ mongooseimctl help pow
+        |  %%%
+        |  %%%   Command Name: pow
+        |  %%%
+        |  %%%   Arguments: base::integer
+        |  %%%              exponent::integer
+        |  %%%
+        |  %%%   Returns: power::integer
+        |  %%%
+        |  %%%   Tags: test
+        |  %%%
+        |  %%%   Description: Return the power of base for exponent
+        |  %%%
+        |  %%% This is an example command. The formula is:
+        |  %%%  power = base ^ exponent
+        |  %%%
+        |  %%% $ mongooseimctl pow 3 4
+        |  %%% 81
+        |  %%% &lt;/pre&gt;
+        |  %%%
+        |  %%%
+        |  %%% == Execute an ejabberd command ==
+        |  %%%
+        |  %%% ejabberd commands are mean to be executed using any valid
+        |  %%% frontend.  An ejabberd commands is implemented in a regular Erlang
+        |  %%% function, so it is also possible to execute this function in any
+        |  %%% Erlang module, without dealing with the associated ejabberd
+        |  %%% commands.
+        |  %%%
+        |  %%%
+        |  %%% == Frontend to ejabberd commands ==
+        |  %%%
+        |  %%% Currently there is one frontend to ejabberd commands: the shell
+        |  %%% script - mongooseimctl
+        |  %%%
+        |  %%% === mongooseimctl as a frontend to ejabberd commands ===
+        |  %%%
+        |  %%% It is possible to use mongooseimctl to get documentation of any
+        |  %%% command. But mongooseimctl does not support all the argument types
+        |  %%% allowed in ejabberd commands, so there are some ejabberd commands
+        |  %%% that cannot be executed using mongooseimctl.
+        |  %%%
+        |  %%% Also note that the mongooseimctl shell administration script also
+        |  %%% manages mongooseimctl commands, which are unrelated to ejabberd
+        |  %%% commands and can only be executed using mongooseimctl.
+        |  %%%
+        |  %%% TODO: consider this feature:
+        |  %%% All commands are catched. If an error happens, return the restuple:
+        |  %%%   {error, flattened error string}
+        |  %%% This means that ecomm call APIs ejabberd_ctl need to allows this.
+        |  
+        |  
+        |  -module(ejabberd_commands).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([init/0,
+        |           list_commands/0,
+        |           get_command_format/1,
+        |           get_command_definition/1,
+        |           get_tags_commands/0,
+        |           register_commands/1,
+        |           unregister_commands/1,
+        |           execute_command/2,
+        |           execute_command/4
+        |          ]).
+        |  
+        |  -include("ejabberd_commands.hrl").
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% Allowed types for arguments are integer, string, tuple and list.
+        |  -type atype() :: integer | string | binary | {tuple, [aterm()]} | {list, aterm()}.
+        |  
+        |  %% A rtype is either an atom or a tuple with two elements.
+        |  -type rtype() :: integer | string | atom | binary | {tuple, [rterm()]}
+        |                 | {list, rterm()} | rescode | restuple.
+        |  
+        |  %% An argument term is a tuple with the term name and the term type.
+        |  -type aterm() :: {Name::atom(), Type::atype()}.
+        |  
+        |  %% A result term is a tuple with the term name and the term type.
+        |  -type rterm() :: {Name::atom(), Type::rtype()}.
+        |  
+        |  -type cmd() :: #ejabberd_commands{
+        |                    name :: atom(),
+        |                    tags :: [atom()],
+        |                    desc :: string(),
+        |                    longdesc :: string(),
+        |                    module :: module(),
+        |                    function :: atom(),
+        |                    args :: [ejabberd_commands:aterm()],
+        |                    result :: ejabberd_commands:rterm()
+        |                   }.
+        |  
+        |  -type auth() :: {User :: binary(), Server :: binary(), Password :: binary()} | noauth.
+        |  
+        |  -type cmd_error() :: command_unknown | account_unprivileged
+        |                     | invalid_account_data | no_auth_provided.
+        |  -type access_cmd() :: {Access :: atom(),
+        |                         CommandNames :: [atom()],
+        |                         Arguments :: [term()]
+        |                        }.
+        |  -type list_cmd() :: {Name::atom(), Args::[aterm()], Desc::string()}.
+        |  
+        |  -export_type([rterm/0,
+        |                aterm/0,
+        |                cmd/0,
+        |                auth/0,
+        |                access_cmd/0,
+        |                list_cmd/0]).
+        |  
+        |  
+        |  init() -&gt;
+<font color=red>     0..|      ets:new(ejabberd_commands, [named_table, set, public,</font>
+        |                                  {keypos, #ejabberd_commands.name}]).
+        |  
+        |  
+        |  %% @doc Register ejabberd commands. If a command is already registered, a
+        |  %% warning is printed and the old command is preserved.
+        |  -spec register_commands([cmd()]) -&gt; ok.
+        |  register_commands(Commands) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(Command) -&gt;
+<font color=red>     0..|                case ets:insert_new(ejabberd_commands, Command) of</font>
+        |                    true -&gt;
+<font color=red>     0..|                        ok;</font>
+        |                    false -&gt;
+<font color=red>     0..|                        ?DEBUG("This command is already defined:~n~p", [Command])</font>
+        |                end
+        |        end,
+        |        Commands).
+        |  
+        |  
+        |  %% @doc Unregister ejabberd commands.
+        |  -spec unregister_commands([cmd()]) -&gt; ok.
+        |  unregister_commands(Commands) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(Command) -&gt;
+<font color=red>     0..|                ets:delete_object(ejabberd_commands, Command)</font>
+        |        end,
+        |        Commands).
+        |  
+        |  
+        |  %% @doc Get a list of all the available commands, arguments and description.
+        |  -spec list_commands() -&gt; [list_cmd()].
+        |  list_commands() -&gt;
+<font color=red>     0..|      Commands = ets:match(ejabberd_commands,</font>
+        |                           #ejabberd_commands{name = '$1',
+        |                                              args = '$2',
+        |                                              desc = '$3',
+        |                                              _ = '_'}),
+<font color=red>     0..|      [{A, B, C} || [A, B, C] &lt;- Commands].</font>
+        |  
+        |  
+        |  %% @doc Get the format of arguments and result of a command.
+        |  -spec get_command_format(Name::atom()) -&gt; {Args::[aterm()], Result::rterm()}
+        |                                          | {error, command_unknown}.
+        |  get_command_format(Name) -&gt;
+<font color=red>     0..|      Matched = ets:match(ejabberd_commands,</font>
+        |                          #ejabberd_commands{name = Name,
+        |                                             args = '$1',
+        |                                             result = '$2',
+        |                                             _ = '_'}),
+<font color=red>     0..|      case Matched of</font>
+        |          [] -&gt;
+<font color=red>     0..|              {error, command_unknown};</font>
+        |          [[Args, Result]] -&gt;
+<font color=red>     0..|              {Args, Result}</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Get the definition record of a command.
+        |  -spec get_command_definition(Name::atom()) -&gt; cmd() | 'command_not_found'.
+        |  get_command_definition(Name) -&gt;
+<font color=red>     0..|      case ets:lookup(ejabberd_commands, Name) of</font>
+<font color=red>     0..|          [E] -&gt; E;</font>
+<font color=red>     0..|          [] -&gt; command_not_found</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Execute a command.
+        |  -spec execute_command(Name :: atom(),
+        |                        Arguments :: list()
+        |                       ) -&gt; Result :: term() | {error, command_unknown}.
+        |  execute_command(Name, Arguments) -&gt;
+<font color=red>     0..|      execute_command([], noauth, Name, Arguments).</font>
+        |  
+        |  
+        |  -spec execute_command(AccessCommands :: [access_cmd()],
+        |                        Auth :: auth(),
+        |                        Name :: atom(),
+        |                        Arguments :: [term()]
+        |                        ) -&gt; Result :: term() | {error, cmd_error()}.
+        |  execute_command(AccessCommands, Auth, Name, Arguments) -&gt;
+<font color=red>     0..|      case ets:lookup(ejabberd_commands, Name) of</font>
+        |          [Command] -&gt;
+<font color=red>     0..|              try check_access_commands(AccessCommands, Auth, Name, Command, Arguments) of</font>
+<font color=red>     0..|                  ok -&gt; execute_command2(Command, Arguments)</font>
+        |              catch
+<font color=red>     0..|                  {error, Error} -&gt; {error, Error}</font>
+        |              end;
+<font color=red>     0..|          [] -&gt; {error, command_unknown}</font>
+        |      end.
+        |  
+        |  
+        |  %% @private
+        |  execute_command2(Command, Arguments) -&gt;
+<font color=red>     0..|      Module = Command#ejabberd_commands.module,</font>
+<font color=red>     0..|      Function = Command#ejabberd_commands.function,</font>
+<font color=red>     0..|      ?DEBUG("Executing command ~p:~p with Args=~p", [Module, Function, Arguments]),</font>
+<font color=red>     0..|      apply(Module, Function, Arguments).</font>
+        |  
+        |  
+        |  %% @doc Get all the tags and associated commands.
+        |  -spec get_tags_commands() -&gt; [{Tag::string(), [CommandName::string()]}].
+        |  get_tags_commands() -&gt;
+<font color=red>     0..|      CommandTags = ets:match(ejabberd_commands,</font>
+        |                              #ejabberd_commands{
+        |                                name = '$1',
+        |                                tags = '$2',
+        |                                _ = '_'}),
+<font color=red>     0..|      Dict = lists:foldl(</font>
+        |               fun([CommandNameAtom, CTags], D) -&gt;
+<font color=red>     0..|                       CommandName = atom_to_list(CommandNameAtom),</font>
+<font color=red>     0..|                       case CTags of</font>
+        |                           [] -&gt;
+<font color=red>     0..|                               orddict:append("untagged", CommandName, D);</font>
+        |                           _ -&gt;
+<font color=red>     0..|                               lists:foldl(</font>
+        |                                 fun(TagAtom, DD) -&gt;
+<font color=red>     0..|                                         Tag = atom_to_list(TagAtom),</font>
+<font color=red>     0..|                                         orddict:append(Tag, CommandName, DD)</font>
+        |                                 end,
+        |                                 D,
+        |                                 CTags)
+        |                       end
+        |               end,
+        |               orddict:new(),
+        |               CommandTags),
+<font color=red>     0..|      orddict:to_list(Dict).</font>
+        |  
+        |  
+        |  %% -----------------------------
+        |  %% Access verification
+        |  %% -----------------------------
+        |  
+        |  
+        |  %% @doc Check access is allowed to that command.
+        |  %% At least one AccessCommand must be satisfied.
+        |  %% May throw {error, account_unprivileged | invalid_account_data}
+        |  -spec check_access_commands(AccessCommands :: [ access_cmd() ],
+        |                              Auth :: auth(),
+        |                              Method :: atom(),
+        |                              Command :: tuple(),
+        |                              Arguments :: [any()]
+        |                              ) -&gt; ok | none().
+        |  check_access_commands([], _Auth, _Method, _Command, _Arguments) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  check_access_commands(AccessCommands, Auth, Method, Command, Arguments) -&gt;
+<font color=red>     0..|      AccessCommandsAllowed =</font>
+        |          lists:filter(
+        |            fun({Access, Commands, ArgumentRestrictions}) -&gt;
+<font color=red>     0..|                    case check_access(Access, Auth) of</font>
+        |                        true -&gt;
+<font color=red>     0..|                            check_access_command(Commands, Command, ArgumentRestrictions,</font>
+        |                                                 Method, Arguments);
+        |                        false -&gt;
+<font color=red>     0..|                            false</font>
+        |                    end
+        |            end,
+        |            AccessCommands),
+<font color=red>     0..|      case AccessCommandsAllowed of</font>
+<font color=red>     0..|          [] -&gt; throw({error, account_unprivileged});</font>
+<font color=red>     0..|          L when is_list(L) -&gt; ok</font>
+        |      end.
+        |  
+        |  
+        |  %% @private
+        |  %% May throw {error, invalid_account_data}
+        |  -spec check_auth(auth()) -&gt; {ok, User :: binary(), Server :: binary()} | no_return().
+        |  check_auth({User, Server, Password}) -&gt;
+        |      %% Check the account exists and password is valid
+<font color=red>     0..|      AccountPass = ejabberd_auth:get_password_s(User, Server),</font>
+<font color=red>     0..|      AccountPassMD5 = get_md5(AccountPass),</font>
+<font color=red>     0..|      case Password of</font>
+<font color=red>     0..|          AccountPass -&gt; {ok, User, Server};</font>
+<font color=red>     0..|          AccountPassMD5 -&gt; {ok, User, Server};</font>
+<font color=red>     0..|          _ -&gt; throw({error, invalid_account_data})</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_md5(iodata()) -&gt; string().
+        |  get_md5(AccountPass) -&gt;
+<font color=red>     0..|      lists:flatten([io_lib:format("~.16B", [X])</font>
+<font color=red>     0..|  		           || X &lt;- binary_to_list(crypto:hash(md5, AccountPass))]).</font>
+        |  
+        |  
+        |  -spec check_access(Access :: acl:rule(), Auth :: auth()) -&gt; boolean().
+        |  check_access(all, _) -&gt;
+<font color=red>     0..|      true;</font>
+        |  check_access(_, noauth) -&gt;
+<font color=red>     0..|      false;</font>
+        |  check_access(Access, Auth) -&gt;
+<font color=red>     0..|      {ok, User, Server} = check_auth(Auth),</font>
+        |      %% Check this user has access permission
+<font color=red>     0..|      case acl:match_rule(Server, Access, jid:make(User, Server, &lt;&lt;""&gt;&gt;)) of</font>
+<font color=red>     0..|          allow -&gt; true;</font>
+<font color=red>     0..|          deny -&gt; false</font>
+        |      end.
+        |  
+        |  
+        |  -spec check_access_command(_,tuple(),_,_,_) -&gt; boolean().
+        |  check_access_command(Commands, Command, ArgumentRestrictions, Method, Arguments) -&gt;
+<font color=red>     0..|      case Commands==all orelse lists:member(Method, Commands) of</font>
+<font color=red>     0..|          true -&gt; check_access_arguments(Command, ArgumentRestrictions, Arguments);</font>
+<font color=red>     0..|          false -&gt; false</font>
+        |      end.
+        |  
+        |  
+        |  -spec check_access_arguments(Command :: cmd(),
+        |                               Restrictions :: [any()],
+        |                               Args :: [any()]) -&gt; boolean().
+        |  check_access_arguments(Command, ArgumentRestrictions, Arguments) -&gt;
+<font color=red>     0..|      ArgumentsTagged = tag_arguments(Command#ejabberd_commands.args, Arguments),</font>
+<font color=red>     0..|      lists:all(</font>
+        |        fun({ArgName, ArgAllowedValue}) -&gt;
+        |                %% If the call uses the argument, check the value is acceptable
+<font color=red>     0..|                case lists:keysearch(ArgName, 1, ArgumentsTagged) of</font>
+<font color=red>     0..|                    {value, {ArgName, ArgValue}} -&gt; ArgValue == ArgAllowedValue;</font>
+<font color=red>     0..|                    false -&gt; true</font>
+        |                end
+        |        end, ArgumentRestrictions).
+        |  
+        |  
+        |  -spec tag_arguments(ArgsDefs :: [{atom(), integer() | string() | {_,_}}],
+        |                      Args :: [any()] ) -&gt; [{_,_}].
+        |  tag_arguments(ArgsDefs, Args) -&gt;
+<font color=red>     0..|      lists:zipwith(</font>
+        |        fun({ArgName, _ArgType}, ArgValue) -&gt;
+<font color=red>     0..|                {ArgName, ArgValue}</font>
+        |        end,
+        |        ArgsDefs,
+        |        Args).
+</pre>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/mod_offline_riak.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_offline_riak.erl by COVER 2016-01-26 at 09:53:55
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_offline_riak.erl
+        |  %%% Author  : Michal Piotrowski &lt;michal.piotrowski@erlang-solutions.com&gt;
+        |  %%% Purpose : mod_offline backend in Riak
+        |  %%%
+        |  %%%
+        |  %%% MongooseIM, Copyright (C) 2015      Erlang Solutions Ltd.
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  %%% @doc Riak backend for last activity XEP
+        |  %%%
+        |  %%% The backend uses the existing riak connection pool, which is "globally" defined in
+        |  %%% the ejebberd.cfg file. Therefore, we don't need to start anything in the init
+        |  %%% function.
+        |  %%%
+        |  %%% The module follows the approach taken by the other riak backends - it creates
+        |  %%% the following bucket {&lt;&lt;"offline"&gt;&gt;, &lt;&lt;"example.com"&gt;&gt;} for each xmpp domain.
+        |  %%%
+        |  %%% Data Layout:
+        |  %%% KV: {Username_and_timestamp:binary, Status:binary}
+        |  %%% 2i: [Username:binary, Timestamp:integer]
+        |  %%%
+        |  -module(mod_offline_riak).
+        |  
+        |  -behaviour(mod_offline).
+        |  
+        |  -export([init/2]).
+        |  -export([pop_messages/2]).
+        |  -export([write_messages/3]).
+        |  -export([remove_expired_messages/1]).
+        |  -export([remove_old_messages/2]).
+        |  -export([remove_user/2]).
+        |  -export([count_offline_messages/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_offline.hrl").
+        |  -include_lib("riakc/include/riakc.hrl").
+        |  
+        |  -define(TIMESTAMP_IDX, {integer_index, "timestamp"}).
+        |  -define(USER_IDX,      {binary_index, "user"}).
+        |  -define(EXPIRE_IDX,    {integer_index, "expire"}).
+        |  
+        |  -define(INFINITY, 99999999999). %% Wed, 16 Nov 5138 09:46:39 GMT
+        |  
+        |  -spec init(Host :: ejabberd:lserver(), Opts :: []) -&gt; ok.
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec pop_messages(LUser, LServer) -&gt; {ok, Result} | {error, Reason} when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Reason :: term(),
+        |      Result :: list(#offline_msg{}).
+        |  pop_messages(LUser, LServer) -&gt;
+<font color=red>     0..|      Keys = read_user_idx(LUser, LServer),</font>
+<font color=red>     0..|      To = jid:make(LUser, LServer, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      Msgs = [pop_msg(Key, LUser, LServer, To) || Key &lt;- Keys],</font>
+<font color=red>     0..|      {ok, lists:flatten(Msgs)}.</font>
+        |  
+        |  -spec write_messages(LUser, LServer, Msgs) -&gt;
+        |      ok  when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Msgs :: list().
+        |  write_messages(LUser, LServer, Msgs) -&gt;
+<font color=red>     0..|      [write_msg(LUser, LServer, Msg) || Msg &lt;- Msgs],</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec count_offline_messages(LUser, LServer, MaxArchivedMsgs) -&gt;
+        |      integer() when
+        |        LUser :: ejabberd:luser(),
+        |        LServer :: ejabberd:lserver(),
+        |        MaxArchivedMsgs :: integer().
+        |  count_offline_messages(LUser, LServer, MaxArchivedMsgs) -&gt;
+<font color=red>     0..|      {ok, IdxResult} = mongoose_riak:get_index(bucket_type(LServer), ?USER_IDX,</font>
+        |                                                LUser, [{max_results, MaxArchivedMsgs}]),
+<font color=red>     0..|      length(IdxResult?INDEX_RESULTS.keys).</font>
+        |  
+        |  -spec remove_expired_messages(Host) -&gt; {error, Reason} | {ok, Count} when
+        |      Host :: ejabberd:lserver(),
+        |      Reason :: term(),
+        |      Count :: integer().
+        |  remove_expired_messages(Host) -&gt;
+<font color=red>     0..|      TimestampInt = usec:from_now(os:timestamp()),</font>
+<font color=red>     0..|      {ok, Result} = mongoose_riak:get_index_range(bucket_type(Host), ?EXPIRE_IDX,</font>
+        |                                                   0, TimestampInt, []),
+<font color=red>     0..|      Keys = Result?INDEX_RESULTS.keys,</font>
+<font color=red>     0..|      [mongoose_riak:delete(bucket_type(Host), Key) || Key &lt;- Keys],</font>
+<font color=red>     0..|      {ok, length(Keys)}.</font>
+        |  
+        |  -spec remove_old_messages(Host, Days) -&gt; {error, Reason} | {ok, Count} when
+        |      Host :: ejabberd:lserver(),
+        |      Days :: erlang:timestamp(),
+        |      Reason :: term(),
+        |      Count :: integer().
+        |  remove_old_messages(Host, Timestamp) -&gt;
+<font color=red>     0..|      TimestampInt = usec:from_now(Timestamp),</font>
+<font color=red>     0..|      {ok, Result} = mongoose_riak:get_index_range(bucket_type(Host), ?TIMESTAMP_IDX,</font>
+        |                                                   0, TimestampInt, []),
+<font color=red>     0..|      Keys = Result?INDEX_RESULTS.keys,</font>
+<font color=red>     0..|      [mongoose_riak:delete(bucket_type(Host), Key) || Key &lt;- Keys],</font>
+<font color=red>     0..|      {ok, length(Keys)}.</font>
+        |  
+        |  -spec remove_user(LUser, LServer) -&gt; any() when
+        |      LUser :: binary(),
+        |      LServer :: binary().
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      Keys = read_user_idx(LUser, LServer),</font>
+<font color=red>     0..|      [mongoose_riak:delete(bucket_type(LServer), Key) || Key &lt;- Keys].</font>
+        |  
+        |  read_user_idx(LUser, LServer) -&gt;
+<font color=red>     0..|      {ok, IdxResult} = mongoose_riak:get_index(bucket_type(LServer), ?USER_IDX,</font>
+        |                                                LUser, []),
+<font color=red>     0..|      IdxResult?INDEX_RESULTS.keys.</font>
+        |  
+        |  write_msg(LUser, LServer, #offline_msg{from = FromJID, packet = Packet,
+        |                                         timestamp = TimestampIn, expire = Expire}) -&gt;
+<font color=red>     0..|      Timestamp = usec:from_now(TimestampIn),</font>
+<font color=red>     0..|      Obj = riakc_obj:new(bucket_type(LServer), key(LUser, Timestamp), exml:to_binary(Packet)),</font>
+<font color=red>     0..|      MD = riakc_obj:get_update_metadata(Obj),</font>
+<font color=red>     0..|      SecondaryIndexes = [{?TIMESTAMP_IDX, [Timestamp]},</font>
+        |                          {?USER_IDX, [LUser]},
+        |                          {?EXPIRE_IDX, [maybe_encode_timestamp(Expire)]}],
+<font color=red>     0..|      MDWithIndexes = riakc_obj:set_secondary_index(MD, SecondaryIndexes),</font>
+<font color=red>     0..|      From = jid:to_binary(FromJID),</font>
+<font color=red>     0..|      UserMetaData = [{&lt;&lt;"from"&gt;&gt;, From}],</font>
+<font color=red>     0..|      MDWithUserData = set_obj_user_metadata(MDWithIndexes, UserMetaData),</font>
+<font color=red>     0..|      FinalObj = riakc_obj:update_metadata(Obj, MDWithUserData),</font>
+<font color=red>     0..|      mongoose_riak:put(FinalObj).</font>
+        |  
+        |  set_obj_user_metadata(MD, []) -&gt;
+<font color=red>     0..|      MD;</font>
+        |  set_obj_user_metadata(MD, [UserMD | Rest]) -&gt;
+<font color=red>     0..|      UpdatedMD = riakc_obj:set_user_metadata_entry(MD, UserMD),</font>
+<font color=red>     0..|      set_obj_user_metadata(UpdatedMD, Rest).</font>
+        |  
+        |  pop_msg(Key, LUser, LServer, To) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          {ok, Obj} = mongoose_riak:get(bucket_type(LServer), Key),</font>
+        |  
+<font color=red>     0..|          PacketRaw = riakc_obj:get_value(Obj),</font>
+<font color=red>     0..|          {ok, Packet} = exml:parse(PacketRaw),</font>
+<font color=red>     0..|          MD = riakc_obj:get_update_metadata(Obj),</font>
+<font color=red>     0..|          [Timestamp] = riakc_obj:get_secondary_index(MD, ?TIMESTAMP_IDX),</font>
+<font color=red>     0..|          [Expire] = riakc_obj:get_secondary_index(MD, ?EXPIRE_IDX),</font>
+<font color=red>     0..|          User = riakc_obj:get_secondary_index(MD, ?USER_IDX),</font>
+<font color=red>     0..|          From = riakc_obj:get_user_metadata_entry(MD, &lt;&lt;"from"&gt;&gt;),</font>
+        |  
+<font color=red>     0..|          mongoose_riak:delete(bucket_type(LServer), Key),</font>
+        |  
+<font color=red>     0..|          #offline_msg{us = {LUser, LServer},</font>
+        |                       timestamp = usec:to_now(Timestamp),
+        |                       expire = maybe_decode_timestamp(Expire),
+        |                       from = jid:from_binary(From),
+        |                       to = To,
+        |                       packet = Packet}
+        |  
+        |      catch
+        |          Error:Reason -&gt;
+<font color=red>     0..|              ?WARNING_MSG("issue=~p, action=reading_key, host=~s, reason=~p, stack_trace=~p",</font>
+        |                           [Error, LServer, Reason, erlang:get_stacktrace()]),
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  
+        |  -spec bucket_type(ejabberd:lserver()) -&gt; {binary(), ejabberd:lserver()}.
+        |  bucket_type(LServer) -&gt;
+<font color=red>     0..|      {&lt;&lt;"offline"&gt;&gt;, LServer}.</font>
+        |  
+        |  -spec key(binary(), integer()) -&gt; binary().
+        |  key(LUser, TimestampInt) -&gt;
+<font color=red>     0..|      Timestamp = integer_to_binary(TimestampInt),</font>
+<font color=red>     0..|      Random = integer_to_binary(random:uniform(1024)),</font>
+<font color=red>     0..|      &lt;&lt;LUser/binary, "@", Timestamp/binary, "@", Random/binary&gt;&gt;.</font>
+        |  
+        |  maybe_encode_timestamp(never) -&gt;
+<font color=red>     0..|      ?INFINITY;</font>
+        |  maybe_encode_timestamp(TS) -&gt;
+<font color=red>     0..|      usec:from_now(TS).</font>
+        |  
+        |  maybe_decode_timestamp(?INFINITY) -&gt;
+<font color=red>     0..|      never;</font>
+        |  maybe_decode_timestamp(TS) -&gt;
+<font color=red>     0..|      usec:to_now(TS).</font>
+        |  
+</pre>
+</body>
+</html>

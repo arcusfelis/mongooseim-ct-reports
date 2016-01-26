@@ -1,0 +1,55 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/ejabberd_gen_mam_archive.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_gen_mam_archive.erl by COVER 2016-01-26 at 09:53:49
+
+****************************************************************************
+
+        |  -module(ejabberd_gen_mam_archive).
+        |  
+        |  -callback archive_size(Size :: integer(), Host :: ejabberd:server(),
+        |          ArchiveID :: mod_mam:archive_id(), ArchiveJID :: ejabberd:jid())
+        |              -&gt; integer().
+        |  
+        |  -callback archive_message(_Result, ejabberd:server(),
+        |          MessID :: mod_mam:message_id(), ArchiveID :: mod_mam:archive_id(),
+        |          LocJID :: ejabberd:jid(), RemJID :: ejabberd:jid(),
+        |          SrcJID :: ejabberd:jid(), Dir :: atom(), Packet :: any()) -&gt; ok | {error, timeout}.
+        |  
+        |  -callback lookup_messages(Result :: any(), Host :: ejabberd:server(),
+        |          ArchiveID :: mod_mam:archive_id(), ArchiveJID :: ejabberd:jid(),
+        |          RSM :: jlib:rsm_in() | undefined, Borders :: mod_mam:borders() | undefined,
+        |          Start :: mod_mam:unix_timestamp() | undefined,
+        |          End :: mod_mam:unix_timestamp() | undefined, Now :: mod_mam:unix_timestamp(),
+        |          WithJID :: ejabberd:jid() | undefined, PageSize :: integer(),
+        |          LimitPassed :: boolean() | opt_count, MaxResultLimit :: integer(),
+        |          IsSimple :: boolean()) -&gt; {ok, mod_mam:lookup_result()}
+        |                                  | {error, 'policy-violation'}.
+        |  
+        |  -callback remove_archive(Host :: ejabberd:server(),
+        |      ArchiveID :: mod_mam:archive_id(), ArchiveJID :: ejabberd:jid()) -&gt; 'ok'.
+        |  
+        |  -callback purge_single_message(Result :: purge_single_message_result(), Host :: ejabberd:server(),
+        |          MessID :: mod_mam:message_id(), ArchiveID :: mod_mam:archive_id(),
+        |          ArchiveJID :: ejabberd:jid(), Now :: mod_mam:unix_timestamp())
+        |              -&gt; purge_single_message_result().
+        |  
+        |  -callback purge_multiple_messages(Result :: any(), Host :: ejabberd:server(),
+        |          ArchiveID :: mod_mam:archive_id(), ArchiveJID :: ejabberd:jid(),
+        |          Borders :: mod_mam:borders() | undefined,
+        |          Start :: mod_mam:unix_timestamp() | undefined,
+        |          End :: mod_mam:unix_timestamp() | undefined,
+        |          Now :: mod_mam:unix_timestamp(),
+        |          WithJID :: ejabberd:jid() | undefined) -&gt; ok | {error, 'not-allowed'}.
+        |  
+        |  -type purge_single_message_result() :: ok | {error, 'not-allowed' | 'not-found' | term()}.
+        |  
+        |  -export_type([purge_single_message_result/0]).
+        |  
+</pre>
+</body>
+</html>

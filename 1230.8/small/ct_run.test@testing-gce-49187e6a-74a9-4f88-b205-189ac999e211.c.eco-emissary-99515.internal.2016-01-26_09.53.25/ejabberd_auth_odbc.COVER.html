@@ -1,0 +1,380 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/ejabberd_auth_odbc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_auth_odbc.erl by COVER 2016-01-26 at 09:53:55
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_auth_odbc.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Authentification via ODBC
+        |  %%% Created : 12 Dec 2004 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_auth_odbc).
+        |  -author('alexey@process-one.net').
+        |  
+        |  %% External exports
+        |  -behaviour(ejabberd_gen_auth).
+        |  -export([start/1,
+        |           stop/1,
+        |           set_password/3,
+        |           check_password/3,
+        |           check_password/5,
+        |           try_register/3,
+        |           dirty_get_registered_users/0,
+        |           get_vh_registered_users/1,
+        |           get_vh_registered_users/2,
+        |           get_vh_registered_users_number/1,
+        |           get_vh_registered_users_number/2,
+        |           get_password/2,
+        |           get_password_s/2,
+        |           does_user_exist/2,
+        |           remove_user/2,
+        |           remove_user/3,
+        |           store_type/1,
+        |           plain_password_required/0
+        |          ]).
+        |  
+        |  -export([login/2, get_password/3]).
+        |  
+        |  -export([scram_passwords/2, scram_passwords/4]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -define(DEFAULT_SCRAMMIFY_COUNT, 10000).
+        |  -define(DEFAULT_SCRAMMIFY_INTERVAL, 1000).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  start(_Host) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop(_Host) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  plain_password_required() -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  store_type(Server) -&gt;
+<font color=red>     0..|      case scram:enabled(Server) of</font>
+<font color=red>     0..|          false -&gt; plain;</font>
+<font color=red>     0..|          true -&gt; scram</font>
+        |      end.
+        |  
+        |  -spec check_password(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver(),
+        |                       Password :: binary()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      true == check_password_wo_escape(Username, LServer, Password).</font>
+        |  
+        |  
+        |  -spec check_password(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver(),
+        |                       Password :: binary(),
+        |                       Digest :: binary(),
+        |                       DigestGen :: fun()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password, Digest, DigestGen) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      try odbc_queries:get_password(LServer, Username) of</font>
+        |          %% Account exists, check if password is valid
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{Passwd, null}]} -&gt;
+<font color=red>     0..|              ejabberd_auth:check_digest(Digest, DigestGen, Password, Passwd);</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{_Passwd, PassDetails}]} -&gt;
+<font color=red>     0..|              case scram:deserialize(PassDetails) of</font>
+        |                  {ok, #scram{} = Scram} -&gt;
+<font color=red>     0..|                      scram:check_digest(Scram, Digest, DigestGen, Password);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      false</font>
+        |              end;
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], []} -&gt;
+<font color=red>     0..|              false; %% Account does not exist</font>
+        |          {error, _Error} -&gt;
+<font color=red>     0..|              false %% Typical error is that table doesn't exist</font>
+        |      catch
+        |          _:_ -&gt;
+<font color=red>     0..|              false %% Typical error is database not accessible</font>
+        |      end.
+        |  
+        |  -spec check_password_wo_escape(LUser::ejabberd:luser(),
+        |                                 LServer::ejabberd:lserver(),
+        |                                 Password::binary()) -&gt; boolean() | not_exists.
+        |  check_password_wo_escape(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      try odbc_queries:get_password(LServer, LUser) of</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{Password, null}]} -&gt;
+<font color=red>     0..|              Password /= &lt;&lt;""&gt;&gt;; %% Password is correct, and not empty</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{_Password2, null}]} -&gt;
+<font color=red>     0..|              false;</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{_Password2, PassDetails}]} -&gt;
+<font color=red>     0..|              case scram:deserialize(PassDetails) of</font>
+        |                  {ok, Scram} -&gt;
+<font color=red>     0..|                      scram:check_password(Password, Scram);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      false %% Password is not correct</font>
+        |              end;
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], []} -&gt;
+<font color=red>     0..|              not_exists; %% Account does not exist</font>
+        |          {error, _Error} -&gt;
+<font color=red>     0..|              false %% Typical error is that table doesn't exist</font>
+        |      catch
+        |          _:_ -&gt;
+<font color=red>     0..|              false %% Typical error is database not accessible</font>
+        |      end.
+        |  
+        |  
+        |  -spec set_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     Password :: binary()
+        |                     ) -&gt; ok | {error, not_allowed}.
+        |  set_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      PreparedPass = prepare_password(LServer, Password),</font>
+<font color=red>     0..|      case catch odbc_queries:set_password_t(LServer, Username, PreparedPass) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          Error -&gt;
+<font color=red>     0..|              ?WARNING_MSG("Failed SQL request: ~p", [Error]),</font>
+<font color=red>     0..|              {error, not_allowed}</font>
+        |      end.
+        |  
+        |  -spec try_register(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     Password :: binary()
+        |                     ) -&gt; ok | {error, exists}.
+        |  try_register(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      PreparedPass = prepare_password(LServer, Password),</font>
+<font color=red>     0..|      case catch odbc_queries:add_user(LServer, Username, PreparedPass) of</font>
+        |          {updated, 1} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, exists}</font>
+        |      end.
+        |  
+        |  -spec dirty_get_registered_users() -&gt; [ejabberd:simple_bare_jid()].
+        |  dirty_get_registered_users() -&gt;
+<font color=red>     0..|      Servers = ejabberd_config:get_vh_by_auth_method(odbc),</font>
+<font color=red>     0..|      lists:flatmap(</font>
+        |        fun(Server) -&gt;
+<font color=red>     0..|                get_vh_registered_users(Server)</font>
+        |        end, Servers).
+        |  
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver()) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer) -&gt;
+<font color=red>     0..|      case catch odbc_queries:list_users(LServer) of</font>
+        |          {selected, [&lt;&lt;"username"&gt;&gt;], Res} -&gt;
+<font color=red>     0..|              [{U, LServer} || {U} &lt;- Res];</font>
+        |          _ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver(), Opts :: list()
+        |                               ) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer, Opts) -&gt;
+<font color=red>     0..|      case catch odbc_queries:list_users(LServer, Opts) of</font>
+        |          {selected, [&lt;&lt;"username"&gt;&gt;], Res} -&gt;
+<font color=red>     0..|              [{U, LServer} || {U} &lt;- Res];</font>
+        |          _ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(LServer :: ejabberd:lserver()
+        |                                      ) -&gt; integer().
+        |  get_vh_registered_users_number(LServer) -&gt;
+<font color=red>     0..|      case catch odbc_queries:users_number(LServer) of</font>
+        |          {selected, [_], [{Res}]} when is_integer(Res) -&gt;
+<font color=red>     0..|              Res;</font>
+        |          {selected, [_], [{Res}]} -&gt;
+<font color=red>     0..|              list_to_integer(binary_to_list(Res));</font>
+        |          _ -&gt;
+<font color=red>     0..|              0</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(LServer :: ejabberd:lserver(),
+        |                                       Opts :: list()) -&gt; integer().
+        |  get_vh_registered_users_number(LServer, Opts) -&gt;
+<font color=red>     0..|      case catch odbc_queries:users_number(LServer, Opts) of</font>
+        |          {selected, [_], [{Res}]} -&gt;
+<font color=red>     0..|              list_to_integer(Res);</font>
+        |          _Other -&gt;
+<font color=red>     0..|              0</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_password(User :: ejabberd:luser(),
+        |                     Server :: ejabberd:lserver()) -&gt; binary() | false.
+        |  get_password(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      case catch odbc_queries:get_password(LServer, Username) of</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{Password, null}]} -&gt;
+<font color=red>     0..|              Password; %%Plain password</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{_Password, PassDetails}]} -&gt;
+<font color=red>     0..|              case scram:deserialize(PassDetails) of</font>
+        |                  {ok, Scram} -&gt;
+<font color=red>     0..|                      scram:scram_to_tuple(Scram);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      false</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_password_s(LUser :: ejabberd:user(),
+        |                       LServer :: ejabberd:server()) -&gt; binary().
+        |  get_password_s(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      case catch odbc_queries:get_password(LServer, Username) of</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{Password, _}]} -&gt;
+<font color=red>     0..|              Password;</font>
+        |          _ -&gt;
+<font color=red>     0..|              &lt;&lt;""&gt;&gt;</font>
+        |      end.
+        |  
+        |  
+        |  -spec does_user_exist(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver()
+        |                      ) -&gt; boolean() | {error, atom()}.
+        |  does_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      try odbc_queries:get_password(LServer, Username) of</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], [{_Password, _}]} -&gt;
+<font color=red>     0..|              true; %% Account exists</font>
+        |          {selected, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;], []} -&gt;
+<font color=red>     0..|              false; %% Account does not exist</font>
+        |          {error, Error} -&gt;
+<font color=red>     0..|              {error, Error} %% Typical error is that table doesn't exist</font>
+        |      catch
+        |          _:B -&gt;
+<font color=red>     0..|              {error, B} %% Typical error is database not accessible</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Remove user.
+        |  %% Note: it may return ok even if there was some problem removing the user.
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver()
+        |                    ) -&gt; ok.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      catch odbc_queries:del_user(LServer, Username),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% @doc Remove user if the provided password is correct.
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver(),
+        |                    Password :: binary()
+        |                   ) -&gt; ok | {error, not_exists | not_allowed}.
+        |  remove_user(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      Pass = ejabberd_odbc:escape(Password),</font>
+<font color=red>     0..|      case check_password_wo_escape(Username, LServer, Pass) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case catch odbc_queries:del_user(LServer, Username) of</font>
+        |                  {'EXIT', Error} -&gt;
+<font color=red>     0..|                      ?WARNING_MSG("Failed SQL query: ~p", [Error]),</font>
+<font color=red>     0..|                      {error, not_allowed};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end;
+        |          not_exists -&gt;
+<font color=red>     0..|              {error, not_exists};</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, not_allowed}</font>
+        |      end.
+        |  
+        |  %%%------------------------------------------------------------------
+        |  %%% SCRAM
+        |  %%%------------------------------------------------------------------
+        |  
+        |  -spec prepare_scrammed_password(Iterations :: pos_integer(), Password :: binary()) -&gt;
+        |      {PreparedPassword :: binary(), ExtendedPassword :: binary()}.
+        |  prepare_scrammed_password(Iterations, Password) when is_integer(Iterations) -&gt;
+<font color=red>     0..|      Scram = scram:password_to_scram(Password, Iterations),</font>
+<font color=red>     0..|      PassDetails = scram:serialize(Scram),</font>
+<font color=red>     0..|      PassDetailsEscaped = ejabberd_odbc:escape(PassDetails),</font>
+<font color=red>     0..|      {&lt;&lt;&gt;&gt;, PassDetailsEscaped}.</font>
+        |  
+        |  -spec prepare_password(Server :: ejabberd:server(), Password :: binary()) -&gt;
+        |      PreparedPassword :: {binary(), binary()} | binary().
+        |  prepare_password(Server, Password) -&gt;
+<font color=red>     0..|      case scram:enabled(Server) of</font>
+        |          true -&gt;
+<font color=red>     0..|              prepare_scrammed_password(scram:iterations(Server), Password);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ejabberd_odbc:escape(Password)</font>
+        |      end.
+        |  
+        |  scram_passwords(Server, ScramIterationCount) -&gt;
+<font color=red>     0..|      scram_passwords(Server, ?DEFAULT_SCRAMMIFY_COUNT, ?DEFAULT_SCRAMMIFY_INTERVAL, ScramIterationCount).</font>
+        |  
+        |  scram_passwords(Server, Count, Interval, ScramIterationCount) -&gt;
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      ?INFO_MSG("Converting the stored passwords into SCRAM bits", []),</font>
+<font color=red>     0..|      ToConvertCount = case catch odbc_queries:get_users_without_scram_count(LServer) of</font>
+<font color=red>     0..|          {selected, [_], [{Res}]} -&gt; binary_to_integer(Res);</font>
+<font color=red>     0..|          _ -&gt; 0</font>
+        |      end,
+        |  
+<font color=red>     0..|      ?INFO_MSG("Users to scrammify: ~p", [ToConvertCount]),</font>
+<font color=red>     0..|      scram_passwords1(LServer, Count, Interval, ScramIterationCount).</font>
+        |  
+        |  scram_passwords1(LServer, Count, Interval, ScramIterationCount) -&gt;
+<font color=red>     0..|      case odbc_queries:get_users_without_scram(LServer, Count) of</font>
+        |          {selected, _, []} -&gt;
+<font color=red>     0..|              ?INFO_MSG("All users scrammed.", []);</font>
+        |          {selected, [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"password"&gt;&gt;], Results} -&gt;
+<font color=red>     0..|              ?INFO_MSG("Scramming ~p users...", [length(Results)]),</font>
+<font color=red>     0..|              lists:foreach(</font>
+        |                fun({Username, Password}) -&gt;
+<font color=red>     0..|                        Scrammed = prepare_scrammed_password(ScramIterationCount, Password),</font>
+<font color=red>     0..|                        case catch odbc_queries:set_password_t(LServer, Username, Scrammed) of</font>
+<font color=red>     0..|                            {atomic, ok} -&gt; ok;</font>
+<font color=red>     0..|                            Other -&gt; ?ERROR_MSG("Could not scrammify user ~s@~s because: ~p", [Username, LServer, Other])</font>
+        |                        end
+        |                end, Results),
+<font color=red>     0..|              ?INFO_MSG("Scrammed. Waiting for ~pms", [Interval]),</font>
+<font color=red>     0..|              timer:sleep(Interval),</font>
+<font color=red>     0..|              scram_passwords1(LServer, Count, Interval, ScramIterationCount);</font>
+        |          Other -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Interrupted scramming because: ~p", [Other])</font>
+        |      end.
+        |  
+        |  %% @doc Unimplemented gen_auth callbacks
+<font color=red>     0..|  login(_User, _Server) -&gt; erlang:error(not_implemented).</font>
+<font color=red>     0..|  get_password(_User, _Server, _DefaultValue) -&gt; erlang:error(not_implemented).</font>
+</pre>
+</body>
+</html>

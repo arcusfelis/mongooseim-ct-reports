@@ -1,0 +1,603 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/ejabberd_auth.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_auth.erl by COVER 2016-01-26 at 09:54:11
+
+****************************************************************************
+
+        |  
+        |  %%% File    : ejabberd_auth.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Authentification
+        |  %%% Created : 23 Nov 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_auth).
+        |  -author('alexey@process-one.net').
+        |  
+        |  %% External exports
+        |  -export([start/0,
+        |           start/1,
+        |           stop/1,
+        |           set_password/3,
+        |           check_password/3,
+        |           check_password/5,
+        |           check_password_with_authmodule/3,
+        |           check_password_with_authmodule/5,
+        |           try_register/3,
+        |           dirty_get_registered_users/0,
+        |           get_vh_registered_users/1,
+        |           get_vh_registered_users/2,
+        |           get_vh_registered_users_number/1,
+        |           get_vh_registered_users_number/2,
+        |           get_password/2,
+        |           get_password_s/2,
+        |           get_password_with_authmodule/2,
+        |           is_user_exists/2,
+        |           is_user_exists_in_other_modules/3,
+        |           remove_user/2,
+        |           remove_user/3,
+        |           plain_password_required/1,
+        |           store_type/1,
+        |           entropy/1
+        |          ]).
+        |  
+        |  -export([check_digest/4]).
+        |  
+        |  -export([auth_modules/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -export_type([authmodule/0]).
+        |  
+        |  -type authmodule() :: module().
+        |  
+        |  -define(METRIC(Host, Name), [backends, auth, Host, Name]).
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  -spec start() -&gt; 'ok'.
+        |  start() -&gt;
+<font color=red>     0..|      lists:foreach(fun start/1, ?MYHOSTS).</font>
+        |  
+        |  -spec start(Host :: ejabberd:server()) -&gt; 'ok'.
+        |  start(Host) -&gt;
+<font color=red>     0..|      ensure_metrics(Host),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(M) -&gt;
+<font color=red>     0..|                M:start(Host)</font>
+        |        end, auth_modules(Host)).
+        |  
+        |  -spec stop(Host :: ejabberd:server()) -&gt; 'ok'.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(M) -&gt;
+<font color=red>     0..|                M:stop(Host)</font>
+        |        end, auth_modules(Host)).
+        |  
+        |  %% This is only executed by ejabberd_c2s for non-SASL auth client
+        |  -spec plain_password_required(Server :: ejabberd:server()) -&gt; boolean().
+        |  plain_password_required(Server) -&gt;
+<font color=red>     0..|      lists:any(</font>
+        |        fun(M) -&gt;
+<font color=red>     0..|                M:plain_password_required()</font>
+        |        end, auth_modules(Server)).
+        |  
+        |  store_type(Server) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun(_, external) -&gt;
+<font color=red>     0..|                external;</font>
+        |           (M, scram) -&gt;
+<font color=red>     0..|                case M:store_type(Server) of</font>
+        |                    external -&gt;
+<font color=red>     0..|                        external;</font>
+        |                    _Else -&gt;
+<font color=red>     0..|                        scram</font>
+        |                end;
+        |           (M, plain) -&gt;
+<font color=red>     0..|                M:store_type(Server)</font>
+        |        end, plain, auth_modules(Server)).
+        |  
+        |  %% @doc Check if the user and password can login in server.
+        |  -spec check_password(User :: ejabberd:user(),
+        |                       Server :: ejabberd:server(),
+        |                       Password :: binary() ) -&gt; boolean().
+        |  check_password(User, Server, Password) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_check_password(LUser, LServer, Password).</font>
+        |  
+        |  -spec do_check_password(ejabberd:luser(), ejabberd:lserver(), binary()) -&gt; boolean().
+        |  do_check_password(LUser, LServer, _) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_check_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case check_password_with_authmodule(LUser, LServer, Password) of</font>
+<font color=red>     0..|          {true, _AuthModule} -&gt; true;</font>
+<font color=red>     0..|          false -&gt; false</font>
+        |      end.
+        |  
+        |  %% @doc Check if the user and password can login in server.
+        |  -spec check_password(User :: ejabberd:user(),
+        |                       Server :: ejabberd:server(),
+        |                       Password :: binary(),
+        |                       Digest :: binary(),
+        |                       DigestGen :: fun()) -&gt; boolean().
+        |  check_password(User, Server, Password, Digest, DigestGen) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_check_password(LUser, LServer, Password, Digest, DigestGen).</font>
+        |  
+        |  -spec do_check_password(User :: ejabberd:luser(),
+        |                       Server :: ejabberd:lserver(),
+        |                       Password :: binary(),
+        |                       Digest :: binary(),
+        |                       DigestGen :: fun()) -&gt; boolean().
+        |  do_check_password(LUser, LServer, _,_,_)
+        |      when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_check_password(LUser, LServer, Password, Digest, DigestGen) -&gt;
+<font color=red>     0..|      case check_password_with_authmodule(LUser, LServer, Password, Digest, DigestGen) of</font>
+<font color=red>     0..|          {true, _AuthModule} -&gt; true;</font>
+<font color=red>     0..|          false -&gt; false</font>
+        |      end.
+        |  
+        |  %% @doc Check if the user and password can login in server.
+        |  %% The user can login if at least an authentication method accepts the user
+        |  %% and the password.
+        |  -spec check_password_with_authmodule(User :: binary(),
+        |                                       Server :: binary(),
+        |                                       Password :: binary()
+        |                                       ) -&gt; 'false' | {'true', authmodule()}.
+        |  check_password_with_authmodule(User, Server, Password) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_check_password_with_authmodule(LUser, LServer, Password).</font>
+        |  
+        |  -spec do_check_password_with_authmodule(LUser :: ejabberd:luser(),
+        |                                          LServer :: ejabberd:lserver(),
+        |                                          Password :: binary()
+        |                                         ) -&gt; 'false' | {'true', authmodule()}.
+        |  do_check_password_with_authmodule(LUser, LServer, _)
+        |      when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_check_password_with_authmodule(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      check_password_loop(auth_modules(LServer), [LUser, LServer, Password]).</font>
+        |  
+        |  -spec check_password_with_authmodule(User :: binary(),
+        |                                       Server :: binary(),
+        |                                       Password :: binary(),
+        |                                       Digest :: binary(),
+        |                                       DigestGen :: fun()
+        |                                       ) -&gt; 'false' | {'true', authmodule()}.
+        |  check_password_with_authmodule(User, Server, Password, Digest, DigestGen) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_check_password_with_authmodule(LUser, LServer, Password, Digest, DigestGen).</font>
+        |  
+        |  -spec do_check_password_with_authmodule(LUser :: ejabberd:luser(),
+        |                                          LServer :: ejabberd:lserver(),
+        |                                          Password :: binary(),
+        |                                          Digest :: binary(),
+        |                                          DigestGen :: fun()
+        |                                       ) -&gt; 'false' | {'true', authmodule()}.
+        |  do_check_password_with_authmodule(LUser, LServer, _, _, _)
+        |      when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_check_password_with_authmodule(LUser, LServer, Password, Digest, DigestGen) -&gt;
+<font color=red>     0..|      check_password_loop(auth_modules(LServer), [LUser, LServer, Password,</font>
+        |                                                 Digest, DigestGen]).
+        |  
+        |  -spec check_password_loop(AuthModules :: [authmodule()],
+        |                            Args :: [any(),...]
+        |                            ) -&gt; 'false' | {'true', authmodule()}.
+        |  check_password_loop([], _Args) -&gt;
+<font color=red>     0..|      false;</font>
+        |  check_password_loop(AuthModules, [_, LServer | _] = Args) -&gt;
+<font color=red>     0..|      timed_call(LServer, check_password, fun do_check_password_loop/2, [AuthModules, Args]).</font>
+        |  
+        |  do_check_password_loop([], _) -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_check_password_loop([AuthModule | AuthModules], Args) -&gt;
+<font color=red>     0..|      case apply(AuthModule, check_password, Args) of</font>
+        |          true -&gt;
+<font color=red>     0..|              {true, AuthModule};</font>
+        |          false -&gt;
+<font color=red>     0..|              do_check_password_loop(AuthModules, Args)</font>
+        |      end.
+        |  
+        |  -spec check_digest(binary(), fun(), binary(), binary()) -&gt; boolean().
+        |  check_digest(&lt;&lt;&gt;&gt;, _, &lt;&lt;&gt;&gt;, _) -&gt;
+<font color=red>     0..|      false; %%empty digest and password</font>
+        |  check_digest(Digest, DigestGen, _Password, Passwd) -&gt;
+<font color=red>     0..|      Digest == DigestGen(Passwd).</font>
+        |  
+        |  -spec set_password(User :: ejabberd:user(),
+        |                     Server :: ejabberd:server(),
+        |                     Password :: binary()
+        |                    ) -&gt; ok | {error, empty_password | not_allowed | invalid_jid}.
+        |  set_password(_,_, &lt;&lt;""&gt;&gt;) -&gt;
+<font color=red>     0..|      {error, empty_password};</font>
+        |  set_password(User, Server, Password) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nodeprep(Server),</font>
+<font color=red>     0..|      do_set_password(LUser, LServer, Password).</font>
+        |  
+        |  do_set_password(LUser, LServer, _) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      {error, invalid_jid};</font>
+        |  do_set_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun(M, {error, _}) -&gt;
+<font color=red>     0..|                M:set_password(LUser, LServer, Password);</font>
+        |           (_M, Res) -&gt;
+<font color=red>     0..|                Res</font>
+        |        end, {error, not_allowed}, auth_modules(LServer)).
+        |  
+        |  
+        |  -spec try_register(User :: ejabberd:user(),
+        |                     Server :: ejabberd:server(),
+        |                     Password :: binary()
+        |                     ) -&gt; ok | {error, exists | not_allowed | invalid_jid | null_password}.
+        |  try_register(_,_,&lt;&lt;""&gt;&gt;) -&gt;
+<font color=red>     0..|      {error, null_password};</font>
+        |  try_register(User, Server, Password) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nodeprep(Server),</font>
+<font color=red>     0..|      do_try_register(LUser, LServer, Password).</font>
+        |  
+        |  -spec do_try_register(ejabberd:luser(), ejabberd:lserver(),binary())
+        |          -&gt; ok | {error, exists | not_allowed | invalid_jid}.
+        |  do_try_register(LUser, LServer, _) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      {error, invalid_jid};</font>
+        |  do_try_register(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Exists = is_user_exists(LUser,LServer),</font>
+<font color=red>     0..|      do_try_register_if_does_not_exist(Exists, LUser, LServer, Password).</font>
+        |  
+        |  do_try_register_if_does_not_exist(true, _, _, _) -&gt;
+<font color=red>     0..|      {error, exists};</font>
+        |  do_try_register_if_does_not_exist(_, LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case lists:member(LServer, ?MYHOSTS) of</font>
+        |          true -&gt;
+<font color=red>     0..|              timed_call(LServer, try_register,</font>
+        |                         fun do_try_register_if_does_not_exist_timed/3, [LUser, LServer, Password]);
+        |          false -&gt;
+<font color=red>     0..|              {error, not_allowed}</font>
+        |      end.
+        |  
+        |  do_try_register_if_does_not_exist_timed(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      Backends = auth_modules(LServer),</font>
+<font color=red>     0..|      do_try_register_in_backend(Backends, LUser, LServer, Password).</font>
+        |  
+        |  do_try_register_in_backend([], _, _, _) -&gt;
+<font color=red>     0..|      {error, not_allowed};</font>
+        |  do_try_register_in_backend([M | Backends], LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case M:try_register(LUser, LServer, Password) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              ejabberd_hooks:run(register_user, LServer,</font>
+        |                  [LUser, LServer]);
+        |          _ -&gt;
+<font color=red>     0..|              do_try_register_in_backend(Backends, LUser, LServer, Password)</font>
+        |      end.
+        |  
+        |  %% @doc Registered users list do not include anonymous users logged
+        |  -spec dirty_get_registered_users() -&gt; [ejabberd:simple_bare_jid()].
+        |  dirty_get_registered_users() -&gt;
+<font color=red>     0..|      lists:flatmap(</font>
+        |        fun(M) -&gt;
+<font color=red>     0..|                M:dirty_get_registered_users()</font>
+        |        end, auth_modules()).
+        |  
+        |  
+        |  %% @doc Registered users list do not include anonymous users logged
+        |  -spec get_vh_registered_users(Server :: ejabberd:server()
+        |                               ) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(Server) -&gt;
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_get_vh_registered_users(LServer).</font>
+        |  
+        |  do_get_vh_registered_users(error) -&gt;
+<font color=red>     0..|      [];</font>
+        |  do_get_vh_registered_users(LServer) -&gt;
+<font color=red>     0..|      lists:flatmap(</font>
+        |        fun(M) -&gt;
+<font color=red>     0..|                M:get_vh_registered_users(LServer)</font>
+        |        end, auth_modules(LServer)).
+        |  
+        |  
+        |  -spec get_vh_registered_users(Server :: ejabberd:server(),
+        |                                Opts :: [any()]) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(Server, Opts) -&gt;
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_get_vh_registered_users(LServer, Opts).</font>
+        |  
+        |  do_get_vh_registered_users(error, _) -&gt;
+<font color=red>     0..|      [];</font>
+        |  do_get_vh_registered_users(LServer, Opts) -&gt;
+<font color=red>     0..|      lists:flatmap(</font>
+        |          fun(M) -&gt;
+<font color=red>     0..|              M:get_vh_registered_users(LServer, Opts)</font>
+        |          end, auth_modules(LServer)).
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(Server :: ejabberd:server()
+        |                                      ) -&gt; integer().
+        |  get_vh_registered_users_number(Server) -&gt;
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_get_vh_registered_users_number(LServer).</font>
+        |  
+        |  do_get_vh_registered_users_number(error) -&gt;
+<font color=red>     0..|      0;</font>
+        |  do_get_vh_registered_users_number(LServer) -&gt;
+<font color=red>     0..|      lists:sum(</font>
+        |          lists:map(
+        |              fun(M) -&gt;
+<font color=red>     0..|                  M:get_vh_registered_users_number(LServer)</font>
+        |              end, auth_modules(LServer))).
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(Server :: ejabberd:server(),
+        |                                       Opts :: list()) -&gt; integer().
+        |  get_vh_registered_users_number(Server, Opts) -&gt;
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_get_vh_registered_users_number(LServer, Opts).</font>
+        |  
+        |  do_get_vh_registered_users_number(error, _) -&gt;
+<font color=red>     0..|      0;</font>
+        |  do_get_vh_registered_users_number(LServer, Opts) -&gt;
+<font color=red>     0..|      lists:sum(</font>
+        |          lists:map(
+        |              fun(M) -&gt;
+<font color=red>     0..|                  M:get_vh_registered_users_number(LServer, Opts)</font>
+        |              end, auth_modules(LServer))).
+        |  
+        |  
+        |  %% @doc Get the password of the user.
+        |  -spec get_password(User :: ejabberd:user(),
+        |                     Server :: ejabberd:server()) -&gt; binary() | false.
+        |  get_password(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_get_password(LUser, LServer).</font>
+        |  
+        |  do_get_password(LUser, LServer) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_get_password(LUser, LServer) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |          fun(M, false) -&gt;
+<font color=red>     0..|              M:get_password(LUser, LServer);</font>
+        |              (_M, Password) -&gt;
+<font color=red>     0..|                  Password</font>
+        |          end, false, auth_modules(LServer)).
+        |  
+        |  
+        |  -spec get_password_s(User :: ejabberd:user(),
+        |                       Server :: ejabberd:server()) -&gt; binary().
+        |  get_password_s(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_get_password_s(LUser, LServer).</font>
+        |  
+        |  do_get_password_s(LUser, LServer) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      &lt;&lt;""&gt;&gt;;</font>
+        |  do_get_password_s(LUser, LServer) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |          fun(M, &lt;&lt;""&gt;&gt;) -&gt;
+<font color=red>     0..|              M:get_password_s(LUser, LServer);</font>
+        |              (_M, Password) -&gt;
+<font color=red>     0..|                  Password</font>
+        |          end, &lt;&lt;""&gt;&gt;, auth_modules(LServer)).
+        |  
+        |  %% @doc Get the password of the user and the auth module.
+        |  -spec get_password_with_authmodule(User :: ejabberd:user(),
+        |                                     Server :: ejabberd:server())
+        |        -&gt; {Password::binary(), AuthModule :: authmodule()} | {'false', 'none'}.
+        |  get_password_with_authmodule(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_get_password_with_authmodule(LUser, LServer).</font>
+        |  
+        |  do_get_password_with_authmodule(LUser, LServer)
+        |      when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      {false, none};</font>
+        |  do_get_password_with_authmodule(LUser, LServer) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |          fun(M, {false, _}) -&gt;
+<font color=red>     0..|              {M:get_password(LUser, LServer), M};</font>
+        |              (_M, {Password, AuthModule}) -&gt;
+<font color=red>     0..|                  {Password, AuthModule}</font>
+        |          end, {false, none}, auth_modules(LServer)).
+        |  
+        |  %% @doc Returns true if the user exists in the DB or if an anonymous user is
+        |  %% logged under the given name
+        |  -spec is_user_exists(User :: ejabberd:user(),
+        |                       Server :: ejabberd:server()) -&gt; boolean().
+        |  is_user_exists(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_does_user_exist(LUser, LServer).</font>
+        |  
+        |  do_does_user_exist(LUser, LServer) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_does_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      timed_call(LServer, does_user_exist, fun does_user_exist_timed/2, [LUser, LServer]).</font>
+        |  
+        |  does_user_exist_timed(LUser, LServer) -&gt;
+<font color=red>     0..|      lists:any(</font>
+        |          fun(M) -&gt;
+<font color=red>     0..|              case M:does_user_exist(LUser, LServer) of</font>
+        |                  {error, Error} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("The authentication module ~p returned an "</font>
+        |                      "error~nwhen checking user ~p in server ~p~n"
+        |                      "Error message: ~p",
+        |                          [M, LUser, LServer, Error]),
+<font color=red>     0..|                      false;</font>
+        |                  Else -&gt;
+<font color=red>     0..|                      Else</font>
+        |              end
+        |          end, auth_modules(LServer)).
+        |  
+        |  %% Check if the user exists in all authentications module except the module
+        |  %% passed as parameter
+        |  -spec is_user_exists_in_other_modules(Module :: authmodule(),
+        |                                        User :: ejabberd:user(),
+        |                                        Server :: ejabberd:server()
+        |                                        ) -&gt; boolean() | 'maybe'.
+        |  is_user_exists_in_other_modules(Module, User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_does_user_exist_in_other_modules(Module, LUser, LServer).</font>
+        |  
+        |  do_does_user_exist_in_other_modules(_, LUser, LServer)
+        |      when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      false;</font>
+        |  do_does_user_exist_in_other_modules(Module, LUser, LServer) -&gt;
+<font color=red>     0..|      does_user_exist_in_other_modules_loop(</font>
+        |          auth_modules(LServer)--[Module],
+        |          LUser, LServer).
+        |  
+        |  
+        |  does_user_exist_in_other_modules_loop([], _User, _Server) -&gt;
+<font color=red>     0..|      false;</font>
+        |  does_user_exist_in_other_modules_loop([AuthModule|AuthModules], User, Server) -&gt;
+<font color=red>     0..|      case AuthModule:is_user_exists(User, Server) of</font>
+        |          true -&gt;
+<font color=red>     0..|              true;</font>
+        |          false -&gt;
+<font color=red>     0..|              does_user_exist_in_other_modules_loop(AuthModules, User, Server);</font>
+        |          {error, Error} -&gt;
+<font color=red>     0..|              ?DEBUG("The authentication module ~p returned an error~nwhen "</font>
+        |                     "checking user ~p in server ~p~nError message: ~p",
+        |                     [AuthModule, User, Server, Error]),
+<font color=red>     0..|              maybe</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Remove user.
+        |  %% Note: it may return ok even if there was some problem removing the user.
+        |  -spec remove_user(User :: ejabberd:user(),
+        |                    Server :: ejabberd:server()) -&gt; ok | error | {error, not_allowed}.
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_remove_user(LUser, LServer).</font>
+        |  
+        |  do_remove_user(LUser, LServer) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      error;</font>
+        |  do_remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      [M:remove_user(LUser, LServer) || M &lt;- auth_modules(LServer)],</font>
+<font color=red>     0..|      ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% @doc Try to remove user if the provided password is correct.
+        |  %% The removal is attempted in each auth method provided:
+        |  %% when one returns 'ok' the loop stops;
+        |  %% if no method returns 'ok' then it returns the error message indicated by the last method attempted.
+        |  -spec remove_user(User :: ejabberd:user(),
+        |                    Server :: ejabberd:server(),
+        |                    Password :: binary()
+        |                    ) -&gt; ok | not_exists | not_allowed | bad_request | error.
+        |  remove_user(User, Server, Password) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      do_remove_user(LUser, LServer, Password).</font>
+        |  
+        |  do_remove_user(LUser, LServer, _) when LUser =:= error; LServer =:= error -&gt;
+<font color=red>     0..|      error;</font>
+        |  do_remove_user(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      R = lists:foldl(</font>
+        |          fun(_M, ok = Res) -&gt;
+<font color=red>     0..|              Res;</font>
+        |              (M, _) -&gt;
+<font color=red>     0..|                  M:remove_user(LUser, LServer, Password)</font>
+        |          end, error, auth_modules(LServer)),
+<font color=red>     0..|      case R of</font>
+<font color=red>     0..|          ok -&gt; ejabberd_hooks:run(remove_user, LServer, [LUser, LServer]);</font>
+<font color=red>     0..|          _ -&gt; none</font>
+        |      end,
+<font color=red>     0..|      R.</font>
+        |  
+        |  %% @doc Calculate informational entropy.
+        |  -spec entropy(iolist()) -&gt; float().
+        |  entropy(IOList) -&gt;
+<font color=red>     0..|      case binary_to_list(iolist_to_binary(IOList)) of</font>
+        |          "" -&gt;
+<font color=red>     0..|              0.0;</font>
+        |          S -&gt;
+<font color=red>     0..|              Set = lists:foldl(</font>
+        |                      fun(C, [Digit, Printable, LowLetter, HiLetter, Other]) -&gt;
+<font color=red>     0..|                              if C &gt;= $a, C =&lt; $z -&gt;</font>
+<font color=red>     0..|                                      [Digit, Printable, 26, HiLetter, Other];</font>
+        |                                 C &gt;= $0, C =&lt; $9 -&gt;
+<font color=red>     0..|                                      [9, Printable, LowLetter, HiLetter, Other];</font>
+        |                                 C &gt;= $A, C =&lt; $Z -&gt;
+<font color=red>     0..|                                      [Digit, Printable, LowLetter, 26, Other];</font>
+        |                                 C &gt;= 16#21, C =&lt; 16#7e -&gt;
+<font color=red>     0..|                                      [Digit, 33, LowLetter, HiLetter, Other];</font>
+        |                                 true -&gt;
+<font color=red>     0..|                                      [Digit, Printable, LowLetter, HiLetter, 128]</font>
+        |                              end
+        |                      end, [0, 0, 0, 0, 0], S),
+<font color=red>     0..|              length(S) * math:log(lists:sum(Set))/math:log(2)</font>
+        |      end.
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%%----------------------------------------------------------------------
+        |  %% @doc Return the lists of all the auth modules actually used in the
+        |  %% configuration
+        |  -spec auth_modules() -&gt; [authmodule()].
+        |  auth_modules() -&gt;
+<font color=red>     0..|      lists:usort(</font>
+        |        lists:flatmap(
+        |          fun(Server) -&gt;
+<font color=red>     0..|                  auth_modules(Server)</font>
+        |          end, ?MYHOSTS)).
+        |  
+        |  
+        |  %% Return the list of authenticated modules for a given host
+        |  -spec auth_modules(Server :: ejabberd:lserver()) -&gt; [authmodule()].
+        |  auth_modules(LServer) -&gt;
+<font color=red>     0..|      Method = ejabberd_config:get_local_option({auth_method, LServer}),</font>
+<font color=red>     0..|      Methods = if</font>
+<font color=red>     0..|                    Method == undefined -&gt; [];</font>
+<font color=red>     0..|                    is_list(Method) -&gt; Method;</font>
+<font color=red>     0..|                    is_atom(Method) -&gt; [Method]</font>
+        |                end,
+<font color=red>     0..|      [list_to_atom("ejabberd_auth_" ++ atom_to_list(M)) || M &lt;- Methods].</font>
+        |  
+        |  ensure_metrics(Host) -&gt;
+<font color=red>     0..|      Metrics = [check_password, try_register, does_user_exist],</font>
+<font color=red>     0..|      [mongoose_metrics:ensure_metric(?METRIC(Host, Metric), histogram)</font>
+<font color=red>     0..|       || Metric &lt;- Metrics].</font>
+        |  
+        |  -spec timed_call(ejabberd:lserver(), term(), fun(), list()) -&gt; term().
+        |  timed_call(LServer, Metric, Fun, Args) -&gt;
+<font color=red>     0..|      {Time, Result} = timer:tc(Fun, Args),</font>
+<font color=red>     0..|      mongoose_metrics:update(?METRIC(LServer, Metric), Time),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+</pre>
+</body>
+</html>

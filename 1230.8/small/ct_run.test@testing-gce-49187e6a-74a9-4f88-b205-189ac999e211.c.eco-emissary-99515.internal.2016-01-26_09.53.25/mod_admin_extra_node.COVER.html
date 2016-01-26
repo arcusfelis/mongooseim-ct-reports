@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/mod_admin_extra_node.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_node.erl by COVER 2016-01-26 at 09:53:51
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_node.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_node).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([
+        |       commands/0,
+        |  
+        |           load_config/1,
+        |           get_cookie/0,
+        |           remove_node/1
+        |          ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = load_config, tags = [server],
+        |                             desc = "Load ejabberd configuration file",
+        |                             module = ?MODULE, function = load_config,
+        |                             args = [{file, string}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = get_cookie, tags = [erlang],
+        |                             desc = "Get the Erlang cookie of this node",
+        |                             module = ?MODULE, function = get_cookie,
+        |                             args = [],
+        |                             result = {cookie, string}},
+        |          #ejabberd_commands{name = remove_node, tags = [erlang],
+        |                             desc = "Remove an ejabberd node from Mnesia clustering config",
+        |                             module = ?MODULE, function = remove_node,
+        |                             args = [{node, string}],
+        |                             result = {res, rescode}}
+        |          ].
+        |  
+        |  
+        |  %%%
+        |  %%% Node
+        |  %%%
+        |  
+        |  -spec load_config(string()) -&gt; 'ok'.
+        |  load_config(Path) -&gt;
+<font color=red>     0..|      ok = ejabberd_config:load_file(Path).</font>
+        |  
+        |  
+        |  -spec get_cookie() -&gt; string().
+        |  get_cookie() -&gt;
+<font color=red>     0..|      atom_to_list(erlang:get_cookie()).</font>
+        |  
+        |  
+        |  -spec remove_node(string()) -&gt; 'ok'.
+        |  remove_node(Node) -&gt;
+<font color=red>     0..|      mnesia:del_table_copy(schema, list_to_atom(Node)),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+</pre>
+</body>
+</html>

@@ -1,0 +1,1030 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/mod_muc_log.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_muc_log.erl by COVER 2016-01-26 at 09:54:09
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_muc_log.erl
+        |  %%% Author  : Badlop@process-one.net
+        |  %%% Purpose : MUC room logging
+        |  %%% Created : 12 Mar 2006 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_muc_log).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  -behaviour(gen_mod).
+        |  
+        |  %% API
+        |  -export([start_link/2,
+        |           start/2,
+        |           stop/1,
+        |           check_access_log/2,
+        |           add_to_log/5]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_muc_room.hrl").
+        |  
+        |  -define(T(Text), translate:translate(Lang, Text)).
+        |  -define(PROCNAME, ejabberd_mod_muc_log).
+        |  -record(room, {jid, title, subject, subject_author, config}).
+        |  
+        |  -type command() :: 'join'
+        |                   | 'kickban'
+        |                   | 'leave'
+        |                   | 'nickchange'
+        |                   | 'room_existence'
+        |                   | 'roomconfig_change'
+        |                   | 'roomconfig_change_enabledlogging'
+        |                   | 'text'.
+        |  
+        |  -type jid_nick_role() :: {ejabberd:jid(), mod_muc:nick(), mod_muc:role()}.
+        |  -type jid_nick() :: {ejabberd:jid(), mod_muc:nick()}.
+        |  -type dir_type() :: 'plain' | 'subdirs'.
+        |  -type dir_name() :: 'room_jid' | 'room_name'.
+        |  -type file_format() :: 'html' | 'plaintext'.
+        |  
+        |  -record(logstate, {host         :: ejabberd:server(),
+        |                     out_dir      :: binary(),
+        |                     dir_type     :: dir_type(),
+        |                     dir_name     :: dir_name(),
+        |                     file_format  :: file_format(),
+        |                     css_file     :: file:filename() | false,
+        |                     access,
+        |                     lang         :: ejabberd:lang(),
+        |                     timezone,
+        |                     spam_prevention,
+        |                     top_link
+        |                  }).
+        |  -type logstate() :: #logstate{}.
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  
+        |  %% @doc Starts the server
+        |  -spec start_link(ejabberd:server(),_) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(Host, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).</font>
+        |  
+        |  
+        |  -spec start(ejabberd:server(),_) -&gt; {'error',_}
+        |                                    | {'ok','undefined' | pid()}
+        |                                    | {'ok','undefined' | pid(),_}.
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      ChildSpec =</font>
+        |          {Proc,
+        |           {?MODULE, start_link, [Host, Opts]},
+        |           temporary,
+        |           1000,
+        |           worker,
+        |           [?MODULE]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, ChildSpec).</font>
+        |  
+        |  
+        |  -spec stop(ejabberd:server()) -&gt; 'ok'
+        |      | {'error','not_found' | 'restarting' | 'running' | 'simple_one_for_one'}.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      gen_server:call(Proc, stop),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup, Proc).</font>
+        |  
+        |  
+        |  -spec add_to_log(ejabberd:server(), Type :: any(), Data :: any(), mod_muc:room(),
+        |                   list()) -&gt; 'ok'.
+        |  add_to_log(Host, Type, Data, Room, Opts) -&gt;
+<font color=red>     0..|      gen_server:cast(get_proc_name(Host),</font>
+        |                      {add_to_log, Type, Data, Room, Opts}).
+        |  
+        |  
+        |  -spec check_access_log(ejabberd:server(), ejabberd:jid()) -&gt; any().
+        |  check_access_log(Host, From) -&gt;
+<font color=red>     0..|      case catch gen_server:call(get_proc_name(Host),</font>
+        |                                 {check_access_log, Host, From}) of
+        |          {'EXIT', _Error} -&gt;
+<font color=red>     0..|              deny;</font>
+        |          Res -&gt;
+<font color=red>     0..|              Res</font>
+        |      end.
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  -spec init([list() | ejabberd:server(),...]) -&gt; {'ok',logstate()}.
+        |  init([Host, Opts]) -&gt;
+<font color=red>     0..|      OutDir = list_to_binary(gen_mod:get_opt(outdir, Opts, "www/muc")),</font>
+<font color=red>     0..|      DirType = gen_mod:get_opt(dirtype, Opts, subdirs),</font>
+<font color=red>     0..|      DirName = gen_mod:get_opt(dirname, Opts, room_jid),</font>
+<font color=red>     0..|      FileFormat = gen_mod:get_opt(file_format, Opts, html), % Allowed values: html|plaintext</font>
+<font color=red>     0..|      CSSFile = gen_mod:get_opt(cssfile, Opts, false),</font>
+<font color=red>     0..|      AccessLog = gen_mod:get_opt(access_log, Opts, muc_admin),</font>
+<font color=red>     0..|      Timezone = gen_mod:get_opt(timezone, Opts, local),</font>
+<font color=red>     0..|      {TL1, TL2} = gen_mod:get_opt(top_link, Opts, {"/", "Home"}),</font>
+<font color=red>     0..|      Top_link = {list_to_binary(TL1), list_to_binary(TL2)},</font>
+<font color=red>     0..|      NoFollow = gen_mod:get_opt(spam_prevention, Opts, true),</font>
+<font color=red>     0..|      Lang = case ejabberd_config:get_local_option({language, Host}) of</font>
+        |                 undefined -&gt;
+<font color=red>     0..|                         case ejabberd_config:get_global_option(language) of</font>
+<font color=red>     0..|                             undefined -&gt; &lt;&lt;"en"&gt;&gt;;</font>
+<font color=red>     0..|                             L -&gt; L</font>
+        |                         end;
+<font color=red>     0..|                 L -&gt; L</font>
+        |             end,
+<font color=red>     0..|      {ok, #logstate{host = Host,</font>
+        |                  out_dir = OutDir,
+        |                  dir_type = DirType,
+        |                  dir_name = DirName,
+        |                  file_format = FileFormat,
+        |                  css_file = CSSFile,
+        |                  access = AccessLog,
+        |                  lang = Lang,
+        |                  timezone = Timezone,
+        |                  spam_prevention = NoFollow,
+        |                  top_link = Top_link}}.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  -spec handle_call('stop'
+        |              | {'check_access_log','global' | ejabberd:server(), ejabberd:jid()},
+        |          From :: any(), logstate()) -&gt; {'reply','allow' | 'deny',logstate()}
+        |                                      | {'stop','normal','ok',_}.
+        |  handle_call({check_access_log, ServerHost, FromJID}, _From, State) -&gt;
+<font color=red>     0..|      Reply = acl:match_rule(ServerHost, State#logstate.access, FromJID),</font>
+<font color=red>     0..|      {reply, Reply, State};</font>
+        |  handle_call(stop, _From, State) -&gt;
+<font color=red>     0..|      {stop, normal, ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  -spec handle_cast({add_to_log, any(), any(), mod_muc:room(), list()}, logstate())
+        |              -&gt; {'noreply', logstate()}.
+        |  handle_cast({add_to_log, Type, Data, Room, Opts}, State) -&gt;
+<font color=red>     0..|      case catch add_to_log2(Type, Data, Room, Opts, State) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason]);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  -spec add_to_log2(command(), {mod_muc:nick(), mod_muc:packet()}, mod_muc:room(),
+        |          list(), logstate()) -&gt; 'ok'.
+        |  add_to_log2(text, {Nick, Packet}, Room, Opts, State) -&gt;
+<font color=red>     0..|      case {xml:get_subtag(Packet, &lt;&lt;"subject"&gt;&gt;), xml:get_subtag(Packet, &lt;&lt;"body"&gt;&gt;)} of</font>
+        |          {false, false} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {false, SubEl} -&gt;
+<font color=red>     0..|              Message = {body, xml:get_tag_cdata(SubEl)},</font>
+<font color=red>     0..|              add_message_to_log(Nick, Message, Room, Opts, State);</font>
+        |          {SubEl, _} -&gt;
+<font color=red>     0..|              Message = {subject, xml:get_tag_cdata(SubEl)},</font>
+<font color=red>     0..|              add_message_to_log(Nick, Message, Room, Opts, State)</font>
+        |      end;
+        |  add_to_log2(roomconfig_change, _Occupants, Room, Opts, State) -&gt;
+<font color=red>     0..|      add_message_to_log(&lt;&lt;""&gt;&gt;, roomconfig_change, Room, Opts, State);</font>
+        |  add_to_log2(roomconfig_change_enabledlogging, Occupants, Room, Opts, State) -&gt;
+<font color=red>     0..|      add_message_to_log(&lt;&lt;""&gt;&gt;, {roomconfig_change, Occupants}, Room, Opts, State);</font>
+        |  add_to_log2(room_existence, NewStatus, Room, Opts, State) -&gt;
+<font color=red>     0..|      add_message_to_log(&lt;&lt;""&gt;&gt;, {room_existence, NewStatus}, Room, Opts, State);</font>
+        |  add_to_log2(nickchange, {OldNick, NewNick}, Room, Opts, State) -&gt;
+<font color=red>     0..|      add_message_to_log(NewNick, {nickchange, OldNick}, Room, Opts, State);</font>
+        |  add_to_log2(join, Nick, Room, Opts, State) -&gt;
+<font color=red>     0..|      add_message_to_log(Nick, join, Room, Opts, State);</font>
+        |  add_to_log2(leave, {Nick, Reason}, Room, Opts, State) -&gt;
+<font color=red>     0..|      case Reason of</font>
+<font color=red>     0..|          &lt;&lt;""&gt;&gt; -&gt; add_message_to_log(Nick, leave, Room, Opts, State);</font>
+<font color=red>     0..|          _ -&gt; add_message_to_log(Nick, {leave, Reason}, Room, Opts, State)</font>
+        |      end;
+        |  add_to_log2(kickban, {Nick, Reason, Code}, Room, Opts, State) -&gt;
+<font color=red>     0..|      add_message_to_log(Nick, {kickban, Code, Reason}, Room, Opts, State).</font>
+        |  
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Core
+        |  
+        |  -spec build_filename_string(calendar:datetime(), OutDir :: binary(),
+        |          RoomJID :: ejabberd:literal_jid(), dir_type(), dir_name(), file_format())
+        |              -&gt; {binary(), binary(), binary()}.
+        |  build_filename_string(TimeStamp, OutDir, RoomJID, DirType, DirName, FileFormat) -&gt;
+<font color=red>     0..|      {{Year, Month, Day}, _Time} = TimeStamp,</font>
+        |  
+        |      %% Directory and file names
+<font color=red>     0..|      {Dir, Filename, Rel} =</font>
+        |          case DirType of
+        |              subdirs -&gt;
+<font color=red>     0..|                      SYear = list_to_binary(lists:flatten(io_lib:format("~4..0w", [Year]))),</font>
+<font color=red>     0..|                      SMonth = list_to_binary(lists:flatten(io_lib:format("~2..0w", [Month]))),</font>
+<font color=red>     0..|                      SDay = list_to_binary(lists:flatten(io_lib:format("~2..0w", [Day]))),</font>
+<font color=red>     0..|                  {filename:join(SYear, SMonth), SDay, &lt;&lt;"../.."&gt;&gt;};</font>
+        |              plain -&gt;
+<font color=red>     0..|                      Date = list_to_binary(lists:flatten(</font>
+        |                               io_lib:format("~4..0w-~2..0w-~2..0w",
+        |                                             [Year, Month, Day]))),
+<font color=red>     0..|                      {&lt;&lt;""&gt;&gt;, Date, &lt;&lt;"."&gt;&gt;}</font>
+        |          end,
+        |  
+<font color=red>     0..|      RoomString = case DirName of</font>
+<font color=red>     0..|                       room_jid -&gt; RoomJID;</font>
+<font color=red>     0..|                       room_name -&gt; get_room_name(RoomJID)</font>
+        |                   end,
+<font color=red>     0..|      Extension = case FileFormat of</font>
+<font color=red>     0..|                      html -&gt; &lt;&lt;".html"&gt;&gt;;</font>
+<font color=red>     0..|                      plaintext -&gt; &lt;&lt;".txt"&gt;&gt;</font>
+        |                  end,
+<font color=red>     0..|      Fd = filename:join([OutDir, RoomString, Dir]),</font>
+<font color=red>     0..|      Fn = filename:join([Fd, &lt;&lt;Filename/binary, Extension/binary&gt;&gt;]),</font>
+<font color=red>     0..|      Fnrel = filename:join([Rel, Dir, &lt;&lt;Filename/binary, Extension/binary&gt;&gt;]),</font>
+<font color=red>     0..|      {Fd, Fn, Fnrel}.</font>
+        |  
+        |  
+        |  -spec get_room_name(ejabberd:literal_jid()) -&gt; mod_muc:room().
+        |  get_room_name(RoomJID) -&gt;
+<font color=red>     0..|      JID = jid:from_binary(RoomJID),</font>
+<font color=red>     0..|      JID#jid.user.</font>
+        |  
+        |  
+        |  %% @doc calculate day before
+        |  -spec get_timestamp_daydiff(calendar:datetime(), integer()) -&gt; calendar:datetime().
+        |  get_timestamp_daydiff(TimeStamp, Daydiff) -&gt;
+<font color=red>     0..|      {Date1, HMS} = TimeStamp,</font>
+<font color=red>     0..|      Date2 = calendar:gregorian_days_to_date(</font>
+        |                calendar:date_to_gregorian_days(Date1) + Daydiff),
+<font color=red>     0..|      {Date2, HMS}.</font>
+        |  
+        |  
+        |  %% @doc Try to close the previous day log, if it exists
+        |  -spec close_previous_log(binary(), any(), file_format()) -&gt; 'ok' | {'error',atom()}.
+        |  close_previous_log(Fn, Images_dir, FileFormat) -&gt;
+<font color=red>     0..|      case file:read_file_info(Fn) of</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              {ok, F} = file:open(Fn, [append]),</font>
+<font color=red>     0..|              write_last_lines(F, Images_dir, FileFormat),</font>
+<font color=red>     0..|              file:close(F);</font>
+<font color=red>     0..|          _ -&gt; ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec write_last_lines(file:io_device(), binary(), file_format()) -&gt; 'ok'.
+        |  write_last_lines(_, _, plaintext) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  write_last_lines(F, ImagesDir, _FileFormat) -&gt;
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;div class=\"legend\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"  &lt;a href=\"http://www.ejabberd.im\"&gt;&lt;img style=\"border:0\" src=\"", ImagesDir/binary, "/powered-by-ejabberd.png\" alt=\"Powered by ejabberd\"/&gt;&lt;/a&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"  &lt;a href=\"http://www.erlang.org/\"&gt;&lt;img style=\"border:0\" src=\"", ImagesDir/binary, "/powered-by-erlang.png\" alt=\"Powered by Erlang\"/&gt;&lt;/a&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;span class=\"w3c\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"  &lt;a href=\"http://validator.w3.org/check?uri=referer\"&gt;&lt;img style=\"border:0;width:88px;height:31px\" src=\"", ImagesDir/binary, "/valid-xhtml10.png\" alt=\"Valid XHTML 1.0 Transitional\" /&gt;&lt;/a&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"  &lt;a href=\"http://jigsaw.w3.org/css-validator/\"&gt;&lt;img style=\"border:0;width:88px;height:31px\" src=\"", ImagesDir/binary, "/vcss.png\" alt=\"Valid CSS!\"/&gt;&lt;/a&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;/span&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;"&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec add_message_to_log(mod_muc:nick(), Message :: atom() | tuple(),
+        |      RoomJID :: ejabberd:simple_jid() | ejabberd:jid(), Opts :: list(), State :: logstate()) -&gt; ok.
+        |  add_message_to_log(Nick1, Message, RoomJID, Opts, State) -&gt;
+        |      #logstate{out_dir = OutDir,
+        |             dir_type = DirType,
+        |             dir_name = DirName,
+        |             file_format = FileFormat,
+        |             css_file = CSSFile,
+        |             lang = Lang,
+        |             timezone = Timezone,
+        |             spam_prevention = NoFollow,
+<font color=red>     0..|             top_link = TopLink} = State,</font>
+<font color=red>     0..|      Room = get_room_info(RoomJID, Opts),</font>
+<font color=red>     0..|      Nick = htmlize(Nick1, FileFormat),</font>
+<font color=red>     0..|      Nick2 = htmlize(&lt;&lt;"&lt;",Nick1/binary,"&gt;"&gt;&gt;, FileFormat),</font>
+<font color=red>     0..|      Now = now(),</font>
+<font color=red>     0..|      TimeStamp = case Timezone of</font>
+<font color=red>     0..|                      local -&gt; calendar:now_to_local_time(Now);</font>
+<font color=red>     0..|                      universal -&gt; calendar:now_to_universal_time(Now)</font>
+        |                  end,
+<font color=red>     0..|      {Fd, Fn, _Dir} = build_filename_string(TimeStamp, OutDir, Room#room.jid, DirType, DirName, FileFormat),</font>
+<font color=red>     0..|      {Date, Time} = TimeStamp,</font>
+        |  
+        |      %% Open file, create if it does not exist, create parent dirs if needed
+<font color=red>     0..|      case file:read_file_info(Fn) of</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              {ok, F} = file:open(Fn, [append]);</font>
+        |          {error, enoent} -&gt;
+<font color=red>     0..|              make_dir_rec(Fd),</font>
+<font color=red>     0..|              {ok, F} = file:open(Fn, [append]),</font>
+<font color=red>     0..|              Datestring = get_dateweek(Date, Lang),</font>
+        |  
+<font color=red>     0..|              TimeStampYesterday = get_timestamp_daydiff(TimeStamp, -1),</font>
+<font color=red>     0..|              {_FdYesterday, FnYesterday, DatePrev} =</font>
+        |                  build_filename_string(
+        |                    TimeStampYesterday, OutDir, Room#room.jid, DirType, DirName, FileFormat),
+        |  
+<font color=red>     0..|              TimeStampTomorrow = get_timestamp_daydiff(TimeStamp, 1),</font>
+<font color=red>     0..|              {_FdTomorrow, _FnTomorrow, DateNext} =</font>
+        |                  build_filename_string(
+        |                    TimeStampTomorrow, OutDir, Room#room.jid, DirType, DirName, FileFormat),
+        |  
+<font color=red>     0..|              HourOffset = calc_hour_offset(TimeStamp),</font>
+<font color=red>     0..|              put_header(F, Room, Datestring, CSSFile, Lang,</font>
+        |                         HourOffset, DatePrev, DateNext, TopLink, FileFormat),
+        |  
+<font color=red>     0..|              Images_dir = &lt;&lt;OutDir/binary, "images"&gt;&gt;,</font>
+<font color=red>     0..|              file:make_dir(Images_dir),</font>
+<font color=red>     0..|              create_image_files(Images_dir),</font>
+<font color=red>     0..|              Images_url = case DirType of</font>
+<font color=red>     0..|                               subdirs -&gt; &lt;&lt;"../../../images"&gt;&gt;;</font>
+<font color=red>     0..|                               plain -&gt; &lt;&lt;"../images"&gt;&gt;</font>
+        |                           end,
+<font color=red>     0..|              close_previous_log(FnYesterday, Images_url, FileFormat)</font>
+        |      end,
+        |  
+        |      %% Build message
+<font color=red>     0..|      Text = case Message of</font>
+        |                 roomconfig_change -&gt;
+<font color=red>     0..|                         RoomConfig = roomconfig_to_binary(Room#room.config, Lang, FileFormat),</font>
+<font color=red>     0..|                         put_room_config(F, RoomConfig, Lang, FileFormat),</font>
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mrcm\"&gt;", (?T(&lt;&lt;"Chatroom configuration modified"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                 {roomconfig_change, Occupants} -&gt;
+<font color=red>     0..|                         RoomConfig = roomconfig_to_binary(Room#room.config, Lang, FileFormat),</font>
+<font color=red>     0..|                         put_room_config(F, RoomConfig, Lang, FileFormat),</font>
+<font color=red>     0..|                         RoomOccupants = roomoccupants_to_binary(Occupants, FileFormat),</font>
+<font color=red>     0..|                         put_room_occupants(F, RoomOccupants, Lang, FileFormat),</font>
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mrcm\"&gt;", (?T(&lt;&lt;"Chatroom configuration modified"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                 join -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mj\"&gt;", Nick/binary, " ", (?T(&lt;&lt;"joins the room"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                 leave -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mj\"&gt;", Nick/binary, " ", (?T(&lt;&lt;"leaves the room"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                 {leave, Reason} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"ml\"&gt;", Nick/binary, " ", (?T(&lt;&lt;"leaves the room"&gt;&gt;))/binary, ": ",</font>
+        |                              (htmlize(Reason,NoFollow,FileFormat))/binary, ": ~s&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {kickban, "301", ""} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mb\"&gt;", Nick/binary, " ", (?T(&lt;&lt;"has been banned"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                 {kickban, "301", Reason} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mb\"&gt;", Nick/binary, " ", (?T(&lt;&lt;"has been banned"&gt;&gt;))/binary, ": ",</font>
+        |                              (htmlize(Reason,FileFormat))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {kickban, "307", ""} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mk\"&gt;", Nick/binary, " ", (?T(&lt;&lt;"has been kicked"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                 {kickban, "307", Reason} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mk\"&gt;", Nick/binary, " ", (?T(&lt;&lt;"has been kicked"&gt;&gt;))/binary, ": ",</font>
+        |                              (htmlize(Reason,FileFormat))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {kickban, "321", ""} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mk\"&gt;", Nick/binary, " ",</font>
+        |                              (?T(&lt;&lt;"has been kicked because of an affiliation change"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {kickban, "322", ""} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mk\"&gt;", Nick/binary, " ",</font>
+        |                              (?T(&lt;&lt;"has been kicked because the room has been changed to members-only"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {kickban, "332", ""} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mk\"&gt;", Nick/binary, " ",</font>
+        |                              (?T(&lt;&lt;"has been kicked because of a system shutdown"&gt;&gt;))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {nickchange, OldNick} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mnc\"&gt;", (htmlize(OldNick,FileFormat))/binary, " ",</font>
+        |                              (?T(&lt;&lt;"is now known as"&gt;&gt;))/binary, " ", Nick/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {subject, T} -&gt;
+<font color=red>     0..|                        &lt;&lt;"&lt;font class=\"msc\"&gt;", Nick/binary, (?T(&lt;&lt;" has set the subject to: "&gt;&gt;))/binary,</font>
+        |                              (htmlize(T,NoFollow,FileFormat))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;
+        |                 {body, T} -&gt;
+<font color=red>     0..|                         case {re:run(T, &lt;&lt;"^/me\s"&gt;&gt;, [{capture, none}]), Nick} of</font>
+        |                             {_, ""} -&gt;
+<font color=red>     0..|                                     &lt;&lt;"&lt;font class=\"msm\"&gt;", (htmlize(T,NoFollow,FileFormat))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                             {match, _} -&gt;
+        |                         %% Delete "/me " from the beginning.
+<font color=red>     0..|                                 &lt;&lt;_Pref:32, SubStr/binary&gt;&gt; = htmlize(T,FileFormat),</font>
+<font color=red>     0..|                                     &lt;&lt;"&lt;font class=\"mne\"&gt;", Nick/binary, " ", SubStr/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;;</font>
+        |                             {nomatch, _} -&gt;
+<font color=red>     0..|                                     &lt;&lt;"&lt;font class=\"mn\"&gt;", Nick2/binary, "&lt;/font&gt; ",</font>
+        |                                          (htmlize(T,NoFollow,FileFormat))/binary, "&lt;br/&gt;"&gt;&gt;
+        |                         end;
+        |                 {room_existence, RoomNewExistence} -&gt;
+<font color=red>     0..|                         &lt;&lt;"&lt;font class=\"mrcm\"&gt;", (get_room_existence_string(RoomNewExistence, Lang))/binary, "&lt;/font&gt;&lt;br/&gt;"&gt;&gt;</font>
+        |             end,
+<font color=red>     0..|      {Hour, Minute, Second} = Time,</font>
+<font color=red>     0..|      STime = lists:flatten(</font>
+        |                io_lib:format("~2..0w:~2..0w:~2..0w", [Hour, Minute, Second])),
+<font color=red>     0..|      {_, _, Microsecs} = Now,</font>
+<font color=red>     0..|      STimeUnique = list_to_binary(lists:flatten(io_lib:format("~s.~w", [STime, Microsecs]))),</font>
+        |  
+        |      %% Write message
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;a id=\"", STimeUnique/binary, "\" name=\"", STimeUnique/binary,</font>
+        |          "\" href=\"#", STimeUnique/binary, "\" class=\"ts\"&gt;[",
+        |          (list_to_binary(STime))/binary, "]&lt;/a&gt; ", Text/binary&gt;&gt;, FileFormat),
+        |  
+        |      %% Close file
+<font color=red>     0..|      file:close(F),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Utilities
+        |  
+        |  -spec get_room_existence_string('created' | 'destroyed' | 'started' | 'stopped',
+        |          binary()) -&gt; binary().
+<font color=red>     0..|  get_room_existence_string(created, Lang) -&gt; ?T(&lt;&lt;"Chatroom is created"&gt;&gt;);</font>
+<font color=red>     0..|  get_room_existence_string(destroyed, Lang) -&gt; ?T(&lt;&lt;"Chatroom is destroyed"&gt;&gt;);</font>
+<font color=red>     0..|  get_room_existence_string(started, Lang) -&gt; ?T(&lt;&lt;"Chatroom is started"&gt;&gt;);</font>
+<font color=red>     0..|  get_room_existence_string(stopped, Lang) -&gt; ?T(&lt;&lt;"Chatroom is stopped"&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec get_dateweek(calendar:date(), binary()) -&gt; binary().
+        |  get_dateweek(Date, Lang) -&gt;
+<font color=red>     0..|      Weekday = case calendar:day_of_the_week(Date) of</font>
+<font color=red>     0..|                    1 -&gt; ?T(&lt;&lt;"Monday"&gt;&gt;);</font>
+<font color=red>     0..|                    2 -&gt; ?T(&lt;&lt;"Tuesday"&gt;&gt;);</font>
+<font color=red>     0..|                    3 -&gt; ?T(&lt;&lt;"Wednesday"&gt;&gt;);</font>
+<font color=red>     0..|                    4 -&gt; ?T(&lt;&lt;"Thursday"&gt;&gt;);</font>
+<font color=red>     0..|                    5 -&gt; ?T(&lt;&lt;"Friday"&gt;&gt;);</font>
+<font color=red>     0..|                    6 -&gt; ?T(&lt;&lt;"Saturday"&gt;&gt;);</font>
+<font color=red>     0..|                    7 -&gt; ?T(&lt;&lt;"Sunday"&gt;&gt;)</font>
+        |                end,
+<font color=red>     0..|      {Y, M, D} = Date,</font>
+<font color=red>     0..|      Month = case M of</font>
+<font color=red>     0..|                  1 -&gt; ?T(&lt;&lt;"January"&gt;&gt;);</font>
+<font color=red>     0..|                  2 -&gt; ?T(&lt;&lt;"February"&gt;&gt;);</font>
+<font color=red>     0..|                  3 -&gt; ?T(&lt;&lt;"March"&gt;&gt;);</font>
+<font color=red>     0..|                  4 -&gt; ?T(&lt;&lt;"April"&gt;&gt;);</font>
+<font color=red>     0..|                  5 -&gt; ?T(&lt;&lt;"May"&gt;&gt;);</font>
+<font color=red>     0..|                  6 -&gt; ?T(&lt;&lt;"June"&gt;&gt;);</font>
+<font color=red>     0..|                  7 -&gt; ?T(&lt;&lt;"July"&gt;&gt;);</font>
+<font color=red>     0..|                  8 -&gt; ?T(&lt;&lt;"August"&gt;&gt;);</font>
+<font color=red>     0..|                  9 -&gt; ?T(&lt;&lt;"September"&gt;&gt;);</font>
+<font color=red>     0..|                  10 -&gt; ?T(&lt;&lt;"October"&gt;&gt;);</font>
+<font color=red>     0..|                  11 -&gt; ?T(&lt;&lt;"November"&gt;&gt;);</font>
+<font color=red>     0..|                  12 -&gt; ?T(&lt;&lt;"December"&gt;&gt;)</font>
+        |              end,
+<font color=red>     0..|      case Lang of</font>
+<font color=red>     0..|          &lt;&lt;"en"&gt;&gt; -&gt; list_to_binary(</font>
+        |              lists:flatten(io_lib:format("~s, ~s ~w, ~w", [Weekday, Month, D, Y])));
+<font color=red>     0..|          &lt;&lt;"es"&gt;&gt; -&gt; list_to_binary(</font>
+        |              lists:flatten(io_lib:format("~s ~w de ~s de ~w", [Weekday, D, Month, Y])));
+<font color=red>     0..|          _    -&gt; list_to_binary(</font>
+        |              lists:flatten(io_lib:format("~s, ~w ~s ~w", [Weekday, D, Month, Y])))
+        |      end.
+        |  
+        |  
+        |  -spec make_dir_rec(binary()) -&gt; 'ok' | {'error',atom()}.
+        |  make_dir_rec(Dir) -&gt;
+<font color=red>     0..|      case file:read_file_info(Dir) of</font>
+        |          {ok, _} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {error, enoent} -&gt;
+<font color=red>     0..|              DirS = filename:split(Dir),</font>
+<font color=red>     0..|              DirR = lists:sublist(DirS, length(DirS)-1),</font>
+<font color=red>     0..|              make_dir_rec(filename:join(DirR)),</font>
+<font color=red>     0..|              file:make_dir(Dir)</font>
+        |      end.
+        |  
+        |  
+        |  %% {ok, F1}=file:open("valid-xhtml10.png", [read]).
+        |  %% {ok, F1b}=file:read(F1, 1000000).
+        |  %% c("../../ejabberd/src/jlib.erl").
+        |  %% jlib:encode_base64(F1b).
+        |  
+        |  image_base64(&lt;&lt;"powered-by-erlang.png"&gt;&gt;) -&gt;
+<font color=red>     0..|      &lt;&lt;"iVBORw0KGgoAAAANSUhEUgAAAGUAAAAfCAYAAAD+xQNoAAADN0lEQVRo3u1a"</font>
+        |          "P0waURz+rjGRRQ+nUyRCYmJyDPTapDARaSIbTUjt1gVSh8ZW69aBAR0cWLSx"
+        |          "CXWp59LR1jbdqKnGxoQuRZZrSYyHEVM6iZMbHewROA7u3fHvkr5vOn737vcu"
+        |          "33ffu9/vcQz+gef5Cij6CkmSGABgFEH29r5SVvqIsTEOHo8HkiQxDBXEOjg9"
+        |          "PcHc3BxuUSqsI8jR0REAUFGsCCoKFYWCBAN6AxyO0Z7cyMXFb6oGqSgAsIrJ"
+        |          "ut9hMQlvdNbUhKWshLd3HtTF4jihShgVpRaBxKKmIGX5HL920/hz/BM2+zAm"
+        |          "pn2YioQaxnECj0BiEYcrG0Tzzc8/rfudSm02jaVSm9Vr1MdG8rSKKXlJ7lHr"
+        |          "fjouCut2IrC82BDPbe/gc+xlXez7KxEz63H4lmIN473Rh8Si1BKhRY6aEJI8"
+        |          "pLmbjSPN0xOnBBILmg5RC6Lg28preKOzsNmHG8R1Bf0o7GdMucUslDy1pJLG"
+        |          "2sndVVG0lq3c9vum4zmBR1kuwiYMN5ybmCYXxQg57ThFOTYznzpPO+IQi+IK"
+        |          "+jXjg/YhuIJ+cIIHg+wQJoJ+2N3jYN3Olvk4ge/IU98spne+FfGtlslm16nn"
+        |          "a8fduntfDscoVjGJqUgIjz686ViFUdjP4N39x9Xq638viZVtlq2tLXKncLf5"
+        |          "ticuZSWU5XOUshJKxxKtfdtdvs4OyNb/68urKvlluYizgwwu5SLK8jllu1t9"
+        |          "ihYOlzdwdpBBKSvh+vKKzHkCj1JW3y1m+hSj13WjqOiJKK0qpXKhSFxJAYBv"
+        |          "KYaZ9TjWRu4SiWi2LyDtb6wghGmn5HfTml16ILGA/G5al2DW7URYTFYrOU7g"
+        |          "icQ020sYqYDM9CbdgqFd4vzHL03JfvLjk6ZgADAVCSEsJvHsdL+utNYrm2uf"
+        |          "ZDVZSkzPKaQkW8kthpyS297BvRdRzR6DdTurJbPy9Ov1K6xr3HBPQuIMowR3"
+        |          "asegUyDuU9SuUG+dmIGyZ0b7FBN9St3WunyC5yMsrVv7uXzRP58s/qKn6C4q"
+        |          "lQoVxVIvd4YBwzBUFKs6ZaD27U9hEdcAN98Sx2IxykafIYrizbfESoB+dd9/"
+        |          "KF/d/wX3cJvREzl1vAAAAABJRU5ErkJggg=="&gt;&gt;;
+        |  image_base64(&lt;&lt;"valid-xhtml10.png"&gt;&gt;) -&gt;
+<font color=red>     0..|      &lt;&lt;"iVBORw0KGgoAAAANSUhEUgAAAFgAAAAfCAMAAAEjEcpEAAACiFBMVEUAAADe"</font>
+        |          "5+fOezmtra3ejEKlhELvvWO9WlrehELOe3vepaWclHvetVLGc3PerVKcCAj3"
+        |          "vVqUjHOUe1JjlL0xOUpjjL2UAAC91ueMrc7vrVKlvdbW3u+EpcbO3ufO1ucY"
+        |          "WpSMKQi9SiF7e3taWkoQEAiMczkQSoxaUkpzc3O1lEoICACEazEhGAgIAACE"
+        |          "YzFra2utjELWcznGnEr/7+9jY2POazHOYzGta2NShLVrlL05OUqctdacCADG"
+        |          "a2ucAADGpVqUtc61ORg5OTmlUikYGAiUezl7YzEYEAiUczkxMTG9nEqtIRDe"
+        |          "3t4AMXu9lEoQCACMazEAKXspKSmljFrW1ta1jELOzs7n7/fGxsa9pVqEOSkp"
+        |          "Y5xznL29tZxahLXOpVr/99ZrY1L/79ZjUiljSikAOYTvxmMAMYScezmchFqU"
+        |          "czGtlFp7c2utjFqUlJStxt73///39/9Ce61CSkq9xsZznMbW5+9Cc62MjIxC"
+        |          "Qkrv9/fv7/fOzsbnlErWjIz/3mtCORhza1IpIRBzWjH/1mtCMRhzY1L/zmvn"
+        |          "vVpSQiHOpVJrUinntVr3zmOEc1L3xmNaWlq1nFo5QkrGWim1lFoISpRSUlK1"
+        |          "zt4hWpwASoz///////8xa6WUaykAQoxKe61KSkp7nMbWtWPe5+9jWlL39/f3"
+        |          "9/fWrWNCQkLera3nvWPv7+85MRjntWPetVp7c1IxKRCUlHtKORh7a1IxIRCU"
+        |          "jHtaSiHWrVIpIQhzWinvvVpaQiH/1mPWpVKMe1L/zmP/xmNrUiGErc4YGBj/"
+        |          "73PG1ucQWpT/53O9nFoQUpS1SiEQEBC9zt69vb05c6UISoxSUko5a6UICAhS"
+        |          "SkohUpS1tbXetWMAQoSUgD+kAAAA2HRSTlP/////////iP9sSf//dP//////"
+        |          "//////////////////////////////////////////8M////////////ef//"
+        |          "////////////////////////////////////////////////////////////"
+        |          "//////////////////////9d////////////////////////////////////"
+        |          "AP//////////////CP//RP//////////////////////////////////////"
+        |          "//////////////////////9xPp1gAAAFvUlEQVR42pVWi18URRwfy7vsYUba"
+        |          "iqBRBFmICUQGVKcZckQeaRJQUCLeycMSfKGH0uo5NELpIvGQGzokvTTA85VH"
+        |          "KTpbRoeJnPno/p1+M7t3txj20e/Nzu7Ofve7v/k9Zg4Vc+wRQMW0eyLx1ZSA"
+        |          "NeBDxVmxZZSwEUYkGAewm1eIBOMRvhv1UA+q8KXIVuxGdCelFYwxAnxOrxgb"
+        |          "Y8Ti1t4VA0QHYz4x3FnVC8OVLXv9fkKGSWDoW/4lG6VbdtBblesOs+MjmEmz"
+        |          "JKNIJWFEfEQTCWNPFKvcKEymjLO1b8bwYQd1hCiiDCl5KsrDCIlhj4fSuvcp"
+        |          "fSpgJmyv6dzeZv+nMPx3dhbt94II07/JZliEtm1N2RIYPkTYshwYm245a/zk"
+        |          "WjJwcyFh6ZIcYxxmqiaDSYxhOhFUsqngi3Fzcj3ljdYDNE9uzA1YD/5MhnzW"
+        |          "1KRqF7mYG8jFYXLcfLpjOe2LA0fuGqQrQHl10sdK0sFcFSOSlzF0BgXQH9h3"
+        |          "QZDBI0ccNEhftjXuippBDD2/eMRiETmwwNEYHyqhdDyo22w+3QHuNbdve5a7"
+        |          "eOkHmDVJ0ixNmfbz1h0qo/Q6GuSB2wQJQbpOjOQAl7woWSRJ0m2ewhvAOUiY"
+        |          "YtZtaZL0CZZmtmVOQttLfr/dbveLZodrfrL7W75wG/JjqkQxoNTtNsTKELQp"
+        |          "QL6/D5loaSmyTT8TUhsmi8iFA0hZiyltf7OiNKdarRm5w2So2lTNdPLuIzR+"
+        |          "AiLj8VTRJaj0LmX4VhJ27f/VJV/yycilWPOrk8NkXi7Qqmj5bHqVZlJKZIRk"
+        |          "1wFzKrt0WUbnXMPJ1fk4TJ5oWBA61p1V76DeIs0MX+s3GxRlA1vtw83KhgNp"
+        |          "hc1nyErLO5zcvbOsrq+scbZnpzc6QVFPenLwGxmC+BOfYI+DN55QYddh4Q/N"
+        |          "E/yGYYj4TOGNngQavAZnzzTovEA+kcMJ+247uYexNA+4Fsvjmuv662jsWxPZ"
+        |          "x2xg890bYMYnTgya7bjmCiEY0qgJ0vMF3c+NoFdPyzxz6V3Uxs3AOWCDchRv"
+        |          "OsQtBrbFsrT2fhHEc7ByGzu/dA4IO0A3HdfeP9yMqAwP6NPEb6cbwn0PWVU1"
+        |          "7/FDBQh/CPIrbfcg027IZrsAT/Bf3FNWyn9RSR4cvvwn3e4HFmYPDl/thYcR"
+        |          "Vi8qPEoXVUWBl6FTBFTtnqmKKg5wnlF4wZ1yeLv7TiwXKektE+iDBNicWEyL"
+        |          "pnFhfDkpJc3q2khSPyQBbE0dMJnOoDzTwGsI7cdyMkL5gWqUjCF6Txst/twx"
+        |          "Cv1WzzHoy21ZDQ1xnuDzdPDWR4knr14v0tYn3IxaMFFdiMOlEOJHw1jOQ4sW"
+        |          "t5rQopRkXZhMEi7pmeDCVWBlfUKwhMZ7rsF6elKsvbwiKxgxIdewa3ErsaYo"
+        |          "mCVZFYJb0GUu3JqGUNoplBxYiYby8vLBFWef+Cri4/I1sbQ/1OtYTrNtdXS+"
+        |          "rSe7kQ52eSObL99/iErCWUjCy5W4JLygmCouGfG9x9fmx17XhBuDCaOerbt5"
+        |          "38erta7TFktLvdHghZcCbcPQO33zIJG9kxF5hoVXnzTzRz0r5js8oTj6uyPk"
+        |          "GRf346HOLcasgFexueNUWFPtuFKzjoSFYYedhwVlhsRVYWWJpltv1XPQT1Rl"
+        |          "0bjZIBlb1XujVDzY/Kj4k6Ku3+Z0jo1owjVzDpFTXe1juvBSWNFmNWGZy8Lv"
+        |          "zUl5PN4JCwyNDzbQ0aAj4Zrjz0FatGJJYhvq4j7mGSpvytGFlZtHf2C4o/28"
+        |          "Zu8z7wo7eYPfXysnF0i9NnPh1t1zR7VBb9GqaOXhtTmHQdgMFXE+Z608cnpO"
+        |          "DdZdjL+TuDY44Q38kJXHhccWLoOd9uv1AwwvO+48uu+faCSJPJ1bmy6Thyvp"
+        |          "ivBmYWgjxPDPAp7JTemY/yGKFEiRt/jG/2P79s8KCwoLCgoLC/khUBA5F0Sf"
+        |          "QZ+RYfpNE/4Xosmq7jsZAJsAAAAASUVORK5CYII="&gt;&gt;;
+        |  image_base64(&lt;&lt;"vcss.png"&gt;&gt;) -&gt;
+<font color=red>     0..|      &lt;&lt;"iVBORw0KGgoAAAANSUhEUgAAAFgAAAAfCAMAAABUFvrSAAABKVBMVEUAAAAj"</font>
+        |          "Ix8MR51ZVUqAdlmdnZ3ejEWLDAuNjY1kiMG0n2d9fX19Ghfrp1FtbW3y39+3"
+        |          "Ph6lIRNdXV2qJBFcVUhcVUhPT0/dsmpUfLr57+/u7u4/PDWZAACZAADOp1Gd"
+        |          "GxG+SyTgvnNdSySzk16+mkuxw+BOS0BOS0DOzs7MzMy4T09RRDwsJBG+vr73"
+        |          "wV6fkG6eCQRFcLSurq6/X1+ht9nXfz5sepHuwV59ZTHetFjQ2+wMCQQ2ZK5t"
+        |          "WCsmWajsz8+Sq9NMPh4hVaY8MRj///////////////////////9MTEyOp9Lu"
+        |          "8vhXU1A8PDyjOSTBz+YLRJ2rLy8sLCwXTaKujEUcHByDn82dfz7/zGafDw+f"
+        |          "Dw+zRSlzlMcMDAyNcji1tbXf5vIcFgvATJOjAAAAY3RSTlP/8///////////"
+        |          "//////8A//////P/////ov//8//////////////z///T//////////+i////"
+        |          "//////////8w/////6IA/xAgMP//////////8/////////8w0/////////+z"
+        |          "ehebAAACkUlEQVR42u2VfVPTQBDG19VqC6LY+lKrRIxFQaFSBPuSvhBPF8SI"
+        |          "UZK2J5Yav/+HcO8uZdLqTCsU/nKnyWwvk1/unnt2D9ZmH+8/cMAaTRFy+ng6"
+        |          "9/yiwC/+gy8R3McGv5zHvGJEGAdR4eBgi1IbZwevIEZE24pFtBtzG1Q4AoD5"
+        |          "zvw5pEDcJvIQV/TE3/l+H9GnNJwcdABS5wAbFQLMqI98/UReoAaOTlaJsp0z"
+        |          "aHx7LwZvY0BUR2xpWTzqam0gzY8KGzG4MhBCNGucha4QbpETy+Yk/BP85nt7"
+        |          "34AjpQLTsE4ZFpf/dnkUCglXVNYB+OfUZJHvAqAoa45OeuPgm4+Xjtv7xm4N"
+        |          "7PMV4C61+Mrz3H2WImm3ATiWrAiwZRWcUA5Ej4dgIEMxDv6yxHHcNuAutnjv"
+        |          "2HZ1NeuycoVPh0mwC834zZC9Ao5dkZZKwLVGwT+WdLw0YOZ1saEkUDoT+QGW"
+        |          "KZ0E2xpcrPakVW2KXwyUtYEtlEAj3GXD/fYwrryAdeiyGqidQSw1eqtJcA8c"
+        |          "Zq4zXqhPuCBYE1fKJjh/5X6MwRm9c2xf7WVdLf5oSdt64esVIwVAKC1HJ2ol"
+        |          "i8vj3L0YzC4zjkMagt+arDAs6bApbL1RVlWIqrJbreqKZmh4y6VR7rAJeUYD"
+        |          "VRj9VqRXkErpJ9lbEwtE83KlIfeG4p52t7zWIMO1XcaGz54uUyet+hBM7BXX"
+        |          "DS8Xc5+8Gmmbu1xwSoGIokA3oTptQecQ4Iimm/Ew7jwbPfMi3TM91T9XVIGo"
+        |          "+W9xC8oWpugVCXLuwXijjxJ3r/6PjX7nlFua8QmyM+TO/Gja2TTc2Z95C5ua"
+        |          "ewGH6cJi6bJO6Z+TY276eH3tbgy+/3ly3Js+rj66osG/AV5htgaQ9SeRAAAA"
+        |          "AElFTkSuQmCC"&gt;&gt;;
+        |  image_base64(&lt;&lt;"powered-by-ejabberd.png"&gt;&gt;) -&gt;
+<font color=red>     0..|      &lt;&lt;"iVBORw0KGgoAAAANSUhEUgAAAGUAAAAfCAMAAADJG/NaAAAAw1BMVEUAAAAj"</font>
+        |          "BgYtBAM5AwFCAAAYGAJNAABcAABIDQ5qAAAoJRV7AACFAAAoKSdJHByLAAAw"
+        |          "Lwk1NQA1MzFJKyo4NxtDQQBEQT5KSCxSTgBSUBlgQ0JYSEpZWQJPUU5hYABb"
+        |          "W0ZiYClcW1poaCVwbQRpaDhzYWNsakhuZ2VrbFZ8dwCEgAB3dnd4d2+OjACD"
+        |          "hYKcmACJi4iQkpWspgCYmJm5swCmqazEwACwsbS4ub3X0QLExsPLyszW1Nnc"
+        |          "3ODm5ugMBwAWAwPHm1IFAAAAAXRSTlMAQObYZgAAAAFiS0dEAIgFHUgAAAAJ"
+        |          "cEhZcwAACxMAAAsTAQCanBgAAAAHdElNRQfVCRQOBA7VBkCMAAACcElEQVRI"
+        |          "x72WjXKiMBSFQalIFbNiy1pdrJZaRVYR5deGwPs/VRNBSBB2OjvQO0oYjPfj"
+        |          "5J6bCcdx8i2UldxKcDhk1HbIPwFBF/kHKJfjPSVAyIRHF9rRZ4sUX3EDdWOv"
+        |          "1+u2tESaavpnYTbv9zvd0WwDy3/QcGQXlH5uTxB1l07MJlRpsUei0JF6Qi+O"
+        |          "HyGK7ijXxPklHe/umIllim3iUBMJDIEULxxPP0TVWhhKJoN9fUpdmQLteV8a"
+        |          "DgEAg9gIcTjL4F4L+r4WVKEF+rbJdwYYAoQHY+oQjnGootyKwxapoi73WkyF"
+        |          "FySQBv988naEEp4+YMMec5VUCQDJTscEy7Kc0HsLmqNE7rovDjMpIHHGYeid"
+        |          "Xn4TQcaxMYqP3RV3C8oCl2WvrlSPaNpGZadRnmPGCk8ylM2okAJ4i9TEe1Ke"
+        |          "rsXxSl6jUt5uayiIodirtcKLOaWblj50wiyMv1F9lm9TUDArGAD0FmEpvCUs"
+        |          "VoZy6dW81Fg0aDaHogQa36ekAPG5DDGsbdZrGsrzZUnzvBo1I2tLmuL69kSi"
+        |          "tAweyHKN9b3leDfQMnu3nIIKWfmXnqGVKedJT6QpICbJvf2f8aOsvn68v+k7"
+        |          "/cwUQdPoxaMoRTnKFHNlKsKQphCTOa84u64vpi8bH31CqsbF6lSONRTkTyQG"
+        |          "Arq49/fEvjBwz4eDS2/JpaXRNOoXRD/VmOrDVTJJRIZCTLav3VrqbPvP3vdd"
+        |          "uGEhQJzilncbpSA4F3vsihErO+dayv/sY5/yRE0GDEXCu2VoNiMlo5i+P2Kl"
+        |          "gMEvTNk2eYa5XEyh12Ex17Z8vzQUR3KEPbYd6XG87eC4Ly75RneS5ZYHAAAA"
+        |          "AElFTkSuQmCC"&gt;&gt;.
+        |  
+        |  
+        |  -spec create_image_files(&lt;&lt;_:8,_:_*8&gt;&gt;) -&gt; 'ok'.
+        |  create_image_files(Images_dir) -&gt;
+<font color=red>     0..|      Filenames = [&lt;&lt;"powered-by-ejabberd.png"&gt;&gt;,</font>
+        |                   &lt;&lt;"powered-by-erlang.png"&gt;&gt;,
+        |                   &lt;&lt;"valid-xhtml10.png"&gt;&gt;,
+        |                   &lt;&lt;"vcss.png"&gt;&gt;
+        |                  ],
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(Filename) -&gt;
+<font color=red>     0..|                Filename_full = filename:join([Images_dir, Filename]),</font>
+<font color=red>     0..|                {ok, F} = file:open(Filename_full, [write]),</font>
+<font color=red>     0..|                Image = jlib:decode_base64(image_base64(Filename)),</font>
+<font color=red>     0..|                io:format(F, "~s", [Image]),</font>
+<font color=red>     0..|                file:close(F)</font>
+        |        end,
+        |        Filenames),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec fw(file:io_device(), binary()) -&gt; 'ok'.
+<font color=red>     0..|  fw(F, S) -&gt; fw(F, S, html).</font>
+        |  
+        |  
+        |  -spec fw(file:io_device(), binary(), file_format()) -&gt; 'ok'.
+        |  fw(F, S, FileFormat) -&gt;
+<font color=red>     0..|      S1 = &lt;&lt;S/binary, "~n"&gt;&gt;,</font>
+<font color=red>     0..|      S2 = case FileFormat of</font>
+        |               html -&gt;
+<font color=red>     0..|                      S1;</font>
+        |               plaintext -&gt;
+<font color=red>     0..|              re:replace(S1, &lt;&lt;"&lt;[^&gt;]*&gt;"&gt;&gt;, &lt;&lt;""&gt;&gt;, [global, {return, binary}])</font>
+        |           end,
+<font color=red>     0..|      io:format(F, S2, []).</font>
+        |  
+        |  
+        |  -spec put_header(file:io_device(), Room :: #room{}, Date :: binary(),
+        |          CSSFile :: boolean(), Lang :: ejabberd:lang(), Hour_offset :: integer(),
+        |          Date_prev :: binary(), Date_next :: binary(), Top_link :: tuple(),
+        |          file_format()) -&gt; 'ok'.
+        |  put_header(_, _, _, _, _, _, _, _, _, plaintext) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  put_header(F, Room, Date, CSSFile, Lang, Hour_offset, Date_prev, Date_next, Top_link, FileFormat) -&gt;
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"", Lang/binary, "\" lang=\"", Lang/binary, "\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;head&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;title&gt;", (htmlize(Room#room.title))/binary, " - ", Date/binary, "&lt;/title&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      put_header_css(F, CSSFile),</font>
+<font color=red>     0..|      put_header_script(F),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;/head&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;body&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      {Top_url, Top_text} = Top_link,</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;div style=\"text-align: right;\"&gt;&lt;a style=\"color: #AAAAAA; font-family: monospace; text-decoration: none; font-weight: bold;\" href=\"", Top_url/binary, "\"&gt;", Top_text/binary, "&lt;/a&gt;&lt;/div&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;div class=\"roomtitle\"&gt;", (htmlize(Room#room.title))/binary, "&lt;/div&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;a class=\"roomjid\" href=\"xmpp:", (Room#room.jid)/binary, "?join\"&gt;", (Room#room.jid)/binary, "&lt;/a&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;div class=\"logdate\"&gt;", Date/binary, "&lt;span class=\"w3c\"&gt;&lt;a class=\"nav\" href=\"", Date_prev/binary, "\"&gt;&amp;lt;&lt;/a&gt; &lt;a class=\"nav\" href=\".\/\"&gt;^&lt;/a&gt; &lt;a class=\"nav\" href=\"", Date_next/binary, "\"&gt;&amp;gt;&lt;/a&gt;&lt;/span&gt;&lt;/div&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      case {htmlize(Room#room.subject_author), htmlize(Room#room.subject)} of</font>
+<font color=red>     0..|              {&lt;&lt;""&gt;&gt;, &lt;&lt;""&gt;&gt;} -&gt; ok;</font>
+<font color=red>     0..|              {SuA, Su} -&gt; fw(F, &lt;&lt;"&lt;div class=\"roomsubject\"&gt;", SuA/binary, (?T(&lt;&lt;" has set the subject to: "&gt;&gt;))/binary, Su/binary, "&lt;/div&gt;"&gt;&gt;)</font>
+        |      end,
+<font color=red>     0..|      RoomConfig = roomconfig_to_binary(Room#room.config, Lang, FileFormat),</font>
+<font color=red>     0..|      put_room_config(F, RoomConfig, Lang, FileFormat),</font>
+<font color=red>     0..|      Occupants = get_room_occupants(Room#room.jid),</font>
+<font color=red>     0..|      RoomOccupants = roomoccupants_to_binary(Occupants, FileFormat),</font>
+<font color=red>     0..|      put_room_occupants(F, RoomOccupants, Lang, FileFormat),</font>
+<font color=red>     0..|      Time_offset_bin = case Hour_offset&lt;0 of</font>
+<font color=red>     0..|                            true -&gt; list_to_binary(lists:flatten(io_lib:format("~p", [Hour_offset])));</font>
+<font color=red>     0..|                            false -&gt; list_to_binary(lists:flatten(io_lib:format("+~p", [Hour_offset])))</font>
+        |          end,
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;br/&gt;&lt;a class=\"ts\"&gt;GMT", Time_offset_bin/binary, "&lt;/a&gt;&lt;br/&gt;"&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec put_header_css(file:io_device(), 'false' | binary()) -&gt; 'ok'.
+        |  put_header_css(F, false) -&gt;
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;style type=\"text/css\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;!--"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".ts {color: #AAAAAA; text-decoration: none;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".mrcm {color: #009900; font-style: italic; font-weight: bold;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".msc {color: #009900; font-style: italic; font-weight: bold;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".msm {color: #000099; font-style: italic; font-weight: bold;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".mj {color: #009900; font-style: italic;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".ml {color: #009900; font-style: italic;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".mk {color: #009900; font-style: italic;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".mb {color: #009900; font-style: italic;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".mnc {color: #009900; font-style: italic;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".mn {color: #0000AA;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".mne {color: #AA0099;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"a.nav {color: #AAAAAA; font-family: monospace; letter-spacing: 3px; text-decoration: none;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.roomtitle {border-bottom: #224466 solid 3pt; margin-left: 20pt;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.roomtitle {color: #336699; font-size: 24px; font-weight: bold; font-family: sans-serif; letter-spacing: 3px; text-decoration: none;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"a.roomjid {color: #336699; font-size: 24px; font-weight: bold; font-family: sans-serif; letter-spacing: 3px; margin-left: 20pt; text-decoration: none;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.logdate {color: #663399; font-size: 20px; font-weight: bold; font-family: sans-serif; letter-spacing: 2px; border-bottom: #224466 solid 1pt; margin-left:80pt; margin-top:20px;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.roomsubject {color: #336699; font-size: 18px; font-family: sans-serif; margin-left: 80pt; margin-bottom: 10px;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rc {color: #336699; font-size: 12px; font-family: sans-serif; margin-left: 50%; text-align: right; background: #f3f6f9; border-bottom: 1px solid #336699; border-right: 4px solid #336699;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rct {font-weight: bold; background: #e3e6e9; padding-right: 10px;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rcos {padding-right: 10px;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rcoe {color: green;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rcod {color: red;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rcoe:after {content: \": v\";}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rcod:after {content: \": x\";}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"div.rcot:after {}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".legend {width: 100%; margin-top: 30px; border-top: #224466 solid 1pt;  padding: 10px 0px 10px 0px; text-align: left; font-family: monospace; letter-spacing: 2px;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;".w3c {position: absolute; right: 10px; width: 60%; text-align: right; font-family: monospace; letter-spacing: 1px;}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"//--&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;/style&gt;"&gt;&gt;);</font>
+        |  put_header_css(F, CSSFileStr) -&gt;
+<font color=red>     0..|      CSSFile = list_to_binary(CSSFileStr),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;link rel=\"stylesheet\" type=\"text/css\" href=\"", CSSFile/binary, "\" media=\"all\"&gt;"&gt;&gt;).</font>
+        |  
+        |  put_header_script(F) -&gt;
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;script type=\"text/javascript\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"function sh(e) // Show/Hide an element"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"{if(document.getElementById(e).style.display=='none')"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"{document.getElementById(e).style.display='block';}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"else {document.getElementById(e).style.display='none';}}"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;/script&gt;"&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec put_room_config(file:io_device(), any(), ejabberd:lang(),
+        |                        file_format()) -&gt; 'ok'.
+        |  put_room_config(_F, _RoomConfig, _Lang, plaintext) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  put_room_config(F, RoomConfig, Lang, _FileFormat) -&gt;
+<font color=red>     0..|      {Now1, Now2, Now3} = now(),</font>
+<font color=red>     0..|      NowBin = list_to_binary(lists:flatten(io_lib:format("~p~p~p", [Now1,Now2,Now3]))),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;div class=\"rc\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F,   &lt;&lt;"&lt;div class=\"rct\" onclick=\"sh('a", NowBin/binary, "');return false;\"&gt;", (?T(&lt;&lt;"Room Configuration"&gt;&gt;))/binary, "&lt;/div&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F,   &lt;&lt;"&lt;div class=\"rcos\" id=\"a", NowBin/binary, "\" style=\"display: none;\" &gt;&lt;br/&gt;", RoomConfig/binary, "&lt;/div&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;/div&gt;"&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec put_room_occupants(file:io_device(), any(), ejabberd:lang(),
+        |                           file_format()) -&gt; 'ok'.
+        |  put_room_occupants(_F, _RoomOccupants, _Lang, plaintext) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  put_room_occupants(F, RoomOccupants, Lang, _FileFormat) -&gt;
+<font color=red>     0..|      {Now1, Now2, Now3} = now(),</font>
+<font color=red>     0..|      NowBin = list_to_binary(lists:flatten(io_lib:format("~p~p~p", [Now1,Now2,Now3]))),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;div class=\"rc\"&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F,   &lt;&lt;"&lt;div class=\"rct\" onclick=\"sh('o", NowBin/binary, "');return false;\"&gt;", (?T(&lt;&lt;"Room Occupants"&gt;&gt;))/binary, "&lt;/div&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F,   &lt;&lt;"&lt;div class=\"rcos\" id=\"o", NowBin/binary, "\" style=\"display: none;\" &gt;&lt;br/&gt;", RoomOccupants/binary, "&lt;/div&gt;"&gt;&gt;),</font>
+<font color=red>     0..|      fw(F, &lt;&lt;"&lt;/div&gt;"&gt;&gt;).</font>
+        |  
+        |  
+        |  %% @doc htmlize
+        |  %% The default behaviour is to ignore the nofollow spam prevention on links
+        |  %% (NoFollow=false)
+        |  htmlize(S1) -&gt;
+<font color=red>     0..|      htmlize(S1, html).</font>
+        |  
+        |  htmlize(S1, FileFormat) -&gt;
+<font color=red>     0..|      htmlize(S1, false, FileFormat).</font>
+        |  
+        |  
+        |  %% @doc The NoFollow parameter tell if the spam prevention should be applied to
+        |  %% the link found. true means 'apply nofollow on links'.
+        |  htmlize(S1, _NoFollow, plaintext) -&gt;
+<font color=red>     0..|      ReplacementRules =</font>
+        |          [{&lt;&lt;"&lt;"&gt;&gt;, &lt;&lt;"["&gt;&gt;},
+        |           {&lt;&lt;"&gt;"&gt;&gt;, &lt;&lt;"]"&gt;&gt;}],
+<font color=red>     0..|      lists:foldl(fun({RegExp, Replace}, Acc) -&gt;</font>
+<font color=red>     0..|                          re:replace(Acc, RegExp, Replace, [global, {return, binary}])</font>
+        |                  end, S1, ReplacementRules);
+        |  htmlize(S1, NoFollow, _FileFormat) -&gt;
+<font color=red>     0..|      S2_list = binary:split(S1, &lt;&lt;"\n"&gt;&gt;, [global]),</font>
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun(Si, Res) -&gt;
+<font color=red>     0..|                Si2 = htmlize2(Si, NoFollow),</font>
+<font color=red>     0..|                case Res of</font>
+<font color=red>     0..|                        &lt;&lt;""&gt;&gt; -&gt; Si2;</font>
+<font color=red>     0..|                        _ -&gt; &lt;&lt;Res/binary, "&lt;br/&gt;", Si2/binary&gt;&gt;</font>
+        |                end
+        |        end,
+        |        &lt;&lt;""&gt;&gt;,
+        |        S2_list).
+        |  
+        |  htmlize2(S1, NoFollow) -&gt;
+<font color=red>     0..|      ReplacementRules =</font>
+        |          [{&lt;&lt;"\\&amp;"&gt;&gt;, &lt;&lt;"\\&amp;amp;"&gt;&gt;},
+        |           {&lt;&lt;"&lt;"&gt;&gt;, &lt;&lt;"\\&amp;lt;"&gt;&gt;},
+        |           {&lt;&lt;"&gt;"&gt;&gt;, &lt;&lt;"\\&amp;gt;"&gt;&gt;},
+        |           {&lt;&lt;"((http|https|ftp)://|(mailto|xmpp):)[^] )\'\"}]+"&gt;&gt;, link_regexp(NoFollow)},
+        |           {&lt;&lt;"  "&gt;&gt;, &lt;&lt;"\\&amp;nbsp;\\&amp;nbsp;"&gt;&gt;},
+        |           {&lt;&lt;"\\t"&gt;&gt;, &lt;&lt;"\\&amp;nbsp;\\&amp;nbsp;\\&amp;nbsp;\\&amp;nbsp;"&gt;&gt;},
+        |           {&lt;&lt;226,128,174&gt;&gt;, &lt;&lt;"[RLO]"&gt;&gt;}],
+<font color=red>     0..|      lists:foldl(fun({RegExp, Replace}, Acc) -&gt;</font>
+<font color=red>     0..|                          re:replace(Acc, RegExp, Replace, [global, {return, binary}])</font>
+        |                  end, S1, ReplacementRules).
+        |  
+        |  %% @doc Regexp link. Add the nofollow rel attribute when required
+        |  link_regexp(false) -&gt;
+<font color=red>     0..|      &lt;&lt;"&lt;a href=\"&amp;\"&gt;&amp;&lt;/a&gt;"&gt;&gt;;</font>
+        |  link_regexp(true) -&gt;
+<font color=red>     0..|      &lt;&lt;"&lt;a href=\"&amp;\" rel=\"nofollow\"&gt;&amp;&lt;/a&gt;"&gt;&gt;.</font>
+        |  
+        |  
+        |  get_room_info(RoomJID, Opts) -&gt;
+<font color=red>     0..|      Title =</font>
+        |          case lists:keysearch(title, 1, Opts) of
+<font color=red>     0..|              {value, {_, T}} -&gt; T;</font>
+<font color=red>     0..|              false -&gt; &lt;&lt;""&gt;&gt;</font>
+        |          end,
+<font color=red>     0..|      Subject =</font>
+        |          case lists:keysearch(subject, 1, Opts) of
+<font color=red>     0..|              {value, {_, S}} -&gt; S;</font>
+<font color=red>     0..|              false -&gt; &lt;&lt;""&gt;&gt;</font>
+        |          end,
+<font color=red>     0..|      SubjectAuthor =</font>
+        |          case lists:keysearch(subject_author, 1, Opts) of
+<font color=red>     0..|              {value, {_, SA}} -&gt; SA;</font>
+<font color=red>     0..|              false -&gt; &lt;&lt;""&gt;&gt;</font>
+        |          end,
+<font color=red>     0..|      #room{jid = RoomJID,</font>
+        |            title = Title,
+        |            subject = Subject,
+        |            subject_author = SubjectAuthor,
+        |            config = Opts
+        |           }.
+        |  
+        |  
+        |  -spec roomconfig_to_binary(list(), ejabberd:lang(), file_format()) -&gt; binary().
+        |  roomconfig_to_binary(Options, Lang, FileFormat) -&gt;
+        |      %% Get title, if available
+<font color=red>     0..|      Title = case lists:keysearch(title, 1, Options) of</font>
+<font color=red>     0..|                  {value, Tuple} -&gt; [Tuple];</font>
+<font color=red>     0..|                  false -&gt; []</font>
+        |              end,
+        |  
+        |      %% Remove title from list
+<font color=red>     0..|      Os1 = lists:keydelete(title, 1, Options),</font>
+        |  
+        |      %% Order list
+<font color=red>     0..|      Os2 = lists:sort(Os1),</font>
+        |  
+        |      %% Add title to ordered list
+<font color=red>     0..|      Options2 = Title ++ Os2,</font>
+        |  
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun({Opt, Val}, R) -&gt;
+<font color=red>     0..|                case get_roomconfig_text(Opt) of</font>
+        |                    undefined -&gt;
+<font color=red>     0..|                        R;</font>
+        |                    OptT -&gt;
+<font color=red>     0..|                        OptText = ?T(OptT),</font>
+<font color=red>     0..|                        R2 = case Val of</font>
+<font color=red>     0..|                                 false -&gt; &lt;&lt;"&lt;div class=\"rcod\"&gt;", OptText/binary, "&lt;/div&gt;"&gt;&gt;;</font>
+<font color=red>     0..|                                 true -&gt; &lt;&lt;"&lt;div class=\"rcoe\"&gt;", OptText/binary, "&lt;/div&gt;"&gt;&gt;;</font>
+<font color=red>     0..|                                 "" -&gt; &lt;&lt;"&lt;div class=\"rcod\"&gt;", OptText/binary, "&lt;/div&gt;"&gt;&gt;;</font>
+        |                                 T -&gt;
+<font color=red>     0..|                                     case Opt of</font>
+<font color=red>     0..|                                         password -&gt; &lt;&lt;"&lt;div class=\"rcoe\"&gt;", OptText/binary, "&lt;/div&gt;"&gt;&gt;;</font>
+<font color=red>     0..|                                         max_users -&gt; &lt;&lt;"&lt;div class=\"rcot\"&gt;", OptText/binary, ": \"", (htmlize(list_to_binary(lists:flatten(io_lib:format("~p", [T]))), FileFormat))/binary, "\"&lt;/div&gt;"&gt;&gt;;</font>
+<font color=red>     0..|                                         title -&gt; &lt;&lt;"&lt;div class=\"rcot\"&gt;", OptText/binary, ": \"", (htmlize(T, FileFormat))/binary, "\"&lt;/div&gt;"&gt;&gt;;</font>
+<font color=red>     0..|                                         description -&gt; &lt;&lt;"&lt;div class=\"rcot\"&gt;", OptText/binary, ": \"", (htmlize(T, FileFormat))/binary, "\"&lt;/div&gt;"&gt;&gt;;</font>
+<font color=red>     0..|                                         _ -&gt; &lt;&lt;"\"", T/binary, "\""&gt;&gt;</font>
+        |                                     end
+        |                             end,
+<font color=red>     0..|                        &lt;&lt;R/binary, R2/binary&gt;&gt;</font>
+        |                end
+        |        end,
+        |        &lt;&lt;""&gt;&gt;,
+        |        Options2).
+        |  
+        |  
+        |  -spec get_roomconfig_text(atom()) -&gt; 'undefined' | binary().
+<font color=red>     0..|  get_roomconfig_text(title) -&gt; &lt;&lt;"Room title"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(persistent) -&gt; &lt;&lt;"Make room persistent"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(public) -&gt; &lt;&lt;"Make room public searchable"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(public_list) -&gt; &lt;&lt;"Make participants list public"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(password_protected) -&gt; &lt;&lt;"Make room password protected"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(password) -&gt; &lt;&lt;"Password"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(anonymous) -&gt; &lt;&lt;"This room is not anonymous"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(members_only) -&gt; &lt;&lt;"Make room members-only"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(moderated) -&gt; &lt;&lt;"Make room moderated"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(members_by_default) -&gt; &lt;&lt;"Default users as participants"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(allow_change_subj) -&gt; &lt;&lt;"Allow users to change the subject"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(allow_private_messages) -&gt; &lt;&lt;"Allow users to send private messages"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(allow_query_users) -&gt; &lt;&lt;"Allow users to query other users"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(allow_user_invites) -&gt; &lt;&lt;"Allow users to send invites"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(logging) -&gt;  &lt;&lt;"Enable logging"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(allow_visitor_nickchange) -&gt;  &lt;&lt;"Allow visitors to change nickname"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(allow_visitor_status) -&gt;  &lt;&lt;"Allow visitors to send status text in presence updates"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(description) -&gt;  &lt;&lt;"Room description"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(max_users) -&gt; &lt;&lt;"Maximum Number of Occupants"&gt;&gt;;</font>
+<font color=red>     0..|  get_roomconfig_text(_) -&gt; undefined.</font>
+        |  
+        |  
+        |  %% @doc Users = [{JID, Nick, Role}]
+        |  -spec roomoccupants_to_binary([jid_nick_role()], file_format()) -&gt; binary().
+        |  roomoccupants_to_binary(Users, _FileFormat) -&gt;
+<font color=red>     0..|      Res = [role_users_to_string(RoleS, Users1)</font>
+<font color=red>     0..|             || {RoleS, Users1} &lt;- group_by_role(Users), Users1 /= []],</font>
+<font color=red>     0..|      list_to_binary(lists:flatten(["&lt;div class=\"rcot\"&gt;", Res, "&lt;/div&gt;"])).</font>
+        |  
+        |  
+        |  %% @doc Users = [{JID, Nick, Role}]
+        |  -spec group_by_role([{jid_nick_role()}]) -&gt; [{string(), string()}].
+        |  group_by_role(Users) -&gt;
+<font color=red>     0..|      {Ms, Ps, Vs, Ns} =</font>
+        |          lists:foldl(
+        |            fun({JID, Nick, moderator}, {Mod, Par, Vis, Non}) -&gt;
+<font color=red>     0..|                    {[{JID, Nick}]++Mod, Par, Vis, Non};</font>
+        |               ({JID, Nick, participant}, {Mod, Par, Vis, Non}) -&gt;
+<font color=red>     0..|                    {Mod, [{JID, Nick}]++Par, Vis, Non};</font>
+        |               ({JID, Nick, visitor}, {Mod, Par, Vis, Non}) -&gt;
+<font color=red>     0..|                    {Mod, Par, [{JID, Nick}]++Vis, Non};</font>
+        |               ({JID, Nick, none}, {Mod, Par, Vis, Non}) -&gt;
+<font color=red>     0..|                    {Mod, Par, Vis, [{JID, Nick}]++Non}</font>
+        |            end,
+        |            {[], [], [], []},
+        |            Users),
+<font color=red>     0..|      case Ms of [] -&gt; []; _ -&gt; [{"Moderator", Ms}] end</font>
+<font color=red>     0..|          ++ case Ps of [] -&gt; []; _ -&gt; [{"Participant", Ps}] end</font>
+<font color=red>     0..|          ++ case Vs of [] -&gt; []; _ -&gt; [{"Visitor", Vs}] end</font>
+<font color=red>     0..|          ++ case Ns of [] -&gt; []; _ -&gt; [{"None", Ns}] end.</font>
+        |  
+        |  
+        |  %% Users = [{JID, Nick}]
+        |  -spec role_users_to_string(string(), [jid_nick()]) -&gt; [string(),...].
+        |  role_users_to_string(RoleS, Users) -&gt;
+<font color=red>     0..|      SortedUsers = lists:keysort(2, Users),</font>
+<font color=red>     0..|      UsersString = [[Nick, "&lt;br/&gt;"] || {_JID, Nick} &lt;- SortedUsers],</font>
+<font color=red>     0..|      [RoleS, ": ", UsersString].</font>
+        |  
+        |  
+        |  -spec get_room_occupants(ejabberd:literal_jid()) -&gt; [jid_nick_role()].
+        |  get_room_occupants(RoomJIDString) -&gt;
+<font color=red>     0..|      RoomJID = jid:from_binary(RoomJIDString),</font>
+<font color=red>     0..|      {ok, Users} = mod_muc_room:get_room_users(RoomJID),</font>
+<font color=red>     0..|      [{U#user.jid, U#user.nick, U#user.role}</font>
+<font color=red>     0..|       || U &lt;- Users].</font>
+        |  
+<font color=red>     0..|  get_proc_name(Host) -&gt; gen_mod:get_module_proc(Host, ?PROCNAME).</font>
+        |  
+        |  
+        |  -spec calc_hour_offset(calendar:datetime()) -&gt; integer().
+        |  calc_hour_offset(TimeHere) -&gt;
+<font color=red>     0..|      TimeZero = calendar:now_to_universal_time(now()),</font>
+<font color=red>     0..|      TimeHereHour = calendar:datetime_to_gregorian_seconds(TimeHere) div 3600,</font>
+<font color=red>     0..|      TimeZeroHour = calendar:datetime_to_gregorian_seconds(TimeZero) div 3600,</font>
+<font color=red>     0..|      TimeHereHour - TimeZeroHour.</font>
+</pre>
+</body>
+</html>

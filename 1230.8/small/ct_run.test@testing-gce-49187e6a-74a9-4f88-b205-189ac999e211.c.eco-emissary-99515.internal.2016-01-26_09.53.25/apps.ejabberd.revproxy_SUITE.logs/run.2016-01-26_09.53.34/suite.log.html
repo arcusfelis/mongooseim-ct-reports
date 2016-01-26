@@ -1,0 +1,145 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Test apps.ejabberd.revproxy_SUITE results</title>
+<meta http-equiv="cache-control" content="no-cache">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<link rel="stylesheet" href="../../ct_default.css" type="text/css">
+<script type="text/javascript" src="../../jquery-latest.js"></script>
+<script type="text/javascript" src="../../jquery.tablesorter.min.js"></script>
+<script type="text/javascript">
+// Parser for date format, e.g: Wed Jul 4 2012 11:24:15
+var monthNames = {};
+monthNames["Jan"] = "01"; monthNames["Feb"] = "02";
+monthNames["Mar"] = "03"; monthNames["Apr"] = "04";
+monthNames["May"] = "05"; monthNames["Jun"] = "06";
+monthNames["Jul"] = "07"; monthNames["Aug"] = "08";
+monthNames["Sep"] = "09"; monthNames["Oct"] = "10";
+monthNames["Nov"] = "11"; monthNames["Dec"] = "12";
+$.tablesorter.addParser({
+  id: 'CTDateSorter',
+  is: function(s) {
+      return false; },
+  format: function(s) {
+      if (s.length < 2) return 999999999;
+      else {
+          var date = s.match(/(\w{3})\s(\w{3})\s(\d{2})\s(\d{4})\s(\d{2}):(\d{2}):(\d{2})/);
+          var y = date[4]; var mo = monthNames[date[2]]; var d = String(date[3]);
+          var h = String(date[5]); var mi = String(date[6]); var sec = String(date[7]);
+          return (parseInt('' + y + mo + d + h + mi + sec)); }},
+  type: 'numeric' });
+// Parser for general text format
+$.tablesorter.addParser({
+  id: 'CTTextSorter',
+  is: function(s) {
+    return false; },
+  format: function(s) {
+    if (s.length < 1) return 'zzzzzzzz';
+    else if (s == "?") return 'zzzzzzz';
+    else if (s == "-") return 'zzzzzz';
+    else if (s == "FAILED") return 'A';
+    else if (s == "SKIPPED") return 'B';
+    else if (s == "OK") return 'C';
+    else return '' + s; },
+  type: 'text' });
+// Parser for numerical values
+$.tablesorter.addParser({
+  id: 'CTValSorter',
+  is: function(s) {
+    return false; },
+  format: function(s) {
+    if (s.length < 1) return '-2';
+    else if (s == "?") return '-1';
+    else if ((s.search(/(\d{1,})\s/)) >= 0) {
+      var num = s.match(/(\d{1,})\s/);
+      return (parseInt('' + num[1])); }
+    else if ((s.search(/(\d{1,})\.(\d{3})s/)) >= 0) {
+      var num = s.match(/(\d{1,})\.(\d{3})/);
+      if (num[1] == "0") return (parseInt('' + num[2]));
+      else return (parseInt('' + num[1] + num[2])); }
+    else return '' + s; },
+  type: 'numeric' });
+$(document).ready(function() {
+  $("#SortableTable").tablesorter({
+    headers: { 
+      0: { sorter: 'CTValSorter' },
+      1: { sorter: 'CTTextSorter' },
+      2: { sorter: 'CTTextSorter' },
+      3: { sorter: 'CTTextSorter' },
+      5: { sorter: 'CTValSorter' },
+      6: { sorter: 'CTTextSorter' },
+      7: { sorter: 'CTTextSorter' }
+    }
+  });
+  $("#SortableTable").trigger("update");
+  $("#SortableTable").trigger("appendCache");
+});
+</script>
+</head>
+<body>
+
+<h1>Results for <i>apps.ejabberd.revproxy_SUITE</i></h1>
+<h4>Test started at 2016-01-26 09:53:34</h4>
+<p><b>Host info:</b><br />
+Run by travis on testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal<br />Used Erlang v6.4 in "/home/travis/otp/17.5"</p>
+<p><ul>
+<li><a href="suite.log">Full textual log</a></li>
+<li><a href="../../cover.html">Coverage log</a></li>
+<li><a href="unexpected_io.log.html">Unexpected I/O log</a></li>
+</ul></p>
+<p><i>Executing <b>18</b> test cases...</i>
+<br />
+</p>
+<table id="SortableTable">
+<thead>
+<tr><th>Num</th><th>Module</th><th>Group</th><th>Case</th><th>Log</th><th>Time</th><th>Result</th><th>Comment</th></tr>
+</thead>
+<tbody>
+<tr class="odd"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black"></font></td><td><a href="revproxy_suite.init_per_suite.html">init_per_suite</a></td><td><a href="revproxy_suite.init_per_suite.html#top"><</a> <a href="revproxy_suite.init_per_suite.html#end">></a></td><td><font color="black">0.024s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">compile_routes</font></td><td><a href="revproxy_suite.init_per_group.html">init_per_group</a></td><td><a href="revproxy_suite.init_per_group.html#top"><</a> <a href="revproxy_suite.init_per_group.html#end">></a></td><td><font color="black">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">1</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">compile_routes</font></td><td><a href="revproxy_suite.compile_example_routes.html">compile_example_routes</a></td><td><a href="revproxy_suite.compile_example_routes.html#top"><</a> <a href="revproxy_suite.compile_example_routes.html#end">></a></td><td><font color="saddlebrown">0.001s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">2</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">compile_routes</font></td><td><a href="revproxy_suite.example_dynamic_compile.html">example_dynamic_compile</a></td><td><a href="revproxy_suite.example_dynamic_compile.html#top"><</a> <a href="revproxy_suite.example_dynamic_compile.html#end">></a></td><td><font color="saddlebrown">0.002s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">compile_routes</font></td><td><a href="revproxy_suite.end_per_group.html">end_per_group</a></td><td><a href="revproxy_suite.end_per_group.html#top"><</a> <a href="revproxy_suite.end_per_group.html#end">></a></td><td><font color="black">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">match_routes</font></td><td><a href="revproxy_suite.init_per_group.802014.304.html">init_per_group</a></td><td><a href="revproxy_suite.init_per_group.802014.304.html#top"><</a> <a href="revproxy_suite.init_per_group.802014.304.html#end">></a></td><td><font color="black">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">3</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">match_routes</font></td><td><a href="revproxy_suite.exact_path_match.html">exact_path_match</a></td><td><a href="revproxy_suite.exact_path_match.html#top"><</a> <a href="revproxy_suite.exact_path_match.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">4</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">match_routes</font></td><td><a href="revproxy_suite.remainder_match.html">remainder_match</a></td><td><a href="revproxy_suite.remainder_match.html#top"><</a> <a href="revproxy_suite.remainder_match.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">5</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">match_routes</font></td><td><a href="revproxy_suite.capture_subdomain_match.html">capture_subdomain_match</a></td><td><a href="revproxy_suite.capture_subdomain_match.html#top"><</a> <a href="revproxy_suite.capture_subdomain_match.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">6</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">match_routes</font></td><td><a href="revproxy_suite.method_match.html">method_match</a></td><td><a href="revproxy_suite.method_match.html#top"><</a> <a href="revproxy_suite.method_match.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">7</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">match_routes</font></td><td><a href="revproxy_suite.qs_match.html">qs_match</a></td><td><a href="revproxy_suite.qs_match.html#top"><</a> <a href="revproxy_suite.qs_match.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">8</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">match_routes</font></td><td><a href="revproxy_suite.slash_ending_match.html">slash_ending_match</a></td><td><a href="revproxy_suite.slash_ending_match.html#top"><</a> <a href="revproxy_suite.slash_ending_match.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">match_routes</font></td><td><a href="revproxy_suite.end_per_group.802014.477.html">end_per_group</a></td><td><a href="revproxy_suite.end_per_group.802014.477.html#top"><</a> <a href="revproxy_suite.end_per_group.802014.477.html#end">></a></td><td><font color="black">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">generate_upstream</font></td><td><a href="revproxy_suite.init_per_group.802014.503.html">init_per_group</a></td><td><a href="revproxy_suite.init_per_group.802014.503.html#top"><</a> <a href="revproxy_suite.init_per_group.802014.503.html#end">></a></td><td><font color="black">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">9</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">generate_upstream</font></td><td><a href="revproxy_suite.upstream_uri.html">upstream_uri</a></td><td><a href="revproxy_suite.upstream_uri.html#top"><</a> <a href="revproxy_suite.upstream_uri.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">10</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">generate_upstream</font></td><td><a href="revproxy_suite.upstream_host.html">upstream_host</a></td><td><a href="revproxy_suite.upstream_host.html#top"><</a> <a href="revproxy_suite.upstream_host.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">11</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">generate_upstream</font></td><td><a href="revproxy_suite.upstream_bindings.html">upstream_bindings</a></td><td><a href="revproxy_suite.upstream_bindings.html#top"><</a> <a href="revproxy_suite.upstream_bindings.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">12</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">generate_upstream</font></td><td><a href="revproxy_suite.upstream_qs.html">upstream_qs</a></td><td><a href="revproxy_suite.upstream_qs.html#top"><</a> <a href="revproxy_suite.upstream_qs.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">13</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">generate_upstream</font></td><td><a href="revproxy_suite.upstream_slash_path.html">upstream_slash_path</a></td><td><a href="revproxy_suite.upstream_slash_path.html#top"><</a> <a href="revproxy_suite.upstream_slash_path.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">14</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">generate_upstream</font></td><td><a href="revproxy_suite.upstream_slash_remainder.html">upstream_slash_remainder</a></td><td><a href="revproxy_suite.upstream_slash_remainder.html#top"><</a> <a href="revproxy_suite.upstream_slash_remainder.html#end">></a></td><td><font color="saddlebrown">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">generate_upstream</font></td><td><a href="revproxy_suite.end_per_group.802014.676.html">end_per_group</a></td><td><a href="revproxy_suite.end_per_group.802014.676.html#top"><</a> <a href="revproxy_suite.end_per_group.802014.676.html#end">></a></td><td><font color="black">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">requests_http</font></td><td><a href="revproxy_suite.init_per_group.802014.701.html">init_per_group</a></td><td><a href="revproxy_suite.init_per_group.802014.701.html#top"><</a> <a href="revproxy_suite.init_per_group.802014.701.html#end">></a></td><td><font color="black">0.014s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="odd"><td><font color="saddlebrown">15</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">requests_http</font></td><td><a href="revproxy_suite.no_upstreams.html">no_upstreams</a></td><td><a href="revproxy_suite.no_upstreams.html#top"><</a> <a href="revproxy_suite.no_upstreams.html#end">></a></td><td><font color="saddlebrown">0.034s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="saddlebrown">16</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">requests_http</font></td><td><a href="revproxy_suite.http_upstream.html">http_upstream</a></td><td><a href="revproxy_suite.http_upstream.html#top"><</a> <a href="revproxy_suite.http_upstream.html#end">></a></td><td><font color="saddlebrown">0.042s</font></td><td><font color="red">FAILED</font></td><td><font color="red">{revproxy_SUITE,http_upstream,<a href="revproxy_suite.src.html#159">159</a>}</font><br /><font color="green"><font color="brown">{badmatch,false}</font></font></td></tr>
+<tr class="odd"><td><font color="saddlebrown">17</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">requests_http</font></td><td><font color="saddlebrown">nomatch_upstream</font></td><td><font color="saddlebrown">< ></font></td><td><font color="saddlebrown">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>{failed,{revproxy_SUITE,http_upstream}}</td></tr>
+<tr class="even"><td><font color="saddlebrown">18</font></td><td><font color="saddlebrown">revproxy_SUITE</font></td><td><font color="saddlebrown">requests_http</font></td><td><font color="saddlebrown">https_upstream</font></td><td><font color="saddlebrown">< ></font></td><td><font color="saddlebrown">0.000s</font></td><td><font color="#FFA64D">SKIPPED</font></td><td>{failed,{revproxy_SUITE,http_upstream}}</td></tr>
+<tr class="odd"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black">requests_http</font></td><td><a href="revproxy_suite.end_per_group.802014.876.html">end_per_group</a></td><td><a href="revproxy_suite.end_per_group.802014.876.html#top"><</a> <a href="revproxy_suite.end_per_group.802014.876.html#end">></a></td><td><font color="black">0.000s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+<tr class="even"><td><font color="black"></font></td><td><font color="black">revproxy_SUITE</font></td><td><font color="black"></font></td><td><a href="revproxy_suite.end_per_suite.html">end_per_suite</a></td><td><a href="revproxy_suite.end_per_suite.html#top"><</a> <a href="revproxy_suite.end_per_suite.html#end">></a></td><td><font color="black">0.004s</font></td><td><font color="green">Ok</font></td><td></td></tr>
+
+</tbody>
+<tfoot>
+<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td><td>0.863s</td><td><b>FAILED</b></td><td>15 Ok, 1 Failed, 2 Skipped of 18</td></tr>
+</tfoot>
+
+</table>
+<center>
+<br /><hr /><p>
+<a href="../../../all_runs.html">Test run history
+</a>  |  <a href="../../../index.html">Top level test index
+</a>
+</p>
+<div class="copyright">Copyright &copy; 2016 <a href="http://www.erlang.org">Open Telecom Platform</a><br />
+Updated: <!date>Tue Jan 26 2016 09:53:34<!/date><br />
+</div>
+</center>
+</body>
+</html>

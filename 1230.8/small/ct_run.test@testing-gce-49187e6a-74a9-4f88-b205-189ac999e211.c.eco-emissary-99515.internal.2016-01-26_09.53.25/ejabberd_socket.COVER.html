@@ -1,0 +1,286 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/ejabberd_socket.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_socket.erl by COVER 2016-01-26 at 09:53:55
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_socket.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Socket with zlib and TLS support library
+        |  %%% Created : 23 Aug 2006 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_socket).
+        |  -author('alexey@process-one.net').
+        |  
+        |  %% API
+        |  -export([start/4,
+        |  	 connect/3,
+        |  	 connect/4,
+        |  	 starttls/2,
+        |  	 starttls/3,
+        |  	 compress/3,
+        |  	 reset_stream/1,
+        |  	 send/2,
+        |  	 send_xml/2,
+        |  	 change_shaper/2,
+        |  	 monitor/1,
+        |  	 get_sockmod/1,
+        |  	 get_peer_certificate/1,
+        |  	 get_verify_result/1,
+        |  	 close/1,
+        |  	 sockname/1, peername/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -record(socket_state, {sockmod    :: ejabberd:sockmod(),
+        |                         socket     :: term(),
+        |                         receiver   :: pid() | atom() | tuple()
+        |                        }).
+        |  -type socket_state() :: #socket_state{}.
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  %%--------------------------------------------------------------------
+        |  %% Function:
+        |  %% Description:
+        |  %%--------------------------------------------------------------------
+        |  -spec start(atom() | tuple(), ejabberd:sockmod(),
+        |      Socket :: port(), Opts :: [{atom(),_}]) -&gt; ok.
+        |  start(Module, SockMod, Socket, Opts) -&gt;
+<font color=red>     0..|      case Module:socket_type() of</font>
+        |          xml_stream -&gt;
+<font color=red>     0..|              MaxStanzaSize =</font>
+        |                  case lists:keysearch(max_stanza_size, 1, Opts) of
+<font color=red>     0..|                      {value, {_, Size}} -&gt; Size;</font>
+<font color=red>     0..|                      _ -&gt; infinity</font>
+        |                  end,
+<font color=red>     0..|              {ReceiverMod, Receiver, RecRef} =</font>
+        |                  case catch SockMod:custom_receiver(Socket) of
+        |                      {receiver, RecMod, RecPid} -&gt;
+<font color=red>     0..|                          {RecMod, RecPid, RecMod};</font>
+        |                      _ -&gt;
+<font color=red>     0..|                          RecPid = ejabberd_receiver:start(</font>
+        |                                     Socket, SockMod, none, MaxStanzaSize),
+<font color=red>     0..|                          {ejabberd_receiver, RecPid, RecPid}</font>
+        |                  end,
+<font color=red>     0..|              SocketData = #socket_state{sockmod = SockMod,</font>
+        |                                         socket = Socket,
+        |                                         receiver = RecRef},
+<font color=red>     0..|              case Module:start({?MODULE, SocketData}, Opts) of</font>
+        |                  {ok, Pid} -&gt;
+<font color=red>     0..|                      case SockMod:controlling_process(Socket, Receiver) of</font>
+        |                          ok -&gt;
+<font color=red>     0..|                              ok;</font>
+        |                          {error, _Reason} -&gt;
+<font color=red>     0..|                              SockMod:close(Socket)</font>
+        |                      end,
+<font color=red>     0..|                      ReceiverMod:become_controller(Receiver, Pid);</font>
+        |                  {error, _Reason} -&gt;
+<font color=red>     0..|                      SockMod:close(Socket),</font>
+<font color=red>     0..|                      case ReceiverMod of</font>
+        |                          ejabberd_receiver -&gt;
+<font color=red>     0..|                              ReceiverMod:close(Receiver);</font>
+        |                          _ -&gt;
+<font color=red>     0..|                              ok</font>
+        |                      end
+        |              end;
+        |          independent -&gt;
+<font color=red>     0..|              ok;</font>
+        |          raw -&gt;
+<font color=red>     0..|              case Module:start({SockMod, Socket}, Opts) of</font>
+        |                  {ok, Pid} -&gt;
+<font color=red>     0..|                      case SockMod:controlling_process(Socket, Pid) of</font>
+        |                          ok -&gt;
+<font color=red>     0..|                              ok;</font>
+        |                          {error, _Reason} -&gt;
+<font color=red>     0..|                              SockMod:close(Socket)</font>
+        |                      end;
+        |                  {error, _Reason} -&gt;
+<font color=red>     0..|                      SockMod:close(Socket)</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -type option_value() :: 'asn1' | 'cdr' | 'false' | 'fcgi' | 'http' | 'http_bin'
+        |                        | 'line' | 'once' | 'raw' | 'sunrm' | 'tpkt' | 'true'
+        |                        | integer() | inet:ip_address().
+        |  -type option() :: 'binary' | 'inet' | 'inet6' | 'list'
+        |                  | {atom(), option_value()}
+        |                  | {'raw',non_neg_integer(),non_neg_integer(),binary()}.
+        |  -spec connect(Addr :: atom() | string() | inet:ip_address(),
+        |                Port :: inet:port_number(),
+        |                Opts :: [option()]) -&gt; {'error',atom()} | {'ok',socket_state()}.
+        |  connect(Addr, Port, Opts) -&gt;
+<font color=red>     0..|      connect(Addr, Port, Opts, infinity).</font>
+        |  
+        |  
+        |  -spec connect(Addr :: atom() | string() | inet:ip_address(),
+        |                Port :: inet:port_number(),
+        |                Opts :: [option()],
+        |                Timeout :: non_neg_integer() | infinity
+        |                ) -&gt; {'error',atom()} | {'ok',socket_state()}.
+        |  connect(Addr, Port, Opts, Timeout) -&gt;
+<font color=red>     0..|      case gen_tcp:connect(Addr, Port, Opts, Timeout) of</font>
+        |          {ok, Socket} -&gt;
+<font color=red>     0..|              Receiver = ejabberd_receiver:start(Socket, gen_tcp, none),</font>
+<font color=red>     0..|              SocketData = #socket_state{sockmod = gen_tcp,</font>
+        |                                         socket = Socket,
+        |                                         receiver = Receiver},
+<font color=red>     0..|              Pid = self(),</font>
+<font color=red>     0..|              case gen_tcp:controlling_process(Socket, Receiver) of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      ejabberd_receiver:become_controller(Receiver, Pid),</font>
+<font color=red>     0..|                      {ok, SocketData};</font>
+        |                  {error, _Reason} = Error -&gt;
+<font color=red>     0..|                      gen_tcp:close(Socket),</font>
+<font color=red>     0..|                      Error</font>
+        |              end;
+        |          {error, _Reason} = Error -&gt;
+<font color=red>     0..|              Error</font>
+        |      end.
+        |  
+        |  
+        |  -spec starttls(socket_state(),_) -&gt; socket_state().
+        |  starttls(SocketData, TLSOpts) -&gt;
+<font color=red>     0..|      {ok, TLSSocket} = ejabberd_tls:tcp_to_tls(SocketData#socket_state.socket, TLSOpts),</font>
+<font color=red>     0..|      ejabberd_receiver:starttls(SocketData#socket_state.receiver, TLSSocket),</font>
+<font color=red>     0..|      SocketData#socket_state{socket = TLSSocket, sockmod = ejabberd_tls}.</font>
+        |  
+        |  
+        |  -spec starttls(socket_state(),_,_) -&gt; socket_state().
+        |  starttls(SocketData, TLSOpts, Data) -&gt;
+<font color=red>     0..|      {ok, TLSSocket} = ejabberd_tls:tcp_to_tls(SocketData#socket_state.socket, TLSOpts),</font>
+<font color=red>     0..|      ejabberd_receiver:starttls(SocketData#socket_state.receiver, TLSSocket),</font>
+<font color=red>     0..|      send(SocketData, Data),</font>
+<font color=red>     0..|      SocketData#socket_state{socket = TLSSocket, sockmod = ejabberd_tls}.</font>
+        |  
+        |  -spec compress(socket_state(), integer(), _) -&gt; socket_state().
+        |  compress(SocketData, InflateSizeLimit, Data) -&gt;
+<font color=red>     0..|      {ok, ZlibSocket} = ejabberd_zlib:enable_zlib(</font>
+        |  			 SocketData#socket_state.sockmod,
+        |  			 SocketData#socket_state.socket,
+        |  			 InflateSizeLimit),
+<font color=red>     0..|      ejabberd_receiver:compress(SocketData#socket_state.receiver, ZlibSocket),</font>
+<font color=red>     0..|      send(SocketData, Data),</font>
+<font color=red>     0..|      SocketData#socket_state{socket = ZlibSocket, sockmod = ejabberd_zlib}.</font>
+        |  
+        |  
+        |  -spec reset_stream(socket_state()) -&gt; socket_state().
+        |  reset_stream(SocketData) when is_pid(SocketData#socket_state.receiver) -&gt;
+<font color=red>     0..|      ejabberd_receiver:reset_stream(SocketData#socket_state.receiver);</font>
+        |  reset_stream(SocketData) when is_atom(SocketData#socket_state.receiver) -&gt;
+<font color=red>     0..|      (SocketData#socket_state.receiver):reset_stream(</font>
+        |        SocketData#socket_state.socket).
+        |  
+        |  
+        |  %% @doc sockmod=gen_tcp|ejabberd_tls|ejabberd_zlib (ejabberd:sockmod())
+        |  send(SocketData, Data) -&gt;
+<font color=red>     0..|      case catch (SocketData#socket_state.sockmod):send(</font>
+        |               SocketData#socket_state.socket, Data) of
+<font color=red>     0..|          ok -&gt; ok;</font>
+        |          {error, timeout} -&gt;
+<font color=red>     0..|              ?INFO_MSG("Timeout on ~p:send",[SocketData#socket_state.sockmod]),</font>
+<font color=red>     0..|              exit(normal);</font>
+        |          Error -&gt;
+<font color=red>     0..|              ?DEBUG("Error in ~p:send: ~p",[SocketData#socket_state.sockmod, Error]),</font>
+<font color=red>     0..|              exit(normal)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Can only be called when in c2s StateData#state.xml_socket is true
+        |  %% This function is used for HTTP bind
+        |  %% sockmod=ejabberd_http_poll|ejabberd_http_bind or any custom module
+        |  -spec send_xml(socket_state(), jlib:xmlel()) -&gt; binary().
+        |  send_xml(SocketData, Data) -&gt;
+<font color=red>     0..|      catch (SocketData#socket_state.sockmod):send_xml(</font>
+        |              SocketData#socket_state.socket, Data).
+        |  
+        |  
+        |  -spec change_shaper(#socket_state{receiver::atom() | pid() | tuple()},_) -&gt; any().
+        |  change_shaper(SocketData, Shaper)
+        |    when is_pid(SocketData#socket_state.receiver) -&gt;
+<font color=red>     0..|      ejabberd_receiver:change_shaper(SocketData#socket_state.receiver, Shaper);</font>
+        |  change_shaper(SocketData, Shaper)
+        |    when is_atom(SocketData#socket_state.receiver) -&gt;
+<font color=red>     0..|      (SocketData#socket_state.receiver):change_shaper(</font>
+        |        SocketData#socket_state.socket, Shaper).
+        |  
+        |  
+        |  -spec monitor(socket_state()) -&gt; any().
+        |  monitor(SocketData) when is_pid(SocketData#socket_state.receiver) -&gt;
+<font color=red>     0..|      erlang:monitor(process, SocketData#socket_state.receiver);</font>
+        |  monitor(SocketData) when is_atom(SocketData#socket_state.receiver) -&gt;
+<font color=red>     0..|      (SocketData#socket_state.receiver):monitor(</font>
+        |        SocketData#socket_state.socket).
+        |  
+        |  
+        |  -spec get_sockmod(socket_state()) -&gt; ejabberd:sockmod().
+        |  get_sockmod(SocketData) -&gt;
+<font color=red>     0..|      SocketData#socket_state.sockmod.</font>
+        |  
+        |  
+        |  -spec get_peer_certificate(socket_state()) -&gt; 'error' | {'ok',_}.
+        |  get_peer_certificate(SocketData) -&gt;
+<font color=red>     0..|      ejabberd_tls:get_peer_certificate(SocketData#socket_state.socket).</font>
+        |  
+        |  
+        |  -spec get_verify_result(socket_state()) -&gt; byte().
+        |  get_verify_result(SocketData) -&gt;
+<font color=red>     0..|      ejabberd_tls:get_verify_result(SocketData#socket_state.socket).</font>
+        |  
+        |  
+        |  -spec close(socket_state()) -&gt; ok.
+        |  close(SocketData) -&gt;
+<font color=red>     0..|      ejabberd_receiver:close(SocketData#socket_state.receiver).</font>
+        |  
+        |  
+        |  -spec sockname(socket_state()) -&gt; {ok, {inet:ip_address(), inet:port_number()}}
+        |                                  | {error, inet:posix()}.
+        |  sockname(#socket_state{sockmod = SockMod, socket = Socket}) -&gt;
+<font color=red>     0..|      case SockMod of</font>
+        |          gen_tcp -&gt;
+<font color=red>     0..|              inet:sockname(Socket);</font>
+        |          _ -&gt;
+<font color=red>     0..|              SockMod:sockname(Socket)</font>
+        |      end.
+        |  
+        |  
+        |  -spec peername(socket_state()) -&gt; {ok, {inet:ip_address(), inet:port_number()}}
+        |                                  | {error, inet:posix()}.
+        |  peername(#socket_state{sockmod = SockMod, socket = Socket}) -&gt;
+<font color=red>     0..|      case SockMod of</font>
+        |          gen_tcp -&gt;
+<font color=red>     0..|              inet:peername(Socket);</font>
+        |          _ -&gt;
+<font color=red>     0..|              SockMod:peername(Socket)</font>
+        |      end.
+</pre>
+</body>
+</html>

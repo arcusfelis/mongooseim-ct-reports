@@ -1,0 +1,873 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/odbc_queries.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/odbc_queries.erl by COVER 2016-01-26 at 09:54:20
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : odbc_queries.erl
+        |  %%% Author  : Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%% Purpose : ODBC queries dependind on back-end
+        |  %%% Created : by Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(odbc_queries).
+        |  -author("mremond@process-one.net").
+        |  
+        |  -export([get_db_type/0,
+        |           begin_trans/0,
+        |           get_db_specific_limits/1,
+        |           get_db_specific_offset/2,
+        |  	     sql_transaction/2,
+        |  	     get_last/2,
+        |  	     select_last/3,
+        |  	     set_last_t/4,
+        |  	     del_last/2,
+        |  	     get_password/2,
+        |  	     set_password_t/3,
+        |  	     add_user/3,
+        |  	     del_user/2,
+        |  	     del_user_return_password/3,
+        |  	     list_users/1,
+        |           list_users/2,
+        |  	     users_number/1,
+        |           users_number/2,
+        |  	     get_users_without_scram/2,
+        |  	     get_users_without_scram_count/1,
+        |           get_average_roster_size/1,
+        |           get_average_rostergroup_size/1,
+        |           clear_rosters/1,
+        |  	     get_roster/2,
+        |  	     get_roster_jid_groups/2,
+        |  	     get_roster_groups/3,
+        |  	     del_user_roster_t/2,
+        |  	     get_roster_by_jid/3,
+        |  	     get_rostergroup_by_jid/3,
+        |  	     del_roster/3,
+        |  	     del_roster_sql/2,
+        |  	     update_roster/5,
+        |  	     update_roster_sql/4,
+        |  	     roster_subscribe/4,
+        |  	     get_subscription/3,
+        |  	     set_private_data/4,
+        |  	     set_private_data_sql/3,
+        |  	     get_private_data/3,
+        |  	     multi_get_private_data/3,
+        |  	     multi_set_private_data/3,
+        |  	     del_user_private_storage/2,
+        |  	     get_default_privacy_list/2,
+        |  	     get_default_privacy_list_t/1,
+        |           count_privacy_lists/1,
+        |           clear_privacy_lists/1,
+        |  	     get_privacy_list_names/2,
+        |  	     get_privacy_list_names_t/1,
+        |  	     get_privacy_list_id/3,
+        |  	     get_privacy_list_id_t/2,
+        |  	     get_privacy_list_data/3,
+        |  	     get_privacy_list_data_by_id/2,
+        |  	     set_default_privacy_list/2,
+        |  	     unset_default_privacy_list/2,
+        |  	     remove_privacy_list/2,
+        |  	     add_privacy_list/2,
+        |  	     set_privacy_list/2,
+        |  	     del_privacy_lists/3,
+        |  	     set_vcard/26,
+        |  	     get_vcard/2,
+        |           search_vcard/3,
+        |  	     escape_string/1,
+        |  	     escape_like_string/1,
+        |  	     count_records_where/3,
+        |  	     get_roster_version/2,
+        |  	     set_roster_version/2,
+        |  	     prepare_offline_message/6,
+        |  	     push_offline_messages/2,
+        |  	     pop_offline_messages/4,
+        |  	     count_offline_messages/4,
+        |  	     remove_old_offline_messages/2,
+        |  	     remove_expired_offline_messages/2,
+        |  	     remove_offline_messages/3]).
+        |  
+        |  %% We have only two compile time options for db queries:
+        |  %%-define(generic, true).
+        |  %%-define(mssql, true).
+        |  -ifndef(mssql).
+        |  -undef(generic).
+        |  -define(generic, true).
+        |  -endif.
+        |  
+        |  -define(ODBC_TYPE, (ejabberd_odbc_type:get())).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %
+        |  %% -----------------
+        |  %% Common functions
+        |  
+        |  join([], _Sep) -&gt;
+<font color=red>     0..|      [];</font>
+        |  join([H|T], Sep) -&gt;
+<font color=red>     0..|      [H, [[Sep, X] || X &lt;- T]].</font>
+        |  
+        |  %% Note: escape functions (`escape_string/1' and `escape_like_string/1')
+        |  %%       are in this module and not in `ejabberd_odbc',
+        |  %%       because they are called a lot.
+        |  %%       To have both `escape_string/1' and `escape_character/1' in one module
+        |  %%       is an optimization.
+        |  
+        |  -spec escape_string(binary() | string()) -&gt; binary() | string().
+        |  escape_string(S) when is_binary(S) -&gt;
+<font color=red>     0..|      list_to_binary(escape_string(binary_to_list(S)));</font>
+        |  escape_string(S) when is_list(S) -&gt;
+<font color=red>     0..|      [escape_character(C) || C &lt;- S].</font>
+        |  
+        |  -spec escape_like_string(binary() | string()) -&gt; binary() | string().
+        |  escape_like_string(S) when is_binary(S) -&gt;
+<font color=red>     0..|      list_to_binary(escape_like_string(binary_to_list(S)));</font>
+        |  escape_like_string(S) when is_list(S) -&gt;
+<font color=red>     0..|      [escape_like_character(C) || C &lt;- S].</font>
+        |  
+<font color=red>     0..|  escape_like_character($%) -&gt; "\\%";</font>
+<font color=red>     0..|  escape_like_character($_) -&gt; "\\_";</font>
+<font color=red>     0..|  escape_like_character(C)  -&gt; escape_character(C).</font>
+        |  
+        |  
+        |  %% -----------------
+        |  %% Generic queries
+        |  
+        |  get_db_type() -&gt;
+<font color=red>     0..|      ?ODBC_TYPE.</font>
+        |  
+        |  
+        |  %% Safe atomic update.
+        |  update_t(Table, Fields, Vals, Where) -&gt;
+<font color=red>     0..|      UPairs = lists:zipwith(fun(A, B) -&gt; [A, "='", B, "'"] end,</font>
+        |  			   Fields, Vals),
+<font color=red>     0..|      case ejabberd_odbc:sql_query_t(</font>
+        |  	   [&lt;&lt;"update "&gt;&gt;, Table, &lt;&lt;" set "&gt;&gt;,
+        |  	    join(UPairs, ", "),
+        |  	    &lt;&lt;" where "&gt;&gt;, Where, ";"]) of
+        |  	{updated, 1} -&gt;
+<font color=red>     0..|  	    ok;</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    ejabberd_odbc:sql_query_t(</font>
+        |  	      [&lt;&lt;"insert into "&gt;&gt;, Table, "(", join(Fields, ", "),
+        |  	       &lt;&lt;") values ('"&gt;&gt;, join(Vals, "', '"), "');"])
+        |      end.
+        |  
+        |  %% Safe atomic update.
+        |  %% Fields and their values are passed as a list where
+        |  %% odd elements are fieldnames and
+        |  %% even elements are their values.
+        |  %% This function is useful, when there are a lot of fields to update.
+        |  update_set_t(Table, FieldsVals, Where) -&gt;
+<font color=red>     0..|      case ejabberd_odbc:sql_query_t(</font>
+        |  	   [&lt;&lt;"update "&gt;&gt;, Table, &lt;&lt;" set "&gt;&gt;,
+        |          join_field_and_values(FieldsVals),
+        |  	    &lt;&lt;" where "&gt;&gt;, Where, ";"]) of
+        |  	{updated, 1} -&gt;
+<font color=red>     0..|  	    ok;</font>
+        |  	_ -&gt;
+<font color=red>     0..|          Fields = odds(FieldsVals),</font>
+<font color=red>     0..|          Vals = evens(FieldsVals),</font>
+<font color=red>     0..|  	    ejabberd_odbc:sql_query_t(</font>
+        |  	      [&lt;&lt;"insert into "&gt;&gt;, Table, "(", join(Fields, ", "),
+        |  	       &lt;&lt;") values ('"&gt;&gt;, join(Vals, "', '"), "');"])
+        |      end.
+        |  
+<font color=red>     0..|  odds([X,_|T]) -&gt; [X|odds(T)];</font>
+<font color=red>     0..|  odds([])      -&gt; [].</font>
+        |  
+<font color=red>     0..|  evens([_,X|T]) -&gt; [X|evens(T)];</font>
+<font color=red>     0..|  evens([])      -&gt; [].</font>
+        |  
+        |  join_field_and_values([Field, Val|FieldsVals]) -&gt;
+        |      %% Append a field-value pair
+<font color=red>     0..|      [Field, $=, $', Val, $' | join_field_and_values_1(FieldsVals)].</font>
+        |  
+        |  join_field_and_values_1([Field, Val|FieldsVals]) -&gt;
+        |      %% Append a separater and a field-value pair
+<font color=red>     0..|      [$,, $ , Field, $=, $', Val, $' | join_field_and_values_1(FieldsVals)];</font>
+        |  join_field_and_values_1([]) -&gt;
+<font color=red>     0..|      [].</font>
+        |  
+        |  
+        |  update(LServer, Table, Fields, Vals, Where) -&gt;
+<font color=red>     0..|      UPairs = lists:zipwith(fun(A, B) -&gt; [A, "='", B, "'"] end,</font>
+        |  			   Fields, Vals),
+<font color=red>     0..|      case ejabberd_odbc:sql_query(</font>
+        |  	   LServer,
+        |  	   [&lt;&lt;"update "&gt;&gt;, Table, &lt;&lt;" set "&gt;&gt;,
+        |  	    join(UPairs, ", "),
+        |  	    &lt;&lt;" where "&gt;&gt;, Where, ";"]) of
+        |  	{updated, 1} -&gt;
+<font color=red>     0..|  	    ok;</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    ejabberd_odbc:sql_query(</font>
+        |  	      LServer,
+        |  	      [&lt;&lt;"insert into "&gt;&gt;, Table, "(", join(Fields, ", "),
+        |  	       &lt;&lt;") values ('"&gt;&gt;, join(Vals, "', '"), "');"])
+        |      end.
+        |  
+        |  %% F can be either a fun or a list of queries
+        |  %% TODO: We should probably move the list of queries transaction
+        |  %% wrapper from the ejabberd_odbc module to this one (odbc_queries)
+        |  sql_transaction(LServer, F) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(LServer, F).</font>
+        |  
+        |  begin_trans() -&gt;
+<font color=red>     0..|      begin_trans(?ODBC_TYPE).</font>
+        |  
+        |  begin_trans(mssql) -&gt;
+<font color=red>     0..|      odbc_queries_mssql:begin_trans();</font>
+        |  begin_trans(_) -&gt;
+<font color=red>     0..|      [&lt;&lt;"BEGIN;"&gt;&gt;].</font>
+        |  
+        |  
+        |  get_last(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select seconds, state from last "
+        |           "where username='"&gt;&gt;, Username, "'"]).
+        |  
+        |  select_last(LServer, TStamp, Comparator) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |          LServer,
+        |          [&lt;&lt;"select username, seconds, state from last "
+        |             "where seconds "&gt;&gt;, Comparator, " ", integer_to_list(TStamp), ";"]).
+        |  
+        |  set_last_t(LServer, Username, Seconds, State) -&gt;
+<font color=red>     0..|      update(LServer, "last", ["username", "seconds", "state"],</font>
+        |  	   [Username, Seconds, State],
+        |  	   [&lt;&lt;"username='"&gt;&gt;, Username, "'"]).
+        |  
+        |  del_last(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from last where username='"&gt;&gt;, Username, "'"]).
+        |  
+        |  get_password(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select password, pass_details from users "
+        |         "where username='"&gt;&gt;, Username, &lt;&lt;"';"&gt;&gt;]).
+        |  
+        |  set_password_t(LServer, Username, {Pass, PassDetails}) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(</font>
+        |        LServer,
+        |        fun() -&gt;
+<font color=red>     0..|  	      update_t(&lt;&lt;"users"&gt;&gt;, [&lt;&lt;"password"&gt;&gt;, &lt;&lt;"pass_details"&gt;&gt;],</font>
+        |  		       [Pass, PassDetails],
+        |  		       [&lt;&lt;"username='"&gt;&gt;, Username ,&lt;&lt;"'"&gt;&gt;])
+        |        end);
+        |  set_password_t(LServer, Username, Pass) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(</font>
+        |        LServer,
+        |        fun() -&gt;
+<font color=red>     0..|  	      update_t(&lt;&lt;"users"&gt;&gt;, [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"password"&gt;&gt;],</font>
+        |  		       [Username, Pass],
+        |  		       [&lt;&lt;"username='"&gt;&gt;, Username ,&lt;&lt;"'"&gt;&gt;])
+        |        end).
+        |  
+        |  add_user(LServer, Username, {Pass, PassDetails}) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"insert into users(username, password, pass_details) "
+        |         "values ('"&gt;&gt;, Username, &lt;&lt;"', '"&gt;&gt;, Pass, &lt;&lt;"', '"&gt;&gt;, PassDetails, &lt;&lt;"');"&gt;&gt;]);
+        |  add_user(LServer, Username, Pass) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"insert into users(username, password) "
+        |           "values ('"&gt;&gt;, Username, &lt;&lt;"', '"&gt;&gt;, Pass, &lt;&lt;"');"&gt;&gt;]).
+        |  
+        |  del_user(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from users where username='"&gt;&gt;, Username ,"';"]).
+        |  
+        |  del_user_return_password(_LServer, Username, Pass) -&gt;
+<font color=red>     0..|      P = ejabberd_odbc:sql_query_t(</font>
+        |  	  [&lt;&lt;"select password from users where username='"&gt;&gt;,
+        |  	   Username, "';"]),
+<font color=red>     0..|      ejabberd_odbc:sql_query_t([&lt;&lt;"delete from users "</font>
+        |  			       "where username='"&gt;&gt;, Username,
+        |  			       &lt;&lt;"' and password='"&gt;&gt;, Pass, "';"]),
+<font color=red>     0..|      P.</font>
+        |  
+        |  list_users(LServer) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select username from users"&gt;&gt;]).
+        |  
+        |  list_users(LServer, [{from, Start}, {to, End}]) when is_integer(Start) and
+        |                                                       is_integer(End) -&gt;
+<font color=red>     0..|      list_users(LServer, [{limit, End-Start+1}, {offset, Start-1}]);</font>
+        |  list_users(LServer, [{prefix, Prefix}, {from, Start}, {to, End}]) when is_list(Prefix) and
+        |                                                                         is_integer(Start) and
+        |                                                                         is_integer(End) -&gt;
+<font color=red>     0..|      list_users(LServer, [{prefix, Prefix}, {limit, End-Start+1}, {offset, Start-1}]);</font>
+        |  
+        |  list_users(LServer, [{limit, Limit}, {offset, Offset}]) when is_integer(Limit) and
+        |                                                               is_integer(Offset) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select username from users "
+        |           "order by username "
+        |           "limit "&gt;&gt;, integer_to_list(Limit), &lt;&lt;" "
+        |           "offset "&gt;&gt;, integer_to_list(Offset)]);
+        |  list_users(LServer, [{prefix, Prefix},
+        |                       {limit, Limit},
+        |                       {offset, Offset}]) when is_list(Prefix) and
+        |                                               is_integer(Limit) and
+        |                                               is_integer(Offset) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select username from users "
+        |           "where username like '"&gt;&gt;, Prefix, &lt;&lt;"%' "
+        |           "order by username "
+        |           "limit "&gt;&gt;, integer_to_list(Limit), &lt;&lt;" "
+        |           "offset "&gt;&gt;, integer_to_list(Offset)]).
+        |  
+        |  users_number(LServer) -&gt;
+<font color=red>     0..|      case ejabberd_odbc:db_engine(LServer) of</font>
+        |          mysql -&gt;
+<font color=red>     0..|              ejabberd_odbc:sql_query(</font>
+        |                LServer,
+        |                &lt;&lt;"select table_rows from information_schema.tables where table_name='users'"&gt;&gt;);
+        |          pgsql -&gt;
+<font color=red>     0..|              case ejabberd_config:get_local_option({pgsql_users_number_estimate, LServer}) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      ejabberd_odbc:sql_query(</font>
+        |                        LServer,
+        |                        &lt;&lt;"select reltuples from pg_class where oid = 'users'::regclass::oid"&gt;&gt;);
+        |                  _ -&gt;
+<font color=red>     0..|                      ejabberd_odbc:sql_query(</font>
+        |                        LServer,
+        |                        &lt;&lt;"select count(*) from users"&gt;&gt;)
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              ejabberd_odbc:sql_query(</font>
+        |                LServer,
+        |                [&lt;&lt;"select count(*) from users"&gt;&gt;])
+        |      end.
+        |  
+        |  users_number(LServer, [{prefix, Prefix}]) when is_list(Prefix) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select count(*) from users "
+        |           %% Warning: Escape prefix at higher level to prevent SQL
+        |           %%          injection.
+        |           "where username like '"&gt;&gt;, Prefix, "%'"]);
+        |  users_number(LServer, []) -&gt;
+<font color=red>     0..|      users_number(LServer).</font>
+        |  
+        |  get_users_without_scram(LServer, Limit) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select username, password from users where pass_details is null limit "&gt;&gt;,
+        |         integer_to_binary(Limit)]).
+        |  
+        |  get_users_without_scram_count(LServer) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select count(*) from users where pass_details is null"&gt;&gt;]).
+        |  
+        |  get_average_roster_size(Server) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |          Server,
+        |          [&lt;&lt;"select avg(items) from "
+        |             "(select count(*) as items from rosterusers group by username) as items;"&gt;&gt;]).
+        |  
+        |  get_average_rostergroup_size(Server) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |          Server,
+        |          [&lt;&lt;"select avg(roster) from "
+        |             "(select count(*) as roster from rostergroups group by username) as roster;"&gt;&gt;]).
+        |  
+        |  clear_rosters(Server) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(</font>
+        |        Server,
+        |        fun() -&gt;
+<font color=red>     0..|  	      ejabberd_odbc:sql_query_t(</font>
+        |  		[&lt;&lt;"delete from rosterusers;"&gt;&gt;]),
+<font color=red>     0..|  	      ejabberd_odbc:sql_query_t(</font>
+        |  		[&lt;&lt;"delete from rostergroups;"&gt;&gt;])
+        |        end).
+        |  
+        |  get_roster(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select username, jid, nick, subscription, ask, "
+        |           "askmessage, server, subscribe, type from rosterusers "
+        |           "where username='"&gt;&gt;, Username, "'"]).
+        |  
+        |  get_roster_jid_groups(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select jid, grp from rostergroups "
+        |           "where username='"&gt;&gt;, Username, "'"]).
+        |  
+        |  get_roster_groups(_LServer, Username, SJID) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"select grp from rostergroups "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |           "and jid='"&gt;&gt;, SJID, "';"]).
+        |  
+        |  del_user_roster_t(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(</font>
+        |        LServer,
+        |        fun() -&gt;
+<font color=red>     0..|  	      ejabberd_odbc:sql_query_t(</font>
+        |  		[&lt;&lt;"delete from rosterusers "
+        |  		   "where username='"&gt;&gt;, Username, "';"]),
+<font color=red>     0..|  	      ejabberd_odbc:sql_query_t(</font>
+        |  		[&lt;&lt;"delete from rostergroups "
+        |  		   "where username='"&gt;&gt;, Username, "';"])
+        |        end).
+        |  
+        |  get_roster_by_jid(_LServer, Username, SJID) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"select username, jid, nick, subscription, "
+        |           "ask, askmessage, server, subscribe, type from rosterusers "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |           "and jid='"&gt;&gt;, SJID, "';"]).
+        |  
+        |  get_rostergroup_by_jid(LServer, Username, SJID) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select grp from rostergroups "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |           "and jid='"&gt;&gt;, SJID, "'"]).
+        |  
+        |  del_roster(_LServer, Username, SJID) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"delete from rosterusers "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |           "and jid='"&gt;&gt;, SJID, "';"]),
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"delete from rostergroups "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |           "and jid='"&gt;&gt;, SJID, "';"]).
+        |  
+        |  del_roster_sql(Username, SJID) -&gt;
+<font color=red>     0..|      [[&lt;&lt;"delete from rosterusers "</font>
+        |          "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |          "and jid='"&gt;&gt;, SJID, "';"],
+        |       [&lt;&lt;"delete from rostergroups "
+        |          "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |          "and jid='"&gt;&gt;, SJID, "';"]].
+        |  
+        |  update_roster(_LServer, Username, SJID, ItemVals, ItemGroups) -&gt;
+<font color=red>     0..|      update_t(&lt;&lt;"rosterusers"&gt;&gt;,</font>
+        |  	     [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"jid"&gt;&gt;, &lt;&lt;"nick"&gt;&gt;, &lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"ask"&gt;&gt;,
+        |  	      &lt;&lt;"askmessage"&gt;&gt;, &lt;&lt;"server"&gt;&gt;, &lt;&lt;"subscribe"&gt;&gt;, &lt;&lt;"type"&gt;&gt;],
+        |  	     ItemVals,
+        |  	     [&lt;&lt;"username='"&gt;&gt;, Username, &lt;&lt;"' and jid='"&gt;&gt;, SJID, "'"]),
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"delete from rostergroups "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |           "and jid='"&gt;&gt;, SJID, "';"]),
+<font color=red>     0..|      lists:foreach(fun(ItemGroup) -&gt;</font>
+<font color=red>     0..|  			  ejabberd_odbc:sql_query_t(</font>
+        |  			    [&lt;&lt;"insert into rostergroups(username, jid, grp) "
+        |  			       "values ('"&gt;&gt;, join(ItemGroup, "', '"), "');"])
+        |  		  end,
+        |  		  ItemGroups).
+        |  
+        |  update_roster_sql(Username, SJID, ItemVals, ItemGroups) -&gt;
+        |      [[&lt;&lt;"delete from rosterusers "
+        |          "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |          "and jid='"&gt;&gt;, SJID, "';"],
+        |       [&lt;&lt;"insert into rosterusers("
+        |          "username, jid, nick, "
+        |          "subscription, ask, askmessage, "
+        |          "server, subscribe, type) "
+        |          " values ('"&gt;&gt;, join(ItemVals, "', '"), "');"],
+        |       [&lt;&lt;"delete from rostergroups "
+        |          "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+<font color=red>     0..|          "and jid='"&gt;&gt;, SJID, "';"]] ++</font>
+<font color=red>     0..|          [[&lt;&lt;"insert into rostergroups(username, jid, grp) "</font>
+        |              "values ('"&gt;&gt;, join(ItemGroup, "', '"), "');"] ||
+<font color=red>     0..|              ItemGroup &lt;- ItemGroups].</font>
+        |  
+        |  roster_subscribe(_LServer, Username, SJID, ItemVals) -&gt;
+<font color=red>     0..|      update_t(&lt;&lt;"rosterusers"&gt;&gt;,</font>
+        |  	     [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"jid"&gt;&gt;, &lt;&lt;"nick"&gt;&gt;, &lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"ask"&gt;&gt;,
+        |  	      &lt;&lt;"askmessage"&gt;&gt;, &lt;&lt;"server"&gt;&gt;, &lt;&lt;"subscribe"&gt;&gt;, &lt;&lt;"type"&gt;&gt;],
+        |  	     ItemVals,
+        |  	     [&lt;&lt;"username='"&gt;&gt;, Username, &lt;&lt;"' and jid='"&gt;&gt;, SJID, "'"]).
+        |  
+        |  get_subscription(LServer, Username, SJID) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select subscription from rosterusers "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' "
+        |           "and jid='"&gt;&gt;, SJID, "'"]).
+        |  
+        |  set_private_data(_LServer, Username, LXMLNS, SData) -&gt;
+<font color=red>     0..|      update_t(&lt;&lt;"private_storage"&gt;&gt;,</font>
+        |  	     [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"namespace"&gt;&gt;, &lt;&lt;"data"&gt;&gt;],
+        |  	     [Username, LXMLNS, SData],
+        |  	     [&lt;&lt;"username='"&gt;&gt;, Username, &lt;&lt;"' and namespace='"&gt;&gt;, LXMLNS, "'"]).
+        |  
+        |  set_private_data_sql(Username, LXMLNS, SData) -&gt;
+<font color=red>     0..|      [[&lt;&lt;"delete from private_storage "</font>
+        |          "where username='"&gt;&gt;, Username, &lt;&lt;"' and "
+        |          "namespace='"&gt;&gt;, LXMLNS, "';"],
+        |       [&lt;&lt;"insert into private_storage(username, namespace, data) "
+        |          "values ('"&gt;&gt;, Username, "', '", LXMLNS, "', '", SData, "');"]].
+        |  
+        |  get_private_data(LServer, Username, LXMLNS) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select data from private_storage "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' and "
+        |           "namespace='"&gt;&gt;, LXMLNS, "';"]).
+        |  
+        |  multi_get_private_data(LServer, Username, LXMLNSs) when length(LXMLNSs) &gt; 0 -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select namespace, data from private_storage "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' and "
+        |           "namespace IN ('"&gt;&gt;, join(LXMLNSs, "', '"), "');"]).
+        |  
+        |  %% set_private_data for multiple queries using MySQL's specific syntax.
+        |  multi_set_private_data(LServer, Username, SNS2XML) when length(SNS2XML) &gt; 0 -&gt;
+<font color=red>     0..|      Rows = [private_data_row(Username, NS, Data) || {NS, Data} &lt;- SNS2XML],</font>
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"replace into private_storage (username, namespace, data) "
+        |           "values "&gt;&gt;, join(Rows, "', '")]).
+        |  
+        |  private_data_row(Username, NS, Data) -&gt;
+<font color=red>     0..|      [&lt;&lt;"('"&gt;&gt;, Username, &lt;&lt;"', '"&gt;&gt;, NS, &lt;&lt;"', '"&gt;&gt;, Data, &lt;&lt;"')"&gt;&gt;].</font>
+        |  
+        |  del_user_private_storage(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from private_storage where username='"&gt;&gt;, Username, "';"]).
+        |  
+        |  set_vcard(LServer, LUsername, SBDay, SCTRY, SEMail, SFN, SFamily, SGiven,
+        |  	  SLBDay, SLCTRY, SLEMail, SLFN, SLFamily, SLGiven, SLLocality,
+        |  	  SLMiddle, SLNickname, SLOrgName, SLOrgUnit, SLocality, SMiddle,
+        |  	  SNickname, SOrgName, SOrgUnit, SVCARD, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(</font>
+        |        LServer,
+        |        fun() -&gt;
+<font color=red>     0..|          update_t(&lt;&lt;"vcard"&gt;&gt;,</font>
+        |            [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"server"&gt;&gt;, &lt;&lt;"vcard"&gt;&gt;],
+        |            [LUsername, LServer, SVCARD],
+        |            [&lt;&lt;"username='"&gt;&gt;, LUsername, &lt;&lt;"' and server='"&gt;&gt;, LServer, "'"]),
+<font color=red>     0..|          update_set_t(&lt;&lt;"vcard_search"&gt;&gt;,</font>
+        |            [&lt;&lt;"username"&gt;&gt;, Username,
+        |             &lt;&lt;"lusername"&gt;&gt;, LUsername,
+        |             &lt;&lt;"server"&gt;&gt;, LServer,
+        |             &lt;&lt;"fn"&gt;&gt;, SFN,
+        |             &lt;&lt;"lfn"&gt;&gt;, SLFN,
+        |             &lt;&lt;"family"&gt;&gt;, SFamily,
+        |             &lt;&lt;"lfamily"&gt;&gt;, SLFamily,
+        |             &lt;&lt;"given"&gt;&gt;, SGiven,
+        |             &lt;&lt;"lgiven"&gt;&gt;, SLGiven,
+        |             &lt;&lt;"middle"&gt;&gt;, SMiddle,
+        |             &lt;&lt;"lmiddle"&gt;&gt;, SLMiddle,
+        |             &lt;&lt;"nickname"&gt;&gt;, SNickname,
+        |             &lt;&lt;"lnickname"&gt;&gt;, SLNickname,
+        |             &lt;&lt;"bday"&gt;&gt;, SBDay,
+        |             &lt;&lt;"lbday"&gt;&gt;, SLBDay,
+        |             &lt;&lt;"ctry"&gt;&gt;, SCTRY,
+        |             &lt;&lt;"lctry"&gt;&gt;, SLCTRY,
+        |             &lt;&lt;"locality"&gt;&gt;, SLocality,
+        |             &lt;&lt;"llocality"&gt;&gt;, SLLocality,
+        |             &lt;&lt;"email"&gt;&gt;, SEMail,
+        |             &lt;&lt;"lemail"&gt;&gt;, SLEMail,
+        |             &lt;&lt;"orgname"&gt;&gt;, SOrgName,
+        |             &lt;&lt;"lorgname"&gt;&gt;, SLOrgName,
+        |             &lt;&lt;"orgunit"&gt;&gt;, SOrgUnit,
+        |             &lt;&lt;"lorgunit"&gt;&gt;, SLOrgUnit],
+        |            [&lt;&lt;"lusername='"&gt;&gt;, LUsername, &lt;&lt;"' and server='"&gt;&gt;, LServer, "'"])
+        |        end).
+        |  
+        |  get_vcard(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select vcard from vcard "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' and server='"&gt;&gt;, LServer, "';"]).
+        |  
+        |  
+        |  search_vcard(LServer, RestrictionSQL, Limit) -&gt;
+<font color=red>     0..|      Type = ?ODBC_TYPE,</font>
+<font color=red>     0..|      search_vcard(Type, LServer, RestrictionSQL, Limit).</font>
+        |  
+        |  search_vcard(mssql, LServer, RestrictionSQL, Limit) -&gt;
+<font color=red>     0..|      odbc_queries_mssql:search_vcard(LServer, RestrictionSQL, Limit);</font>
+        |  search_vcard(_, LServer, RestrictionSQL, Limit) -&gt;
+<font color=red>     0..|      do_search_vcard(LServer, RestrictionSQL, Limit).</font>
+        |  
+        |  
+        |  do_search_vcard(LServer, RestrictionSQL, infinity) -&gt;
+<font color=red>     0..|      do_search_vcard2(LServer, RestrictionSQL, &lt;&lt;""&gt;&gt;);</font>
+        |  do_search_vcard(LServer, RestrictionSQL, Limit) when is_integer(Limit) -&gt;
+<font color=red>     0..|      BinLimit = integer_to_binary(Limit),</font>
+<font color=red>     0..|      do_search_vcard2(LServer, RestrictionSQL, &lt;&lt;"LIMIT ", BinLimit/binary&gt;&gt;).</font>
+        |  
+        |  do_search_vcard2(LServer, RestrictionSQL, Limit) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |          LServer,
+        |          [&lt;&lt;"select username, server, fn, family, given, middle, "
+        |          "nickname, bday, ctry, locality, "
+        |          "email, orgname, orgunit from vcard_search "&gt;&gt;,
+        |              RestrictionSQL, Limit, ";"]).
+        |  
+        |  get_default_privacy_list(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select name from privacy_default_list "
+        |           "where username='"&gt;&gt;, Username, "';"]).
+        |  
+        |  get_default_privacy_list_t(Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"select name from privacy_default_list "
+        |           "where username='"&gt;&gt;, Username, "';"]).
+        |  
+        |  count_privacy_lists(LServer) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(LServer, [&lt;&lt;"select count(*) from privacy_list;"&gt;&gt;]).</font>
+        |  
+        |  clear_privacy_lists(LServer) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(LServer, [&lt;&lt;"delete from privacy_list;"&gt;&gt;]).</font>
+        |  
+        |  get_privacy_list_names(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select name from privacy_list "
+        |           "where username='"&gt;&gt;, Username, "';"]).
+        |  
+        |  get_privacy_list_names_t(Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"select name from privacy_list "
+        |           "where username='"&gt;&gt;, Username, "';"]).
+        |  
+        |  get_privacy_list_id(LServer, Username, SName) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select id from privacy_list "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' and name='"&gt;&gt;, SName, "';"]).
+        |  
+        |  get_privacy_list_id_t(Username, SName) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"select id from privacy_list "
+        |           "where username='"&gt;&gt;, Username, &lt;&lt;"' and name='"&gt;&gt;, SName, "';"]).
+        |  
+        |  get_privacy_list_data(LServer, Username, SName) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select t, value, action, ord, match_all, match_iq, "
+        |           "match_message, match_presence_in, match_presence_out "
+        |           "from privacy_list_data "
+        |           "where id = (select id from privacy_list where "
+        |           "username='"&gt;&gt;, Username, &lt;&lt;"' and name='"&gt;&gt;, SName, &lt;&lt;"') "
+        |           "order by ord;"&gt;&gt;]).
+        |  
+        |  get_privacy_list_data_by_id(LServer, ID) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select t, value, action, ord, match_all, match_iq, "
+        |           "match_message, match_presence_in, match_presence_out "
+        |           "from privacy_list_data "
+        |           "where id='"&gt;&gt;, ID, &lt;&lt;"' order by ord;"&gt;&gt;]).
+        |  
+        |  set_default_privacy_list(Username, SName) -&gt;
+<font color=red>     0..|      update_t(&lt;&lt;"privacy_default_list"&gt;&gt;, [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"name"&gt;&gt;],</font>
+        |  	     [Username, SName], [&lt;&lt;"username='"&gt;&gt;, Username, "'"]).
+        |  
+        |  unset_default_privacy_list(LServer, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from privacy_default_list "
+        |           "where username='"&gt;&gt;, Username, "';"]).
+        |  
+        |  remove_privacy_list(Username, SName) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"delete from privacy_list "
+        |           "where username='"&gt;&gt;, Username, "' and name='", SName, "';"]).
+        |  
+        |  add_privacy_list(Username, SName) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"insert into privacy_list(username, name) "
+        |           "values ('"&gt;&gt;, Username, "', '", SName, "');"]).
+        |  
+        |  set_privacy_list(ID, RItems) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query_t(</font>
+        |        [&lt;&lt;"delete from privacy_list_data "
+        |           "where id='"&gt;&gt;, ID, "';"]),
+<font color=red>     0..|      lists:foreach(fun(Items) -&gt;</font>
+<font color=red>     0..|  			  ejabberd_odbc:sql_query_t(</font>
+        |  			    [&lt;&lt;"insert into privacy_list_data("
+        |  			       "id, t, value, action, ord, match_all, match_iq, "
+        |  			       "match_message, match_presence_in, "
+        |  			       "match_presence_out "
+        |  			       ") "
+        |  			       "values ('"&gt;&gt;, ID, "', '",
+        |  			     join(Items, "', '"), "');"])
+        |  		  end, RItems).
+        |  
+        |  del_privacy_lists(LServer, _Server, Username) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from privacy_list_data where id in ( select id from privacy_list as pl where pl.username='"&gt;&gt;,Username,&lt;&lt;"');"&gt;&gt;]),
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from privacy_list where username='"&gt;&gt;, Username, "';"]),
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from privacy_default_list where username='"&gt;&gt;, Username, "';"]).
+        |  
+        |  %% Characters to escape
+<font color=red>     0..|  escape_character($\0) -&gt; "\\0";</font>
+<font color=red>     0..|  escape_character($\n) -&gt; "\\n";</font>
+<font color=red>     0..|  escape_character($\t) -&gt; "\\t";</font>
+<font color=red>     0..|  escape_character($\b) -&gt; "\\b";</font>
+<font color=red>     0..|  escape_character($\r) -&gt; "\\r";</font>
+<font color=red>     0..|  escape_character($')  -&gt; "''";</font>
+<font color=red>     0..|  escape_character($")  -&gt; "\\\"";</font>
+<font color=red>     0..|  escape_character($\\) -&gt; "\\\\";</font>
+<font color=red>     0..|  escape_character(C)   -&gt; C.</font>
+        |  
+        |  %% Count number of records in a table given a where clause
+        |  count_records_where(LServer, Table, WhereClause) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select count(*) from "&gt;&gt;, Table, " ", WhereClause, ";"]).
+        |  
+        |  
+        |  get_roster_version(LServer, LUser) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select version from roster_version where username = '"&gt;&gt;, LUser, "'"]).
+        |  
+        |  set_roster_version(LUser, Version) -&gt;
+<font color=red>     0..|      update_t(</font>
+        |        &lt;&lt;"roster_version"&gt;&gt;,
+        |        [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"version"&gt;&gt;],
+        |        [LUser, Version],
+        |        [&lt;&lt;"username = '"&gt;&gt;, LUser, "'"]).
+        |  
+        |  
+        |  pop_offline_messages(LServer, SUser, SServer, STimeStamp) -&gt;
+<font color=red>     0..|      SelectSQL = select_offline_messages_sql(SUser, SServer, STimeStamp),</font>
+<font color=red>     0..|      DeleteSQL = delete_offline_messages_sql(SUser, SServer),</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|  	      Res = ejabberd_odbc:sql_query_t(SelectSQL),</font>
+<font color=red>     0..|            ejabberd_odbc:sql_query_t(DeleteSQL),</font>
+<font color=red>     0..|            Res</font>
+        |          end,
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(LServer, F).</font>
+        |  
+        |  select_offline_messages_sql(SUser, SServer, STimeStamp) -&gt;
+<font color=red>     0..|      [&lt;&lt;"select timestamp, from_jid, packet from offline_message "</font>
+        |              "where server = '"&gt;&gt;, SServer, &lt;&lt;"' and "
+        |                    "username = '"&gt;&gt;, SUser, &lt;&lt;"' and "
+        |                    "(expire is null or expire &gt; "&gt;&gt;, STimeStamp, &lt;&lt;") "
+        |               "ORDER BY timestamp"&gt;&gt;].
+        |  
+        |  delete_offline_messages_sql(SUser, SServer) -&gt;
+<font color=red>     0..|      [&lt;&lt;"delete from offline_message "</font>
+        |              "where server = '"&gt;&gt;, SServer, &lt;&lt;"' and "
+        |                    "username = '"&gt;&gt;, SUser, &lt;&lt;"'"&gt;&gt;].
+        |  
+        |  remove_old_offline_messages(LServer, STimeStamp) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from offline_message where timestamp &lt; "&gt;&gt;, STimeStamp]).
+        |  
+        |  remove_expired_offline_messages(LServer, STimeStamp) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from offline_message "
+        |              "where expire is not null and expire &lt; "&gt;&gt;, STimeStamp]).
+        |  
+        |  remove_offline_messages(LServer, SUser, SServer) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"delete from offline_message "
+        |              "where server = '"&gt;&gt;, SServer, &lt;&lt;"' and "
+        |                    "username = '"&gt;&gt;, SUser, &lt;&lt;"'"&gt;&gt;]).
+        |  
+        |  prepare_offline_message(SUser, SServer, STimeStamp, SExpire, SFrom, SPacket) -&gt;
+<font color=red>     0..|      [&lt;&lt;"('"&gt;&gt;,   SUser,</font>
+        |       &lt;&lt;"', '"&gt;&gt;, SServer,
+        |       &lt;&lt;"', "&gt;&gt;,  STimeStamp,
+        |       &lt;&lt;", "&gt;&gt;,   SExpire,
+        |       &lt;&lt;", '"&gt;&gt;,  SFrom,
+        |       &lt;&lt;"', '"&gt;&gt;, SPacket,
+        |       &lt;&lt;"')"&gt;&gt;].
+        |  
+        |  push_offline_messages(LServer, Rows) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"INSERT INTO offline_message "
+        |                "(username, server, timestamp, expire, from_jid, packet) "
+        |              "VALUES "&gt;&gt;, join(Rows, ", ")]).
+        |  
+        |  
+        |  count_offline_messages(LServer, SUser, SServer, Limit) -&gt;
+<font color=red>     0..|      count_offline_messages(?ODBC_TYPE, LServer, SUser, SServer, Limit).</font>
+        |  
+        |  count_offline_messages(mssql, LServer, SUser, SServer, Limit) -&gt;
+<font color=red>     0..|      odbc_queries_mssql:count_offline_messages(LServer, SUser, SServer, Limit);</font>
+        |  count_offline_messages(_, LServer, SUser, SServer, Limit) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        LServer,
+        |        [&lt;&lt;"select count(*) from offline_message "
+        |              "where server = '"&gt;&gt;, SServer, &lt;&lt;"' and "
+        |                    "username = '"&gt;&gt;, SUser, &lt;&lt;"' "
+        |              "limit "&gt;&gt;, integer_to_list(Limit)]).
+        |  
+        |  -spec get_db_specific_limits(integer())
+        |          -&gt; {SQL :: nonempty_string(), []} | {[], MSSQL::nonempty_string()}.
+        |  get_db_specific_limits(Limit) -&gt;
+<font color=red>     0..|      LimitStr = integer_to_list(Limit),</font>
+<font color=red>     0..|      do_get_db_specific_limits(?ODBC_TYPE, LimitStr).</font>
+        |  
+        |  -spec get_db_specific_offset(integer(), integer()) -&gt; iolist().
+        |  get_db_specific_offset(Offset, Limit) -&gt;
+<font color=red>     0..|      do_get_db_specific_offset(?ODBC_TYPE, integer_to_list(Offset), integer_to_list(Limit)).</font>
+        |  
+        |  
+        |  do_get_db_specific_limits(mssql, LimitStr) -&gt;
+<font color=red>     0..|      {"", "TOP " ++ LimitStr};</font>
+        |  do_get_db_specific_limits(_, LimitStr) -&gt;
+<font color=red>     0..|      {"LIMIT " ++ LimitStr, ""}.</font>
+        |  
+        |  do_get_db_specific_offset(mssql, Offset, Limit) -&gt;
+<font color=red>     0..|      [" OFFSET ", Offset, " ROWS"</font>
+        |      " FETCH NEXT ", Limit, " ROWS ONLY"];
+        |  do_get_db_specific_offset(_, Offset, _Limit) -&gt;
+<font color=red>     0..|      [" OFFSET ", Offset].</font>
+        |  
+        |  
+</pre>
+</body>
+</html>

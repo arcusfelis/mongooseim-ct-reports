@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/ejabberd_redis.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_redis.erl by COVER 2016-01-26 at 09:53:50
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Michal Ptaszek &lt;michal.ptaszek@erlang-solutions.com&gt;
+        |  %%% @copyright (C) 2011, Erlang Solutions Ltd.
+        |  %%% @doc Redis wrapper for ejabberd
+        |  %%%
+        |  %%% @end
+        |  %%% Created : 17 Nov 2011 by Michal Ptaszek &lt;michal.ptaszek@erlang-solutions.com&gt;
+        |  %%%-------------------------------------------------------------------
+        |  -module(ejabberd_redis).
+        |  
+        |  -export([start_link/1]).
+        |  -export([cmd/1, cmd/2]).
+        |  
+        |  -define(POOL_NAME, redis_pool).
+        |  
+        |  -spec start_link(list()) -&gt; {ok, pid()}.
+        |  start_link(Opts) -&gt;
+<font color=red>     0..|      PoolSize = proplists:get_value(pool_size, Opts, 10),</font>
+<font color=red>     0..|      RedoOpts = proplists:get_value(worker_config, Opts, []),</font>
+<font color=red>     0..|      ChildMods = [redo, redo_redis_proto, redo_uri],</font>
+<font color=red>     0..|      ChildMF = {redo, start_link},</font>
+<font color=red>     0..|      ChildArgs = {for_all, [undefined, RedoOpts]},</font>
+        |  
+<font color=red>     0..|      supervisor:start_child(ejabberd_sm_backend_sup,</font>
+        |                             {ejabberd_redis_sup,
+        |                              {cuesport, start_link,
+        |                               [?POOL_NAME, PoolSize, ChildMods, ChildMF, ChildArgs]},
+        |                              transient, 2000, supervisor, [cuesport | ChildMods]}).
+        |  
+        |  -spec cmd(iolist()) -&gt; undefined | binary()
+        |                  | [binary() | [binary() | integer()] | integer() | {'error',_}]
+        |                  | integer()
+        |                  | {'error',_}.
+        |  cmd(Cmd) -&gt;
+<font color=red>     0..|      redo:cmd(cuesport:get_worker(?POOL_NAME), Cmd).</font>
+        |  
+        |  -spec cmd(iolist(), integer()) -&gt; undefined | binary()
+        |                | [binary() | [binary() | integer()] | integer() | {'error',_}]
+        |                | integer()
+        |                | {'error',_}.
+        |  cmd(Cmd, Timeout) -&gt;
+<font color=red>     0..|      redo:cmd(cuesport:get_worker(?POOL_NAME), Cmd, Timeout).</font>
+</pre>
+</body>
+</html>

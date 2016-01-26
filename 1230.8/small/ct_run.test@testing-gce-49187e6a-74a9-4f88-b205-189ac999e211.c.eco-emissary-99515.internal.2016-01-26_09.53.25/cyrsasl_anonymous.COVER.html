@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/cyrsasl_anonymous.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/cyrsasl_anonymous.erl by COVER 2016-01-26 at 09:53:51
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : cyrsasl_anonymous.erl
+        |  %%% Author  : Magnus Henoch &lt;henoch@dtek.chalmers.se&gt;
+        |  %%% Purpose : ANONYMOUS SASL mechanism
+        |  %%%  See http://www.ietf.org/internet-drafts/draft-ietf-sasl-anon-05.txt
+        |  %%% Created : 23 Aug 2005 by Magnus Henoch &lt;henoch@dtek.chalmers.se&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(cyrsasl_anonymous).
+        |  -xep([{xep, 175}, {version, "1.2"}]).
+        |  -export([start/1, stop/0, mech_new/4, mech_step/2]).
+        |  
+        |  -behaviour(cyrsasl).
+        |  
+        |  -record(state, {server}).
+        |  
+        |  start(_Opts) -&gt;
+<font color=red>     0..|      cyrsasl:register_mechanism(&lt;&lt;"ANONYMOUS"&gt;&gt;, ?MODULE, plain),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop() -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec mech_new(Host :: ejabberd:server(),
+        |                 GetPassword :: cyrsasl:get_password_fun(),
+        |                 CheckPassword :: cyrsasl:check_password_fun(),
+        |                 CheckPasswordDigest :: cyrsasl:check_pass_digest_fun()
+        |                 ) -&gt; {ok, tuple()}.
+        |  mech_new(Host, _GetPassword, _CheckPassword, _CheckPasswordDigest) -&gt;
+<font color=red>     0..|      {ok, #state{server = Host}}.</font>
+        |  
+        |  -spec mech_step(State :: tuple(),
+        |                  ClientIn :: binary()
+        |                  ) -&gt; {ok, proplists:proplist()} | {error, binary()}.
+        |  mech_step(State, _ClientIn) -&gt;
+        |      %% We generate a random username:
+<font color=red>     0..|      User = list_to_binary(lists:concat([randoms:get_string() | tuple_to_list(now())])),</font>
+<font color=red>     0..|      Server = State#state.server,</font>
+        |  
+        |      %% Checks that the username is available
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(User, Server) of</font>
+<font color=red>     0..|          true  -&gt; {error, &lt;&lt;"not-authorized"&gt;&gt;};</font>
+<font color=red>     0..|          false -&gt; {ok, [{username, User},</font>
+        |                         {auth_module, ejabberd_auth_anonymous}]}
+        |      end.
+</pre>
+</body>
+</html>

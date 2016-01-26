@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/mod_admin_extra_private.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_private.erl by COVER 2016-01-26 at 09:53:52
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_private.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_private).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([
+        |      commands/0,
+        |      private_get/4,
+        |      private_set/3
+        |      ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = private_get, tags = [private],
+        |                             desc = "Get some information from a user private storage",
+        |                             module = ?MODULE, function = private_get,
+        |                             args = [{user, binary}, {host, binary}, {element, binary}, {ns, binary}],
+        |                             result = {content, string}},
+        |          #ejabberd_commands{name = private_set, tags = [private],
+        |                             desc = "Set to the user private storage",
+        |                             module = ?MODULE, function = private_set,
+        |                             args = [{user, binary}, {host, binary}, {element, binary}],
+        |                             result = {res, restuple}}
+        |          ].
+        |  
+        |  %%%
+        |  %%% Private Storage
+        |  %%%
+        |  
+        |  %% Example usage:
+        |  %% $ mongooseimctl private_set badlop localhost "\&lt;aa\ xmlns=\'bb\'\&gt;Cluth\&lt;/aa\&gt;"
+        |  %% $ mongooseimctl private_get badlop localhost aa bb
+        |  %% &lt;aa xmlns='bb'&gt;Cluth&lt;/aa&gt;
+        |  
+        |  -spec private_get(ejabberd:user(), ejabberd:server(), binary(), binary()) -&gt;
+        |      {error, string()} | string().
+        |  private_get(Username, Host, Element, Ns) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(Username, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              do_private_get(Username, Host, Element, Ns);</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, io_lib:format("User ~s@~s does not exist", [Username, Host])}</font>
+        |      end.
+        |  
+        |  do_private_get(Username, Host, Element, Ns) -&gt;
+<font color=red>     0..|      From = jid:make(Username, Host, &lt;&lt;""&gt;&gt;),</font>
+<font color=red>     0..|      To = jid:make(Username, Host, &lt;&lt;""&gt;&gt;),</font>
+<font color=red>     0..|      IQ = {iq, &lt;&lt;""&gt;&gt;, get, ?NS_PRIVATE, &lt;&lt;""&gt;&gt;,</font>
+        |            #xmlel{ name = &lt;&lt;"query"&gt;&gt;,
+        |                    attrs = [{&lt;&lt;"xmlns"&gt;&gt;,?NS_PRIVATE}],
+        |                    children = [#xmlel{ name = Element, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, Ns}]}] } },
+<font color=red>     0..|      ResIq = mod_private:process_sm_iq(From, To, IQ),</font>
+        |      [#xmlel{ name = &lt;&lt;"query"&gt;&gt;,
+        |               attrs = [{&lt;&lt;"xmlns"&gt;&gt;,&lt;&lt;"jabber:iq:private"&gt;&gt;}],
+<font color=red>     0..|               children = [SubEl] }] = ResIq#iq.sub_el,</font>
+<font color=red>     0..|      exml:to_binary(SubEl).</font>
+        |  
+        |  -spec private_set(ejabberd:user(), ejabberd:server(),
+        |                    ElementString :: binary()) -&gt; {Res, string()} when
+        |      Res :: ok | user_does_not_exist | user_does_not_exist | not_loaded.
+        |  private_set(Username, Host, ElementString) -&gt;
+<font color=red>     0..|      case exml:parse(ElementString) of</font>
+        |          {error, Error} -&gt;
+<font color=red>     0..|              String = io_lib:format("Error found parsing the element:~n  ~p~nError: ~p~n",</font>
+        |                        [ElementString, Error]),
+<font color=red>     0..|              {parse_error, String};</font>
+        |          {ok, Xml} -&gt;
+<font color=red>     0..|              private_set2(Username, Host, Xml)</font>
+        |      end.
+        |  
+        |  
+        |  private_set2(Username, Host, Xml) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(Username, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              do_private_set2(Username, Host, Xml);</font>
+        |          false -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("User ~s@~s does not exist", [Username, Host])}</font>
+        |      end.
+        |  
+        |  do_private_set2(Username, Host, Xml) -&gt;
+<font color=red>     0..|      case is_private_module_loaded(Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              From = jid:make(Username, Host, &lt;&lt;""&gt;&gt;),</font>
+<font color=red>     0..|              To = jid:make(Username, Host, &lt;&lt;""&gt;&gt;),</font>
+<font color=red>     0..|              IQ = {iq, &lt;&lt;""&gt;&gt;, set, ?NS_PRIVATE, &lt;&lt;""&gt;&gt;,</font>
+        |                    #xmlel{ name = &lt;&lt;"query"&gt;&gt;,
+        |                            attrs = [{&lt;&lt;"xmlns"&gt;&gt;,?NS_PRIVATE}],
+        |                            children = [Xml]}},
+<font color=red>     0..|              mod_private:process_sm_iq(From, To, IQ),</font>
+<font color=red>     0..|              {ok, ""};</font>
+        |          false -&gt;
+<font color=red>     0..|              {not_loaded, io_lib:format("Module mod_private is not loaded on host ~s", [Host])}</font>
+        |      end.
+        |  
+        |  -spec is_private_module_loaded(ejabberd:server()) -&gt; true | false.
+        |  is_private_module_loaded(Server) -&gt;
+<font color=red>     0..|      lists:member(mod_private, gen_mod:loaded_modules(Server)).</font>
+</pre>
+</body>
+</html>

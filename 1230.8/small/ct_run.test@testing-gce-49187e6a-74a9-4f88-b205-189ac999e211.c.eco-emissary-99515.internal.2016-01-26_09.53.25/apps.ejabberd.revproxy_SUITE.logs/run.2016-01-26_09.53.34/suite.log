@@ -1,0 +1,217 @@
+=== Suite started at 2016-01-26 09:53:34
+=== Starting test, 18 test cases
+=cases         18
+=user          travis
+=host          testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal
+=hosts         testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal 
+=emulator_vsn  6.4
+=emulator      beam
+=otp_release   17
+=started       2016-01-26 09:53:34
+=case          revproxy_SUITE:init_per_suite
+=logfile       revproxy_suite.init_per_suite.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       0.023828
+=case          revproxy_SUITE:init_per_group
+=logfile       revproxy_suite.init_per_group.html
+=group_props   [{name,compile_routes},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.0e-6
+=case          revproxy_SUITE:compile_example_routes
+=logfile       revproxy_suite.compile_example_routes.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       0.001244
+=case          revproxy_SUITE:example_dynamic_compile
+=logfile       revproxy_suite.example_dynamic_compile.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       0.002268
+=case          revproxy_SUITE:end_per_group
+=logfile       revproxy_suite.end_per_group.html
+=group_props   [{name,compile_routes},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.0e-6
+=group_time    0.085s
+=case          revproxy_SUITE:init_per_group
+=logfile       revproxy_suite.init_per_group.802014.304.html
+=group_props   [{name,match_routes},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       2.1e-4
+=case          revproxy_SUITE:exact_path_match
+=logfile       revproxy_suite.exact_path_match.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       4.1e-5
+=case          revproxy_SUITE:remainder_match
+=logfile       revproxy_suite.remainder_match.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       6.0e-5
+=case          revproxy_SUITE:capture_subdomain_match
+=logfile       revproxy_suite.capture_subdomain_match.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       9.0e-5
+=case          revproxy_SUITE:method_match
+=logfile       revproxy_suite.method_match.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       5.7e-5
+=case          revproxy_SUITE:qs_match
+=logfile       revproxy_suite.qs_match.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       8.7e-5
+=case          revproxy_SUITE:slash_ending_match
+=logfile       revproxy_suite.slash_ending_match.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       4.1e-5
+=case          revproxy_SUITE:end_per_group
+=logfile       revproxy_suite.end_per_group.802014.477.html
+=group_props   [{name,match_routes},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.0e-6
+=group_time    0.174s
+=case          revproxy_SUITE:init_per_group
+=logfile       revproxy_suite.init_per_group.802014.503.html
+=group_props   [{name,generate_upstream},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.0e-6
+=case          revproxy_SUITE:upstream_uri
+=logfile       revproxy_suite.upstream_uri.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.6e-5
+=case          revproxy_SUITE:upstream_host
+=logfile       revproxy_suite.upstream_host.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.6e-5
+=case          revproxy_SUITE:upstream_bindings
+=logfile       revproxy_suite.upstream_bindings.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       2.2e-5
+=case          revproxy_SUITE:upstream_qs
+=logfile       revproxy_suite.upstream_qs.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.6e-5
+=case          revproxy_SUITE:upstream_slash_path
+=logfile       revproxy_suite.upstream_slash_path.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.5e-5
+=case          revproxy_SUITE:upstream_slash_remainder
+=logfile       revproxy_suite.upstream_slash_remainder.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.7e-5
+=case          revproxy_SUITE:end_per_group
+=logfile       revproxy_suite.end_per_group.802014.676.html
+=group_props   [{name,generate_upstream},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.0e-6
+=group_time    0.173s
+=case          revproxy_SUITE:init_per_group
+=logfile       revproxy_suite.init_per_group.802014.701.html
+=group_props   [{name,requests_http},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       0.014464
+=case          revproxy_SUITE:no_upstreams
+=logfile       revproxy_suite.no_upstreams.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       0.033662
+=case          revproxy_SUITE:http_upstream
+=logfile       revproxy_suite.http_upstream.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        failed: {{badmatch,false},
+                        [{revproxy_SUITE,http_upstream,1,
+                             [{file,"revproxy_SUITE.erl"},{line,159}]},
+                         {test_server,ts_tc,3,
+                             [{file,"test_server.erl"},{line,1429}]},
+                         {test_server,run_test_case_eval1,6,
+                             [{file,"test_server.erl"},{line,1026}]},
+                         {test_server,run_test_case_eval,9,
+                             [{file,"test_server.erl"},{line,968}]}]}, [{revproxy_SUITE,
+                                                                         http_upstream,
+                                                                         159},
+                                                                        {test_server,
+                                                                         ts_tc,
+                                                                         1429},
+                                                                        {test_server,
+                                                                         run_test_case_eval1,
+                                                                         1026},
+                                                                        {test_server,
+                                                                         run_test_case_eval,
+                                                                         968}]
+=== *** FAILED test case 16 of 18 ***
+=== 
+=case          revproxy_SUITE:nomatch_upstream
+=group_props   [{name,"requests_http"}]
+=started       2016-01-26 09:53:34
+=result        auto_skipped: {failed,{revproxy_SUITE,http_upstream}}
+=== *** Skipping test case #17 {revproxy_SUITE,nomatch_upstream} ***
+=== 
+=case          revproxy_SUITE:https_upstream
+=group_props   [{name,"requests_http"}]
+=started       2016-01-26 09:53:34
+=result        auto_skipped: {failed,{revproxy_SUITE,http_upstream}}
+=== *** Skipping test case #18 {revproxy_SUITE,https_upstream} ***
+=case          revproxy_SUITE:end_per_group
+=logfile       revproxy_suite.end_per_group.802014.876.html
+=group_props   [{name,requests_http},sequence]
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       1.0e-6
+=group_time    0.175s
+=case          revproxy_SUITE:end_per_suite
+=logfile       revproxy_suite.end_per_suite.html
+=started       2016-01-26 09:53:34
+=ended         2016-01-26 09:53:34
+=result        ok
+=elapsed       0.004448
+=group_time    0.775s
+=== TEST COMPLETE, 15 ok, 1 failed, 2 skipped of 18 test cases
+
+=finished      2016-01-26 09:53:34
+=failed        1
+=successful    15
+=user_skipped  0
+=auto_skipped  2

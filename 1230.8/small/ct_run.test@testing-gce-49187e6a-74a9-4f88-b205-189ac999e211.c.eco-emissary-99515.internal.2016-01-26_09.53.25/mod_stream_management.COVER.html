@@ -1,0 +1,182 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/mod_stream_management.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_stream_management.erl by COVER 2016-01-26 at 09:53:56
+
+****************************************************************************
+
+        |  -module(mod_stream_management).
+        |  -xep([{xep, 198}, {version, "1.3"}]).
+        |  -behaviour(gen_mod).
+        |  
+        |  %% `gen_mod' callbacks
+        |  -export([start/2,
+        |           stop/1]).
+        |  
+        |  %% `ejabberd_hooks' handlers
+        |  -export([add_sm_feature/2,
+        |           remove_smid/4,
+        |           session_cleanup/4]).
+        |  
+        |  %% `ejabberd.cfg' options (don't use outside of tests)
+        |  -export([get_buffer_max/1,
+        |           set_buffer_max/1,
+        |           get_ack_freq/1,
+        |           set_ack_freq/1,
+        |           get_resume_timeout/1,
+        |           set_resume_timeout/1]).
+        |  
+        |  %% API for `ejabberd_c2s'
+        |  -export([register_smid/2,
+        |           get_sid/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(sm_session, {smid, sid}).
+        |  
+        |  %%
+        |  %% `gen_mod' callbacks
+        |  %%
+        |  
+        |  start(Host, _Opts) -&gt;
+<font color=red>     0..|      ?INFO_MSG("mod_stream_management starting", []),</font>
+<font color=red>     0..|      ejabberd_hooks:add(c2s_stream_features, Host, ?MODULE, add_sm_feature, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(sm_remove_connection_hook, Host, ?MODULE, remove_smid, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(session_cleanup, Host, ?MODULE, session_cleanup, 50),</font>
+<font color=red>     0..|      mnesia:create_table(sm_session, [{ram_copies, [node()]},</font>
+        |                                       {attributes, record_info(fields, sm_session)}]),
+<font color=red>     0..|      mnesia:add_table_index(sm_session, sid),</font>
+<font color=red>     0..|      mnesia:add_table_copy(sm_session, node(), ram_copies).</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ?INFO_MSG("mod_stream_management stopping", []),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, remove_smid, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(c2s_stream_features, Host, ?MODULE, add_sm_feature, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(session_cleanup, Host, ?MODULE, session_cleanup, 50).</font>
+        |  
+        |  %%
+        |  %% `ejabberd_hooks' handlers
+        |  %%
+        |  
+        |  add_sm_feature(Acc, _Server) -&gt;
+<font color=red>     0..|      lists:keystore(&lt;&lt;"sm"&gt;&gt;, #xmlel.name, Acc, sm()).</font>
+        |  
+        |  sm() -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"sm"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_STREAM_MGNT_3}]}.
+        |  
+        |  remove_smid(SID, _JID, _Info, _Reason) -&gt;
+<font color=red>     0..|      case mnesia:dirty_index_read(sm_session, SID, #sm_session.sid) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              ok;</font>
+        |          [#sm_session{} = SMSession] -&gt;
+<font color=red>     0..|              mnesia:sync_dirty(fun mnesia:delete_object/1, [SMSession])</font>
+        |      end.
+        |  
+        |  -spec session_cleanup(LUser :: ejabber:luser(), LServer :: ejabberd:lserver(),
+        |                     LResource :: ejabberd:lresource(), SID :: ejabberd_sm:sid()) -&gt; any().
+        |  session_cleanup(_LUser, _LServer, _LResource, SID) -&gt;
+<font color=red>     0..|      remove_smid(SID, undefined, undefined, undefined).</font>
+        |  
+        |  %%
+        |  %% `ejabberd.cfg' options (don't use outside of tests)
+        |  %%
+        |  
+        |  -spec get_buffer_max(pos_integer() | infinity | no_buffer)
+        |      -&gt; pos_integer() | infinity | no_buffer.
+        |  get_buffer_max(Default) -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(?MYNAME, ?MODULE, buffer_max, Default).</font>
+        |  
+        |  %% Return true if succeeded, false otherwise.
+        |  -spec set_buffer_max(pos_integer() | infinity | no_buffer | undefined)
+        |      -&gt; boolean().
+        |  set_buffer_max(undefined) -&gt;
+<font color=red>     0..|      del_module_opt(?MYNAME, ?MODULE, buffer_max);</font>
+        |  set_buffer_max(infinity) -&gt;
+<font color=red>     0..|      set_module_opt(?MYNAME, ?MODULE, buffer_max, infinity);</font>
+        |  set_buffer_max(no_buffer) -&gt;
+<font color=red>     0..|      set_module_opt(?MYNAME, ?MODULE, buffer_max, no_buffer);</font>
+        |  set_buffer_max(Seconds) when is_integer(Seconds), Seconds &gt; 0 -&gt;
+<font color=red>     0..|      set_module_opt(?MYNAME, ?MODULE, buffer_max, Seconds).</font>
+        |  
+        |  -spec get_ack_freq(pos_integer() | never) -&gt; pos_integer() | never.
+        |  get_ack_freq(Default) -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(?MYNAME, ?MODULE, ack_freq, Default).</font>
+        |  
+        |  %% Return true if succeeded, false otherwise.
+        |  -spec set_ack_freq(pos_integer() | never | undefined) -&gt; boolean().
+        |  set_ack_freq(undefined) -&gt;
+<font color=red>     0..|      del_module_opt(?MYNAME, ?MODULE, ack_freq);</font>
+        |  set_ack_freq(never) -&gt;
+<font color=red>     0..|      set_module_opt(?MYNAME, ?MODULE, ack_freq, never);</font>
+        |  set_ack_freq(Freq) when is_integer(Freq), Freq &gt; 0 -&gt;
+<font color=red>     0..|      set_module_opt(?MYNAME, ?MODULE, ack_freq, Freq).</font>
+        |  
+        |  -spec get_resume_timeout(pos_integer()) -&gt; pos_integer().
+        |  get_resume_timeout(Default) -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(?MYNAME, ?MODULE, resume_timeout, Default).</font>
+        |  
+        |  -spec set_resume_timeout(pos_integer()) -&gt; boolean().
+        |  set_resume_timeout(ResumeTimeout) -&gt;
+<font color=red>     0..|      set_module_opt(?MYNAME, ?MODULE, resume_timeout, ResumeTimeout).</font>
+        |  
+        |  %%
+        |  %% API for `ejabberd_c2s'
+        |  %%
+        |  
+        |  register_smid(SMID, SID) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          mnesia:sync_dirty(fun mnesia:write/1,</font>
+        |                            [#sm_session{smid = SMID, sid = SID}]),
+<font color=red>     0..|          ok</font>
+        |      catch exit:Reason -&gt;
+<font color=red>     0..|                {error, Reason}</font>
+        |      end.
+        |  
+        |  get_sid(SMID) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(sm_session, SMID) of</font>
+        |          [#sm_session{sid = SID}] -&gt;
+<font color=red>     0..|              [SID];</font>
+        |          [] -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  %%
+        |  %% Helpers
+        |  %%
+        |  
+        |  %% copy-n-paste from gen_mod.erl
+        |  -record(ejabberd_module, {module_host, opts}).
+        |  
+        |  set_module_opt(Host, Module, Opt, Value) -&gt;
+<font color=red>     0..|      mod_module_opt(Host, Module, Opt, Value, fun set_opt/3).</font>
+        |  
+        |  del_module_opt(Host, Module, Opt) -&gt;
+<font color=red>     0..|      mod_module_opt(Host, Module, Opt, undefined, fun del_opt/3).</font>
+        |  
+        |  -spec mod_module_opt(_Host, _Module, _Opt, _Value, _Modify) -&gt; boolean().
+        |  mod_module_opt(Host, Module, Opt, Value, Modify) -&gt;
+<font color=red>     0..|      Key = {Module, Host},</font>
+<font color=red>     0..|      OptsList = ets:lookup(ejabberd_modules, Key),</font>
+<font color=red>     0..|      case OptsList of</font>
+        |          [] -&gt;
+<font color=red>     0..|              false;</font>
+        |          [#ejabberd_module{opts = Opts}] -&gt;
+<font color=red>     0..|              Updated = Modify(Opt, Opts, Value),</font>
+<font color=red>     0..|              ets:update_element(ejabberd_modules, Key,</font>
+        |                                 {#ejabberd_module.opts, Updated})
+        |      end.
+        |  
+        |  set_opt(Opt, Opts, Value) -&gt;
+<font color=red>     0..|      lists:keystore(Opt, 1, Opts, {Opt, Value}).</font>
+        |  
+        |  del_opt(Opt, Opts, _) -&gt;
+<font color=red>     0..|      lists:keydelete(Opt, 1, Opts).</font>
+</pre>
+</body>
+</html>

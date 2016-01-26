@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-49187e6a-74a9-4f88-b205-189ac999e211.c.eco-emissary-99515.internal.2016-01-26_09.53.25/mongoose_api_users.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_api_users.erl by COVER 2016-01-26 at 09:53:55
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2014 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mongoose_api_users).
+        |  
+        |  %% mongoose_api callbacks
+        |  -export([prefix/0,
+        |           routes/0,
+        |           handle_options/2,
+        |           handle_get/2,
+        |           handle_put/3,
+        |           handle_delete/2]).
+        |  
+        |  -define(ERROR, {error, unprocessable}).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mongoose_api callbacks
+        |  %%--------------------------------------------------------------------
+        |  -spec prefix() -&gt; mongoose_api:prefix().
+        |  prefix() -&gt;
+<font color=red>     0..|      "/users".</font>
+        |  
+        |  -spec routes() -&gt; mongoose_api:routes().
+        |  routes() -&gt;
+<font color=red>     0..|      [{"/host/:host",                    [host_users]},</font>
+        |       {"/host/:host/username/:username", [host_user]}].
+        |  
+        |  -spec handle_options(mongoose_api:bindings(), mongoose_api:options()) -&gt;
+        |      mongoose_api:methods().
+        |  handle_options(_Bindings, [host_users]) -&gt;
+<font color=red>     0..|      [get];</font>
+        |  handle_options(_Bindings, [host_user]) -&gt;
+<font color=red>     0..|      [put, delete].</font>
+        |  
+        |  -spec handle_get(mongoose_api:bindings(), mongoose_api:options()) -&gt;
+        |      mongoose_api:response().
+        |  handle_get(Bindings, [host_users]) -&gt;
+<font color=red>     0..|      get_users(Bindings).</font>
+        |  
+        |  -spec handle_put(term(), mongoose_api:bindings(), mongoose_api:options()) -&gt;
+        |      mongoose_api:response().
+        |  handle_put(Data, Bindings, [host_user]) -&gt;
+<font color=red>     0..|      put_user(Data, Bindings).</font>
+        |  
+        |  -spec handle_delete(mongoose_api:bindings(), mongoose_api:options()) -&gt;
+        |      mongoose_api:response().
+        |  handle_delete(Bindings, [host_user]) -&gt;
+<font color=red>     0..|      delete_user(Bindings).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mongoose_api commands actual handlers
+        |  %%--------------------------------------------------------------------
+        |  get_users(Bindings) -&gt;
+<font color=red>     0..|      Host = proplists:get_value(host, Bindings),</font>
+<font color=red>     0..|      Users = ejabberd_auth:get_vh_registered_users(Host),</font>
+<font color=red>     0..|      Response = [{count, length(Users)},</font>
+        |                  {users, users_to_proplist(Users)}],
+<font color=red>     0..|      {ok, Response}.</font>
+        |  
+        |  put_user(Data, Bindings) -&gt;
+<font color=red>     0..|      Host = gen_mod:get_opt(host, Bindings),</font>
+<font color=red>     0..|      Username = gen_mod:get_opt(username, Bindings),</font>
+<font color=red>     0..|      case proplist_to_user(Data) of</font>
+        |          {ok, Password} -&gt;
+<font color=red>     0..|              maybe_register_user(Username, Host, Password);</font>
+        |          {error, _} -&gt;
+<font color=red>     0..|              ?ERROR</font>
+        |      end.
+        |  
+        |  delete_user(Bindings) -&gt;
+<font color=red>     0..|      Host = gen_mod:get_opt(host, Bindings),</font>
+<font color=red>     0..|      Username = gen_mod:get_opt(username, Bindings),</font>
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(Username, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              maybe_delete_user(Username, Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, not_found}</font>
+        |      end.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% internal functions
+        |  %%--------------------------------------------------------------------
+        |  maybe_register_user(Username, Host, Password) -&gt;
+<font color=red>     0..|      case ejabberd_auth:try_register(Username, Host, Password) of</font>
+        |          {error, not_allowed} -&gt;
+<font color=red>     0..|              ?ERROR;</font>
+        |          {error, exists} -&gt;
+<font color=red>     0..|              maybe_change_password(Username, Host, Password);</font>
+        |          ok -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  maybe_change_password(Username, Host, Password) -&gt;
+<font color=red>     0..|      case ejabberd_auth:set_password(Username, Host, Password) of</font>
+        |          {error, _} -&gt;
+<font color=red>     0..|              ?ERROR;</font>
+        |          ok -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  maybe_delete_user(Username, Host) -&gt;
+<font color=red>     0..|      case ejabberd_auth:remove_user(Username, Host) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              error</font>
+        |      end.
+        |  
+        |  users_to_proplist(Users) -&gt;
+<font color=red>     0..|      [user_to_proplist(User) || User &lt;- Users].</font>
+        |  
+        |  user_to_proplist({Username, Host}) -&gt;
+<font color=red>     0..|      {user, [{username, Username}, {host, Host}]}.</font>
+        |  
+        |  proplist_to_user([{&lt;&lt;"user"&gt;&gt;, User}]) -&gt;
+<font color=red>     0..|      case gen_mod:get_opt(&lt;&lt;"password"&gt;&gt;, User, undefined) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              ?ERROR;</font>
+        |          Password -&gt;
+<font color=red>     0..|              {ok, Password}</font>
+        |      end;
+        |  proplist_to_user(_Other) -&gt;
+<font color=red>     0..|      ?ERROR.</font>
+</pre>
+</body>
+</html>
