@@ -1,0 +1,824 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/p1_fsm_old.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/p1_fsm_old.erl by COVER 2016-01-26 at 09:42:46
+
+****************************************************************************
+
+        |  %% ``The contents of this file are subject to the Erlang Public License,
+        |  %% Version 1.1, (the "License"); you may not use this file except in
+        |  %% compliance with the License. You should have received a copy of the
+        |  %% Erlang Public License along with this software. If not, it can be
+        |  %% retrieved via the world wide web at http://www.erlang.org/.
+        |  %%
+        |  %% Software distributed under the License is distributed on an "AS IS"
+        |  %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+        |  %% the License for the specific language governing rights and limitations
+        |  %% under the License.
+        |  %%
+        |  %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
+        |  %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
+        |  %% AB. All Rights Reserved.''
+        |  %%
+        |  %% The code has been modified and improved by ProcessOne.
+        |  %% Copyright 2007-2011, ProcessOne
+        |  %%
+        |  %%  The change adds the following features:
+        |  %%   - You can send exit(priority_shutdown) to the p1_fsm process to
+        |  %%   terminate immediatetly. If the fsm trap_exit process flag has been
+        |  %%   set to true, the FSM terminate function will called.
+        |  %%   - You can pass the gen_fsm options to control resource usage.
+        |  %%   {max_queue, N} will exit the process with priority_shutdown
+        |  %%   - You can limit the time processing a message (TODO): If the
+        |  %%   message processing does not return in a given period of time, the
+        |  %%   process will be terminated.
+        |  %%   - You might customize the State data before sending it to error_logger
+        |  %%   in case of a crash (just export the function print_state/1)
+        |  %%     $Id$
+        |  %%
+        |  -module(p1_fsm_old).
+        |  
+        |  %%%-----------------------------------------------------------------
+        |  %%%
+        |  %%% This state machine is somewhat more pure than state_lib.  It is
+        |  %%% still based on State dispatching (one function per state), but
+        |  %%% allows a function handle_event to take care of events in all states.
+        |  %%% It's not that pure anymore :(  We also allow synchronized event sending.
+        |  %%%
+        |  %%% If the Parent process terminates the Module:terminate/2
+        |  %%% function is called.
+        |  %%%
+        |  %%% The user module should export:
+        |  %%%
+        |  %%%   init(Args)
+        |  %%%     ==&gt; {ok, StateName, StateData}
+        |  %%%         {ok, StateName, StateData, Timeout}
+        |  %%%         ignore
+        |  %%%         {stop, Reason}
+        |  %%%
+        |  %%%   StateName(Msg, StateData)
+        |  %%%
+        |  %%%    ==&gt; {next_state, NewStateName, NewStateData}
+        |  %%%        {next_state, NewStateName, NewStateData, Timeout}
+        |  %%%        {stop, Reason, NewStateData}
+        |  %%%              Reason = normal | shutdown | Term terminate(State) is called
+        |  %%%
+        |  %%%   StateName(Msg, From, StateData)
+        |  %%%
+        |  %%%    ==&gt; {next_state, NewStateName, NewStateData}
+        |  %%%        {next_state, NewStateName, NewStateData, Timeout}
+        |  %%%        {reply, Reply, NewStateName, NewStateData}
+        |  %%%        {reply, Reply, NewStateName, NewStateData, Timeout}
+        |  %%%        {stop, Reason, NewStateData}
+        |  %%%              Reason = normal | shutdown | Term terminate(State) is called
+        |  %%%
+        |  %%%   handle_event(Msg, StateName, StateData)
+        |  %%%
+        |  %%%    ==&gt; {next_state, NewStateName, NewStateData}
+        |  %%%        {next_state, NewStateName, NewStateData, Timeout}
+        |  %%%        {stop, Reason, Reply, NewStateData}
+        |  %%%        {stop, Reason, NewStateData}
+        |  %%%              Reason = normal | shutdown | Term terminate(State) is called
+        |  %%%
+        |  %%%   handle_sync_event(Msg, From, StateName, StateData)
+        |  %%%
+        |  %%%    ==&gt; {next_state, NewStateName, NewStateData}
+        |  %%%        {next_state, NewStateName, NewStateData, Timeout}
+        |  %%%        {reply, Reply, NewStateName, NewStateData}
+        |  %%%        {reply, Reply, NewStateName, NewStateData, Timeout}
+        |  %%%        {stop, Reason, Reply, NewStateData}
+        |  %%%        {stop, Reason, NewStateData}
+        |  %%%              Reason = normal | shutdown | Term terminate(State) is called
+        |  %%%
+        |  %%%   handle_info(Info, StateName) (e.g. {'EXIT', P, R}, {nodedown, N}, ...
+        |  %%%
+        |  %%%    ==&gt; {next_state, NewStateName, NewStateData}
+        |  %%%        {next_state, NewStateName, NewStateData, Timeout}
+        |  %%%        {stop, Reason, NewStateData}
+        |  %%%              Reason = normal | shutdown | Term terminate(State) is called
+        |  %%%
+        |  %%%   terminate(Reason, StateName, StateData) Let the user module clean up
+        |  %%%        always called when server terminates
+        |  %%%
+        |  %%%    ==&gt; the return value is ignored
+        |  %%%
+        |  %%%
+        |  %%% The work flow (of the fsm) can be described as follows:
+        |  %%%
+        |  %%%   User module                           fsm
+        |  %%%   -----------                          -------
+        |  %%%     start              -----&gt;             start
+        |  %%%     init               &lt;-----              .
+        |  %%%
+        |  %%%                                           loop
+        |  %%%     StateName          &lt;-----              .
+        |  %%%
+        |  %%%     handle_event       &lt;-----              .
+        |  %%%
+        |  %%%     handle__sunc_event &lt;-----              .
+        |  %%%
+        |  %%%     handle_info        &lt;-----              .
+        |  %%%
+        |  %%%     terminate          &lt;-----              .
+        |  %%%
+        |  %%%
+        |  %%% ---------------------------------------------------
+        |  
+        |  -export([start/3, start/4,
+        |  	 start_link/3, start_link/4,
+        |  	 send_event/2, sync_send_event/2, sync_send_event/3,
+        |  	 send_all_state_event/2,
+        |  	 sync_send_all_state_event/2, sync_send_all_state_event/3,
+        |  	 reply/2,
+        |  	 start_timer/2,send_event_after/2,cancel_timer/1,
+        |  	 enter_loop/4, enter_loop/5, enter_loop/6, wake_hib/7]).
+        |  
+        |  -export([behaviour_info/1]).
+        |  
+        |  %% Internal exports
+        |  -export([init_it/6, print_event/3,
+        |  	 system_continue/3,
+        |  	 system_terminate/4,
+        |  	 system_code_change/4,
+        |  	 format_status/2]).
+        |  
+        |  -import(error_logger , [format/2]).
+        |  
+        |  %%% Internal gen_fsm state
+        |  %%% This state is used to defined resource control values:
+        |  -record(limits, {max_queue}).
+        |  
+        |  %%% ---------------------------------------------------
+        |  %%% Interface functions.
+        |  %%% ---------------------------------------------------
+        |  
+        |  behaviour_info(callbacks) -&gt;
+<font color=red>     0..|      [{init,1},{handle_event,3},{handle_sync_event,4},{handle_info,3},</font>
+        |       {terminate,3},{code_change,4}, {print_state,1}];
+        |  behaviour_info(_Other) -&gt;
+<font color=red>     0..|      undefined.</font>
+        |  
+        |  %%% ---------------------------------------------------
+        |  %%% Starts a generic state machine.
+        |  %%% start(Mod, Args, Options)
+        |  %%% start(Name, Mod, Args, Options)
+        |  %%% start_link(Mod, Args, Options)
+        |  %%% start_link(Name, Mod, Args, Options) where:
+        |  %%%    Name ::= {local, atom()} | {global, atom()}
+        |  %%%    Mod  ::= atom(), callback module implementing the 'real' fsm
+        |  %%%    Args ::= term(), init arguments (to Mod:init/1)
+        |  %%%    Options ::= [{debug, [Flag]}]
+        |  %%%      Flag ::= trace | log | {logfile, File} | statistics | debug
+        |  %%%          (debug == log &amp;&amp; statistics)
+        |  %%% Returns: {ok, Pid} |
+        |  %%%          {error, {already_started, Pid}} |
+        |  %%%          {error, Reason}
+        |  %%% ---------------------------------------------------
+        |  start(Mod, Args, Options) -&gt;
+<font color=red>     0..|      gen:start(?MODULE, nolink, Mod, Args, Options).</font>
+        |  
+        |  start(Name, Mod, Args, Options) -&gt;
+<font color=red>     0..|      gen:start(?MODULE, nolink, Name, Mod, Args, Options).</font>
+        |  
+        |  start_link(Mod, Args, Options) -&gt;
+<font color=red>     0..|      gen:start(?MODULE, link, Mod, Args, Options).</font>
+        |  
+        |  start_link(Name, Mod, Args, Options) -&gt;
+<font color=red>     0..|      gen:start(?MODULE, link, Name, Mod, Args, Options).</font>
+        |  
+        |  
+        |  send_event({global, Name}, Event) -&gt;
+<font color=red>     0..|      catch global:send(Name, {'$gen_event', Event}),</font>
+<font color=red>     0..|      ok;</font>
+        |  send_event(Name, Event) -&gt;
+<font color=red>     0..|      Name ! {'$gen_event', Event},</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  sync_send_event(Name, Event) -&gt;
+<font color=red>     0..|      case catch gen:call(Name, '$gen_sync_event', Event) of</font>
+        |  	{ok,Res} -&gt;
+<font color=red>     0..|  	    Res;</font>
+        |  	{'EXIT',Reason} -&gt;
+<font color=red>     0..|  	    exit({Reason, {?MODULE, sync_send_event, [Name, Event]}})</font>
+        |      end.
+        |  
+        |  sync_send_event(Name, Event, Timeout) -&gt;
+<font color=red>     0..|      case catch gen:call(Name, '$gen_sync_event', Event, Timeout) of</font>
+        |  	{ok,Res} -&gt;
+<font color=red>     0..|  	    Res;</font>
+        |  	{'EXIT',Reason} -&gt;
+<font color=red>     0..|  	    exit({Reason, {?MODULE, sync_send_event, [Name, Event, Timeout]}})</font>
+        |      end.
+        |  
+        |  send_all_state_event({global, Name}, Event) -&gt;
+<font color=red>     0..|      catch global:send(Name, {'$gen_all_state_event', Event}),</font>
+<font color=red>     0..|      ok;</font>
+        |  send_all_state_event(Name, Event) -&gt;
+<font color=red>     0..|      Name ! {'$gen_all_state_event', Event},</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  sync_send_all_state_event(Name, Event) -&gt;
+<font color=red>     0..|      case catch gen:call(Name, '$gen_sync_all_state_event', Event) of</font>
+        |  	{ok,Res} -&gt;
+<font color=red>     0..|  	    Res;</font>
+        |  	{'EXIT',Reason} -&gt;
+<font color=red>     0..|  	    exit({Reason, {?MODULE, sync_send_all_state_event, [Name, Event]}})</font>
+        |      end.
+        |  
+        |  sync_send_all_state_event(Name, Event, Timeout) -&gt;
+<font color=red>     0..|      case catch gen:call(Name, '$gen_sync_all_state_event', Event, Timeout) of</font>
+        |  	{ok,Res} -&gt;
+<font color=red>     0..|  	    Res;</font>
+        |  	{'EXIT',Reason} -&gt;
+<font color=red>     0..|  	    exit({Reason, {?MODULE, sync_send_all_state_event,</font>
+        |  			   [Name, Event, Timeout]}})
+        |      end.
+        |  
+        |  %% Designed to be only callable within one of the callbacks
+        |  %% hence using the self() of this instance of the process.
+        |  %% This is to ensure that timers don't go astray in global
+        |  %% e.g. when straddling a failover, or turn up in a restarted
+        |  %% instance of the process.
+        |  
+        |  %% Returns Ref, sends event {timeout,Ref,Msg} after Time
+        |  %% to the (then) current state.
+        |  start_timer(Time, Msg) -&gt;
+<font color=red>     0..|      erlang:start_timer(Time, self(), {'$gen_timer', Msg}).</font>
+        |  
+        |  %% Returns Ref, sends Event after Time to the (then) current state.
+        |  send_event_after(Time, Event) -&gt;
+<font color=red>     0..|      erlang:start_timer(Time, self(), {'$gen_event', Event}).</font>
+        |  
+        |  %% Returns the remaing time for the timer if Ref referred to
+        |  %% an active timer/send_event_after, false otherwise.
+        |  cancel_timer(Ref) -&gt;
+<font color=red>     0..|      case erlang:cancel_timer(Ref) of</font>
+        |  	false -&gt;
+<font color=red>     0..|  	    receive {timeout, Ref, _} -&gt; 0</font>
+<font color=red>     0..|  	    after 0 -&gt; false</font>
+        |  	    end;
+        |  	RemainingTime -&gt;
+<font color=red>     0..|  	    RemainingTime</font>
+        |      end.
+        |  
+        |  %% enter_loop/4,5,6
+        |  %% Makes an existing process into a gen_fsm.
+        |  %% The calling process will enter the gen_fsm receive loop and become a
+        |  %% gen_fsm process.
+        |  %% The process *must* have been started using one of the start functions
+        |  %% in proc_lib, see proc_lib(3).
+        |  %% The user is responsible for any initialization of the process,
+        |  %% including registering a name for it.
+        |  enter_loop(Mod, Options, StateName, StateData) -&gt;
+<font color=red>     0..|      enter_loop(Mod, Options, StateName, StateData, self(), infinity).</font>
+        |  
+        |  enter_loop(Mod, Options, StateName, StateData, ServerName = {_,_}) -&gt;
+<font color=red>     0..|      enter_loop(Mod, Options, StateName, StateData, ServerName,infinity);</font>
+        |  enter_loop(Mod, Options, StateName, StateData, Timeout) -&gt;
+<font color=red>     0..|      enter_loop(Mod, Options, StateName, StateData, self(), Timeout).</font>
+        |  
+        |  enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) -&gt;
+<font color=red>     0..|      Name = get_proc_name(ServerName),</font>
+<font color=red>     0..|      Parent = get_parent(),</font>
+<font color=red>     0..|      Debug = gen:debug_options(Options),</font>
+<font color=red>     0..|      Limits = limit_options(Options),</font>
+<font color=red>     0..|      Queue = queue:new(),</font>
+<font color=red>     0..|      QueueLen = 0,</font>
+<font color=red>     0..|      loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug,</font>
+        |  	 Limits, Queue, QueueLen).
+        |  
+        |  get_proc_name(Pid) when is_pid(Pid) -&gt;
+<font color=red>     0..|      Pid;</font>
+        |  get_proc_name({local, Name}) -&gt;
+<font color=red>     0..|      case process_info(self(), registered_name) of</font>
+        |  	{registered_name, Name} -&gt;
+<font color=red>     0..|  	    Name;</font>
+        |  	{registered_name, _Name} -&gt;
+<font color=red>     0..|  	    exit(process_not_registered);</font>
+        |  	[] -&gt;
+<font color=red>     0..|  	    exit(process_not_registered)</font>
+        |      end;
+        |  get_proc_name({global, Name}) -&gt;
+<font color=red>     0..|      case global:whereis_name(Name) of</font>
+        |  	undefined -&gt;
+<font color=red>     0..|  	    exit(process_not_registered_globally);</font>
+        |  	Pid when Pid==self() -&gt;
+<font color=red>     0..|  	    Name;</font>
+        |  	_Pid -&gt;
+<font color=red>     0..|  	    exit(process_not_registered_globally)</font>
+        |      end.
+        |  
+        |  get_parent() -&gt;
+<font color=red>     0..|      case get('$ancestors') of</font>
+        |  	[Parent | _] when is_pid(Parent) -&gt;
+<font color=red>     0..|  	    Parent;</font>
+        |  	[Parent | _] when is_atom(Parent) -&gt;
+<font color=red>     0..|  	    name_to_pid(Parent);</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    exit(process_was_not_started_by_proc_lib)</font>
+        |      end.
+        |  
+        |  name_to_pid(Name) -&gt;
+<font color=red>     0..|      case whereis(Name) of</font>
+        |  	undefined -&gt;
+<font color=red>     0..|  	    case global:whereis_name(Name) of</font>
+        |  		undefined -&gt;
+<font color=red>     0..|  		    exit(could_not_find_registerd_name);</font>
+        |  		Pid -&gt;
+<font color=red>     0..|  		    Pid</font>
+        |  	    end;
+        |  	Pid -&gt;
+<font color=red>     0..|  	    Pid</font>
+        |      end.
+        |  
+        |  %%% ---------------------------------------------------
+        |  %%% Initiate the new process.
+        |  %%% Register the name using the Rfunc function
+        |  %%% Calls the Mod:init/Args function.
+        |  %%% Finally an acknowledge is sent to Parent and the main
+        |  %%% loop is entered.
+        |  %%% ---------------------------------------------------
+        |  init_it(Starter, self, Name, Mod, Args, Options) -&gt;
+<font color=red>     0..|      init_it(Starter, self(), Name, Mod, Args, Options);</font>
+        |  init_it(Starter, Parent, Name0, Mod, Args, Options) -&gt;
+<font color=red>     0..|      Name = name(Name0),</font>
+<font color=red>     0..|      Debug = gen:debug_options(Options),</font>
+<font color=red>     0..|      Limits = limit_options(Options),</font>
+<font color=red>     0..|      Queue = queue:new(),</font>
+<font color=red>     0..|      QueueLen = 0,</font>
+<font color=red>     0..|      case catch Mod:init(Args) of</font>
+        |  	{ok, StateName, StateData} -&gt;
+<font color=red>     0..|  	    proc_lib:init_ack(Starter, {ok, self()}),</font>
+<font color=red>     0..|  	    loop(Parent, Name, StateName, StateData, Mod, infinity, Debug, Limits, Queue, QueueLen);</font>
+        |  	{ok, StateName, StateData, Timeout} -&gt;
+<font color=red>     0..|  	    proc_lib:init_ack(Starter, {ok, self()}),</font>
+<font color=red>     0..|  	    loop(Parent, Name, StateName, StateData, Mod, Timeout, Debug, Limits, Queue, QueueLen);</font>
+        |  	{stop, Reason} -&gt;
+<font color=red>     0..|  	    proc_lib:init_ack(Starter, {error, Reason}),</font>
+<font color=red>     0..|  	    exit(Reason);</font>
+        |  	ignore -&gt;
+<font color=red>     0..|  	    proc_lib:init_ack(Starter, ignore),</font>
+<font color=red>     0..|  	    exit(normal);</font>
+        |  	{'EXIT', Reason} -&gt;
+<font color=red>     0..|  	    proc_lib:init_ack(Starter, {error, Reason}),</font>
+<font color=red>     0..|  	    exit(Reason);</font>
+        |  	Else -&gt;
+<font color=red>     0..|  	    Error = {bad_return_value, Else},</font>
+<font color=red>     0..|  	    proc_lib:init_ack(Starter, {error, Error}),</font>
+<font color=red>     0..|  	    exit(Error)</font>
+        |      end.
+        |  
+<font color=red>     0..|  name({local,Name}) -&gt; Name;</font>
+<font color=red>     0..|  name({global,Name}) -&gt; Name;</font>
+<font color=red>     0..|  name(Pid) when is_pid(Pid) -&gt; Pid.</font>
+        |  
+        |  %%-----------------------------------------------------------------
+        |  %% The MAIN loop
+        |  %%-----------------------------------------------------------------
+        |  loop(Parent, Name, StateName, StateData, Mod, hibernate, Debug,
+        |       Limits, Queue, QueueLen)
+        |    when QueueLen &gt; 0 -&gt;
+<font color=red>     0..|      case queue:out(Queue) of</font>
+        |  	{{value, Msg}, Queue1} -&gt;
+<font color=red>     0..|  	    decode_msg(Msg, Parent, Name, StateName, StateData, Mod, hibernate,</font>
+        |  		       Debug, Limits, Queue1, QueueLen - 1, false);
+        |  	{empty, _} -&gt;
+<font color=red>     0..|  	    Reason = internal_queue_error,</font>
+<font color=red>     0..|  	    error_info(Mod, Reason, Name, hibernate, StateName, StateData, Debug),</font>
+<font color=red>     0..|  	    exit(Reason)</font>
+        |      end;
+        |  loop(Parent, Name, StateName, StateData, Mod, hibernate, Debug,
+        |       Limits, _Queue, _QueueLen) -&gt;
+<font color=red>     0..|      proc_lib:hibernate(?MODULE,wake_hib,</font>
+        |  		       [Parent, Name, StateName, StateData, Mod,
+        |  			Debug, Limits]);
+        |  %% First we test if we have reach a defined limit ...
+        |  loop(Parent, Name, StateName, StateData, Mod, Time, Debug,
+        |       Limits, Queue, QueueLen) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|  	message_queue_len(Limits, QueueLen)</font>
+        |  	%% TODO: We can add more limit checking here...
+        |      catch
+        |  	{process_limit, Limit} -&gt;
+<font color=red>     0..|  	    Reason = {process_limit, Limit},</font>
+<font color=red>     0..|  	    Msg = {'EXIT', Parent, {error, {process_limit, Limit}}},</font>
+<font color=red>     0..|  	    terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug)</font>
+        |      end,
+<font color=red>     0..|      process_message(Parent, Name, StateName, StateData,</font>
+        |  		    Mod, Time, Debug, Limits, Queue, QueueLen).
+        |  %% ... then we can process a new message:
+        |  process_message(Parent, Name, StateName, StateData, Mod, Time, Debug,
+        |  		Limits, Queue, QueueLen) -&gt;
+<font color=red>     0..|      {Msg, Queue1, QueueLen1} = collect_messages(Queue, QueueLen, Time),</font>
+<font color=red>     0..|      decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time,</font>
+        |  	       Debug, Limits, Queue1, QueueLen1, false).
+        |  
+        |  collect_messages(Queue, QueueLen, Time) -&gt;
+<font color=red>     0..|      receive</font>
+        |  	Input -&gt;
+<font color=red>     0..|  	    case Input of</font>
+        |  		{'EXIT', _Parent, priority_shutdown} -&gt;
+<font color=red>     0..|  		    {Input, Queue, QueueLen};</font>
+        |  		_ -&gt;
+<font color=red>     0..|  		    collect_messages(</font>
+        |  		      queue:in(Input, Queue), QueueLen + 1, Time)
+        |  	    end
+        |      after 0 -&gt;
+<font color=red>     0..|  	    case queue:out(Queue) of</font>
+        |  		{{value, Msg}, Queue1} -&gt;
+<font color=red>     0..|  		    {Msg, Queue1, QueueLen - 1};</font>
+        |  		{empty, _} -&gt;
+<font color=red>     0..|  		    receive</font>
+        |  			Input -&gt;
+<font color=red>     0..|  			    {Input, Queue, QueueLen}</font>
+        |  		    after Time -&gt;
+<font color=red>     0..|  			    {{'$gen_event', timeout}, Queue, QueueLen}</font>
+        |  		    end
+        |  	    end
+        |      end.
+        |  
+        |  
+        |  wake_hib(Parent, Name, StateName, StateData, Mod, Debug,
+        |  	 Limits) -&gt;
+<font color=red>     0..|      Msg = receive</font>
+        |  	      Input -&gt;
+<font color=red>     0..|  		  Input</font>
+        |  	  end,
+<font color=red>     0..|      Queue = queue:new(),</font>
+<font color=red>     0..|      QueueLen = 0,</font>
+<font color=red>     0..|      decode_msg(Msg, Parent, Name, StateName, StateData, Mod, hibernate,</font>
+        |  	       Debug, Limits, Queue, QueueLen, true).
+        |  
+        |  decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, Debug,
+        |  	   Limits, Queue, QueueLen, Hib) -&gt;
+<font color=red>     0..|      put('$internal_queue_len', QueueLen),</font>
+<font color=red>     0..|      case Msg of</font>
+        |          {system, From, Req} -&gt;
+<font color=red>     0..|  	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,</font>
+        |  				  [Name, StateName, StateData,
+        |  				   Mod, Time, Limits, Queue, QueueLen], Hib);
+        |  	{'EXIT', Parent, Reason} -&gt;
+<font color=red>     0..|  	    terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug);</font>
+        |  	_Msg when Debug == [] -&gt;
+<font color=red>     0..|  	    handle_msg(Msg, Parent, Name, StateName, StateData,</font>
+        |  		       Mod, Time, Limits, Queue, QueueLen);
+        |  	_Msg -&gt;
+<font color=red>     0..|  	    Debug1 = sys:handle_debug(Debug, fun print_event/3,</font>
+        |  				      {Name, StateName}, {in, Msg}),
+<font color=red>     0..|  	    handle_msg(Msg, Parent, Name, StateName, StateData,</font>
+        |  		       Mod, Time, Debug1, Limits, Queue, QueueLen)
+        |      end.
+        |  
+        |  %%-----------------------------------------------------------------
+        |  %% Callback functions for system messages handling.
+        |  %%-----------------------------------------------------------------
+        |  system_continue(Parent, Debug, [Name, StateName, StateData,
+        |  				Mod, Time, Limits, Queue, QueueLen]) -&gt;
+<font color=red>     0..|      loop(Parent, Name, StateName, StateData, Mod, Time, Debug,</font>
+        |  	 Limits, Queue, QueueLen).
+        |  
+        |  system_terminate(Reason, _Parent, Debug,
+        |  		 [Name, StateName, StateData, Mod, _Time, _Limits]) -&gt;
+<font color=red>     0..|      terminate(Reason, Name, [], Mod, StateName, StateData, Debug).</font>
+        |  
+        |  system_code_change([Name, StateName, StateData, Mod, Time,
+        |  		    Limits, Queue, QueueLen],
+        |  		   _Module, OldVsn, Extra) -&gt;
+<font color=red>     0..|      case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of</font>
+        |  	{ok, NewStateName, NewStateData} -&gt;
+<font color=red>     0..|  	    {ok, [Name, NewStateName, NewStateData, Mod, Time,</font>
+        |  		  Limits, Queue, QueueLen]};
+<font color=red>     0..|  	Else -&gt; Else</font>
+        |      end.
+        |  
+        |  %%-----------------------------------------------------------------
+        |  %% Format debug messages.  Print them as the call-back module sees
+        |  %% them, not as the real erlang messages.  Use trace for that.
+        |  %%-----------------------------------------------------------------
+        |  print_event(Dev, {in, Msg}, {Name, StateName}) -&gt;
+<font color=red>     0..|      case Msg of</font>
+        |  	{'$gen_event', Event} -&gt;
+<font color=red>     0..|  	    io:format(Dev, "*DBG* ~p got event ~p in state ~w~n",</font>
+        |  		      [Name, Event, StateName]);
+        |  	{'$gen_all_state_event', Event} -&gt;
+<font color=red>     0..|  	    io:format(Dev,</font>
+        |  		      "*DBG* ~p got all_state_event ~p in state ~w~n",
+        |  		      [Name, Event, StateName]);
+        |  	{timeout, Ref, {'$gen_timer', Message}} -&gt;
+<font color=red>     0..|  	    io:format(Dev,</font>
+        |  		      "*DBG* ~p got timer ~p in state ~w~n",
+        |  		      [Name, {timeout, Ref, Message}, StateName]);
+        |  	{timeout, _Ref, {'$gen_event', Event}} -&gt;
+<font color=red>     0..|  	    io:format(Dev,</font>
+        |  		      "*DBG* ~p got timer ~p in state ~w~n",
+        |  		      [Name, Event, StateName]);
+        |  	_ -&gt;
+<font color=red>     0..|  	    io:format(Dev, "*DBG* ~p got ~p in state ~w~n",</font>
+        |  		      [Name, Msg, StateName])
+        |      end;
+        |  print_event(Dev, {out, Msg, To, StateName}, Name) -&gt;
+<font color=red>     0..|      io:format(Dev, "*DBG* ~p sent ~p to ~w~n"</font>
+        |  	           "      and switched to state ~w~n",
+        |  	      [Name, Msg, To, StateName]);
+        |  print_event(Dev, return, {Name, StateName}) -&gt;
+<font color=red>     0..|      io:format(Dev, "*DBG* ~p switched to state ~w~n",</font>
+        |  	      [Name, StateName]).
+        |  
+        |  relay_messages(MRef, TRef, Clone, Queue) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+<font color=red>     0..|        fun(Msg) -&gt; Clone ! Msg end,</font>
+        |        queue:to_list(Queue)),
+<font color=red>     0..|      relay_messages(MRef, TRef, Clone).</font>
+        |  
+        |  relay_messages(MRef, TRef, Clone) -&gt;
+<font color=red>     0..|      receive</font>
+        |  	{'DOWN', MRef, process, Clone, Reason} -&gt;
+<font color=red>     0..|  	    Reason;</font>
+        |  	{'EXIT', _Parent, _Reason} -&gt;
+<font color=red>     0..|  	    {migrated, Clone};</font>
+        |  	{timeout, TRef, timeout} -&gt;
+<font color=red>     0..|  	    {migrated, Clone};</font>
+        |  	Msg -&gt;
+<font color=red>     0..|  	    Clone ! Msg,</font>
+<font color=red>     0..|  	    relay_messages(MRef, TRef, Clone)</font>
+        |      end.
+        |  
+        |  handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time,
+        |  	   Limits, Queue, QueueLen) -&gt; %No debug here
+<font color=red>     0..|      From = from(Msg),</font>
+<font color=red>     0..|      case catch dispatch(Msg, Mod, StateName, StateData) of</font>
+        |  	{next_state, NStateName, NStateData} -&gt;
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData,</font>
+        |  		 Mod, infinity, [], Limits, Queue, QueueLen);
+        |  	{next_state, NStateName, NStateData, Time1} -&gt;
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, [],</font>
+        |  		 Limits, Queue, QueueLen);
+        |          {reply, Reply, NStateName, NStateData} when From =/= undefined -&gt;
+<font color=red>     0..|  	    reply(From, Reply),</font>
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData,</font>
+        |  		 Mod, infinity, [], Limits, Queue, QueueLen);
+        |          {reply, Reply, NStateName, NStateData, Time1} when From =/= undefined -&gt;
+<font color=red>     0..|  	    reply(From, Reply),</font>
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, [],</font>
+        |  		 Limits, Queue, QueueLen);
+        |  	{migrate, NStateData, {Node, M, F, A}, Time1} -&gt;
+<font color=red>     0..|  	    Reason = case catch rpc:call(Node, M, F, A, 5000) of</font>
+        |  			 {badrpc, _} = Err -&gt;
+<font color=red>     0..|  			     {migration_error, Err};</font>
+        |  			 {'EXIT', _} = Err -&gt;
+<font color=red>     0..|  			     {migration_error, Err};</font>
+        |  			 {error, _} = Err -&gt;
+<font color=red>     0..|  			     {migration_error, Err};</font>
+        |  			 {ok, Clone} -&gt;
+<font color=red>     0..|  			     process_flag(trap_exit, true),</font>
+<font color=red>     0..|  			     MRef = erlang:monitor(process, Clone),</font>
+<font color=red>     0..|  			     TRef = erlang:start_timer(Time1, self(), timeout),</font>
+<font color=red>     0..|  			     relay_messages(MRef, TRef, Clone, Queue);</font>
+        |  			 Reply -&gt;
+<font color=red>     0..|  			     {migration_error, {bad_reply, Reply}}</font>
+        |  		     end,
+<font color=red>     0..|  	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, []);</font>
+        |  	{stop, Reason, NStateData} -&gt;
+<font color=red>     0..|  	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, []);</font>
+        |  	{stop, Reason, Reply, NStateData} when From =/= undefined -&gt;
+<font color=red>     0..|  	    {'EXIT', R} = (catch terminate(Reason, Name, Msg, Mod,</font>
+        |  					   StateName, NStateData, [])),
+<font color=red>     0..|  	    reply(From, Reply),</font>
+<font color=red>     0..|  	    exit(R);</font>
+        |  	{'EXIT', What} -&gt;
+<font color=red>     0..|  	    terminate(What, Name, Msg, Mod, StateName, StateData, []);</font>
+        |  	Reply -&gt;
+<font color=red>     0..|  	    terminate({bad_return_value, Reply},</font>
+        |  		      Name, Msg, Mod, StateName, StateData, [])
+        |      end.
+        |  
+        |  handle_msg(Msg, Parent, Name, StateName, StateData,
+        |  	   Mod, _Time, Debug, Limits, Queue, QueueLen) -&gt;
+<font color=red>     0..|      From = from(Msg),</font>
+<font color=red>     0..|      case catch dispatch(Msg, Mod, StateName, StateData) of</font>
+        |  	{next_state, NStateName, NStateData} -&gt;
+<font color=red>     0..|  	    Debug1 = sys:handle_debug(Debug, fun print_event/3,</font>
+        |  				      {Name, NStateName}, return),
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData,</font>
+        |  		 Mod, infinity, Debug1, Limits, Queue, QueueLen);
+        |  	{next_state, NStateName, NStateData, Time1} -&gt;
+<font color=red>     0..|  	    Debug1 = sys:handle_debug(Debug, fun print_event/3,</font>
+        |  				      {Name, NStateName}, return),
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData,</font>
+        |  		 Mod, Time1, Debug1, Limits, Queue, QueueLen);
+        |          {reply, Reply, NStateName, NStateData} when From =/= undefined -&gt;
+<font color=red>     0..|  	    Debug1 = reply(Name, From, Reply, Debug, NStateName),</font>
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData,</font>
+        |  		 Mod, infinity, Debug1, Limits, Queue, QueueLen);
+        |          {reply, Reply, NStateName, NStateData, Time1} when From =/= undefined -&gt;
+<font color=red>     0..|  	    Debug1 = reply(Name, From, Reply, Debug, NStateName),</font>
+<font color=red>     0..|  	    loop(Parent, Name, NStateName, NStateData,</font>
+        |  		 Mod, Time1, Debug1, Limits, Queue, QueueLen);
+        |  	{migrate, NStateData, {Node, M, F, A}, Time1} -&gt;
+<font color=red>     0..|  	    Reason = case catch rpc:call(Node, M, F, A, Time1) of</font>
+        |  			 {badrpc, R} -&gt;
+<font color=red>     0..|  			     {migration_error, R};</font>
+        |  			 {'EXIT', R} -&gt;
+<font color=red>     0..|  			     {migration_error, R};</font>
+        |  			 {error, R} -&gt;
+<font color=red>     0..|  			     {migration_error, R};</font>
+        |  			 {ok, Clone} -&gt;
+<font color=red>     0..|  			     process_flag(trap_exit, true),</font>
+<font color=red>     0..|  			     MRef = erlang:monitor(process, Clone),</font>
+<font color=red>     0..|  			     TRef = erlang:start_timer(Time1, self(), timeout),</font>
+<font color=red>     0..|  			     relay_messages(MRef, TRef, Clone, Queue);</font>
+        |  			 Reply -&gt;
+<font color=red>     0..|  			     {migration_error, {bad_reply, Reply}}</font>
+        |  		     end,
+<font color=red>     0..|  	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, Debug);</font>
+        |  	{stop, Reason, NStateData} -&gt;
+<font color=red>     0..|  	    terminate(Reason, Name, Msg, Mod, StateName, NStateData, Debug);</font>
+        |  	{stop, Reason, Reply, NStateData} when From =/= undefined -&gt;
+<font color=red>     0..|  	    {'EXIT', R} = (catch terminate(Reason, Name, Msg, Mod,</font>
+        |  					   StateName, NStateData, Debug)),
+<font color=red>     0..|  	    reply(Name, From, Reply, Debug, StateName),</font>
+<font color=red>     0..|  	    exit(R);</font>
+        |  	{'EXIT', What} -&gt;
+<font color=red>     0..|  	    terminate(What, Name, Msg, Mod, StateName, StateData, Debug);</font>
+        |  	Reply -&gt;
+<font color=red>     0..|  	    terminate({bad_return_value, Reply},</font>
+        |  		      Name, Msg, Mod, StateName, StateData, Debug)
+        |      end.
+        |  
+        |  dispatch({'$gen_event', Event}, Mod, StateName, StateData) -&gt;
+<font color=red>     0..|      Mod:StateName(Event, StateData);</font>
+        |  dispatch({'$gen_all_state_event', Event}, Mod, StateName, StateData) -&gt;
+<font color=red>     0..|      Mod:handle_event(Event, StateName, StateData);</font>
+        |  dispatch({'$gen_sync_event', From, Event}, Mod, StateName, StateData) -&gt;
+<font color=red>     0..|      Mod:StateName(Event, From, StateData);</font>
+        |  dispatch({'$gen_sync_all_state_event', From, Event},
+        |  	 Mod, StateName, StateData) -&gt;
+<font color=red>     0..|      Mod:handle_sync_event(Event, From, StateName, StateData);</font>
+        |  dispatch({timeout, Ref, {'$gen_timer', Msg}}, Mod, StateName, StateData) -&gt;
+<font color=red>     0..|      Mod:StateName({timeout, Ref, Msg}, StateData);</font>
+        |  dispatch({timeout, _Ref, {'$gen_event', Event}}, Mod, StateName, StateData) -&gt;
+<font color=red>     0..|      Mod:StateName(Event, StateData);</font>
+        |  dispatch(Info, Mod, StateName, StateData) -&gt;
+<font color=red>     0..|      Mod:handle_info(Info, StateName, StateData).</font>
+        |  
+<font color=red>     0..|  from({'$gen_sync_event', From, _Event}) -&gt; From;</font>
+<font color=red>     0..|  from({'$gen_sync_all_state_event', From, _Event}) -&gt; From;</font>
+<font color=red>     0..|  from(_) -&gt; undefined.</font>
+        |  
+        |  %% Send a reply to the client.
+        |  reply({To, Tag}, Reply) -&gt;
+<font color=red>     0..|      catch To ! {Tag, Reply}.</font>
+        |  
+        |  reply(Name, {To, Tag}, Reply, Debug, StateName) -&gt;
+<font color=red>     0..|      reply({To, Tag}, Reply),</font>
+<font color=red>     0..|      sys:handle_debug(Debug, fun print_event/3, Name,</font>
+        |  		     {out, Reply, To, StateName}).
+        |  
+        |  %%% ---------------------------------------------------
+        |  %%% Terminate the server.
+        |  %%% ---------------------------------------------------
+        |  
+        |  terminate(Reason, Name, Msg, Mod, StateName, StateData, Debug) -&gt;
+<font color=red>     0..|      case catch Mod:terminate(Reason, StateName, StateData) of</font>
+        |  	{'EXIT', R} -&gt;
+<font color=red>     0..|  	    error_info(Mod, R, Name, Msg, StateName, StateData, Debug),</font>
+<font color=red>     0..|  	    exit(R);</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    case Reason of</font>
+        |  		normal -&gt;
+<font color=red>     0..|  		    exit(normal);</font>
+        |  		shutdown -&gt;
+<font color=red>     0..|  		    exit(shutdown);</font>
+        |  		priority_shutdown -&gt;
+        |  		    %% Priority shutdown should be considered as
+        |  		    %% shutdown by SASL
+<font color=red>     0..|  		    exit(shutdown);</font>
+        |  		{process_limit, _Limit} -&gt;
+<font color=red>     0..|  		    exit(Reason);</font>
+        |  		{migrated, _Clone} -&gt;
+<font color=red>     0..|  		    exit(normal);</font>
+        |  		_ -&gt;
+<font color=red>     0..|  		    error_info(Mod, Reason, Name, Msg, StateName, StateData, Debug),</font>
+<font color=red>     0..|  		    exit(Reason)</font>
+        |  	    end
+        |      end.
+        |  
+        |  error_info(Mod, Reason, Name, Msg, StateName, StateData, Debug) -&gt;
+<font color=red>     0..|      Reason1 =</font>
+        |  	case Reason of
+        |  	    {undef,[{M,F,A}|MFAs]} -&gt;
+<font color=red>     0..|  		case code:is_loaded(M) of</font>
+        |  		    false -&gt;
+<font color=red>     0..|  			{'module could not be loaded',[{M,F,A}|MFAs]};</font>
+        |  		    _ -&gt;
+<font color=red>     0..|  			case erlang:function_exported(M, F, length(A)) of</font>
+        |  			    true -&gt;
+<font color=red>     0..|  				Reason;</font>
+        |  			    false -&gt;
+<font color=red>     0..|  				{'function not exported',[{M,F,A}|MFAs]}</font>
+        |  			end
+        |  		end;
+        |  	    _ -&gt;
+<font color=red>     0..|  		Reason</font>
+        |  	end,
+<font color=red>     0..|      StateToPrint = case erlang:function_exported(Mod, print_state, 1) of</font>
+<font color=red>     0..|        true -&gt; (catch Mod:print_state(StateData));</font>
+<font color=red>     0..|        false -&gt; StateData</font>
+        |      end,
+<font color=red>     0..|      Str = "** State machine ~p terminating \n" ++</font>
+        |  	get_msg_str(Msg) ++
+        |  	"** When State == ~p~n"
+        |          "**      Data  == ~p~n"
+        |          "** Reason for termination = ~n** ~p~n",
+<font color=red>     0..|      format(Str, [Name, get_msg(Msg), StateName, StateToPrint, Reason1]),</font>
+<font color=red>     0..|      sys:print_log(Debug),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  get_msg_str({'$gen_event', _Event}) -&gt;
+<font color=red>     0..|      "** Last event in was ~p~n";</font>
+        |  get_msg_str({'$gen_sync_event', _Event}) -&gt;
+<font color=red>     0..|      "** Last sync event in was ~p~n";</font>
+        |  get_msg_str({'$gen_all_state_event', _Event}) -&gt;
+<font color=red>     0..|      "** Last event in was ~p (for all states)~n";</font>
+        |  get_msg_str({'$gen_sync_all_state_event', _Event}) -&gt;
+<font color=red>     0..|      "** Last sync event in was ~p (for all states)~n";</font>
+        |  get_msg_str({timeout, _Ref, {'$gen_timer', _Msg}}) -&gt;
+<font color=red>     0..|      "** Last timer event in was ~p~n";</font>
+        |  get_msg_str({timeout, _Ref, {'$gen_event', _Msg}}) -&gt;
+<font color=red>     0..|      "** Last timer event in was ~p~n";</font>
+        |  get_msg_str(_Msg) -&gt;
+<font color=red>     0..|      "** Last message in was ~p~n".</font>
+        |  
+<font color=red>     0..|  get_msg({'$gen_event', Event}) -&gt; Event;</font>
+<font color=red>     0..|  get_msg({'$gen_sync_event', Event}) -&gt; Event;</font>
+<font color=red>     0..|  get_msg({'$gen_all_state_event', Event}) -&gt; Event;</font>
+<font color=red>     0..|  get_msg({'$gen_sync_all_state_event', Event}) -&gt; Event;</font>
+<font color=red>     0..|  get_msg({timeout, Ref, {'$gen_timer', Msg}}) -&gt; {timeout, Ref, Msg};</font>
+<font color=red>     0..|  get_msg({timeout, _Ref, {'$gen_event', Event}}) -&gt; Event;</font>
+<font color=red>     0..|  get_msg(Msg) -&gt; Msg.</font>
+        |  
+        |  %%-----------------------------------------------------------------
+        |  %% Status information
+        |  %%-----------------------------------------------------------------
+        |  format_status(Opt, StatusData) -&gt;
+<font color=red>     0..|      [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time | _]] =</font>
+        |  	StatusData,
+<font color=red>     0..|      NameTag = if is_pid(Name) -&gt;</font>
+<font color=red>     0..|  		      pid_to_list(Name);</font>
+        |  		 is_atom(Name) -&gt;
+<font color=red>     0..|  		      Name</font>
+        |  	      end,
+<font color=red>     0..|      Header = lists:concat(["Status for state machine ", NameTag]),</font>
+<font color=red>     0..|      Log = sys:get_debug(log, Debug, []),</font>
+<font color=red>     0..|      Specfic =</font>
+        |  	case erlang:function_exported(Mod, format_status, 2) of
+        |  	    true -&gt;
+<font color=red>     0..|  		case catch Mod:format_status(Opt,[PDict,StateData]) of</font>
+<font color=red>     0..|  		    {'EXIT', _} -&gt; [{data, [{"StateData", StateData}]}];</font>
+<font color=red>     0..|  		    Else -&gt; Else</font>
+        |  		end;
+        |  	    _ -&gt;
+<font color=red>     0..|  		[{data, [{"StateData", StateData}]}]</font>
+        |  	end,
+<font color=red>     0..|      [{header, Header},</font>
+        |       {data, [{"Status", SysState},
+        |  	     {"Parent", Parent},
+        |  	     {"Logged events", Log},
+        |  	     {"StateName", StateName}]} |
+        |       Specfic].
+        |  
+        |  %%-----------------------------------------------------------------
+        |  %% Resources limit management
+        |  %%-----------------------------------------------------------------
+        |  %% Extract know limit options
+        |  limit_options(Options) -&gt;
+<font color=red>     0..|      limit_options(Options, #limits{}).</font>
+        |  limit_options([], Limits) -&gt;
+<font color=red>     0..|      Limits;</font>
+        |  %% Maximum number of messages allowed in the process message queue
+        |  limit_options([{max_queue,N}|Options], Limits)
+        |    when is_integer(N) -&gt;
+<font color=red>     0..|      NewLimits = Limits#limits{max_queue=N},</font>
+<font color=red>     0..|      limit_options(Options, NewLimits);</font>
+        |  limit_options([_|Options], Limits) -&gt;
+<font color=red>     0..|      limit_options(Options, Limits).</font>
+        |  
+        |  %% Throw max_queue if we have reach the max queue size
+        |  %% Returns ok otherwise
+        |  message_queue_len(#limits{max_queue = undefined}, _QueueLen) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  message_queue_len(#limits{max_queue = MaxQueue}, QueueLen) -&gt;
+<font color=red>     0..|      Pid = self(),</font>
+<font color=red>     0..|      case process_info(Pid, message_queue_len) of</font>
+        |          {message_queue_len, N} when N + QueueLen &gt; MaxQueue -&gt;
+<font color=red>     0..|  	    throw({process_limit, {max_queue, N + QueueLen}});</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    ok</font>
+        |      end.
+</pre>
+</body>
+</html>

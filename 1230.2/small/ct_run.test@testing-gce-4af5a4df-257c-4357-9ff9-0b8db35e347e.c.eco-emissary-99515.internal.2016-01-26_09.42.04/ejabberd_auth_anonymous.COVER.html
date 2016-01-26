@@ -1,0 +1,358 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/ejabberd_auth_anonymous.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_auth_anonymous.erl by COVER 2016-01-26 at 09:42:35
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_auth_anonymous.erl
+        |  %%% Author  : Mickael Remond &lt;mickael.remond@process-one.net&gt;
+        |  %%% Purpose : Anonymous feature support in ejabberd
+        |  %%% Created : 17 Feb 2006 by Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_auth_anonymous).
+        |  -author('mickael.remond@process-one.net').
+        |  
+        |  -export([
+        |           start/1,
+        |           stop/1,
+        |           allow_anonymous/1,
+        |           is_sasl_anonymous_enabled/1,
+        |           is_login_anonymous_enabled/1,
+        |           anonymous_user_exist/2,
+        |           allow_multiple_connections/1,
+        |           register_connection/3,
+        |           unregister_connection/4,
+        |           session_cleanup/4
+        |          ]).
+        |  
+        |  -behaviour(ejabberd_gen_auth).
+        |  %% Function used by ejabberd_auth:
+        |  -export([login/2,
+        |  	 set_password/3,
+        |  	 check_password/3,
+        |  	 check_password/5,
+        |  	 try_register/3,
+        |  	 dirty_get_registered_users/0,
+        |  	 get_vh_registered_users/1,
+        |  	 get_password/2,
+        |  	 get_password/3,
+        |  	 does_user_exist/2,
+        |  	 remove_user/2,
+        |  	 remove_user/3,
+        |  	 store_type/1,
+        |  	 plain_password_required/0,
+        |  	 get_vh_registered_users/2,
+        |  	 get_vh_registered_users_number/1,
+        |  	 get_vh_registered_users_number/2,
+        |  	 get_password_s/2                  % not impl
+        |  ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -record(anonymous, {us  :: ejabberd:simple_bare_jid(),
+        |                      sid :: ejabberd_sm:sid()
+        |                     }).
+        |  
+        |  %% @doc Create the anonymous table if at least one virtual host has anonymous
+        |  %% features enabled. Register to login / logout events
+        |  start(Host) -&gt;
+        |      %% TODO: Check cluster mode
+<font color=red>     0..|      mnesia:create_table(anonymous, [{ram_copies, [node()]},</font>
+        |                                      {type, bag},
+        |                                      {attributes, record_info(fields, anonymous)}]),
+<font color=red>     0..|      mnesia:add_table_copy(anonymous, node(), ram_copies),</font>
+        |      %% The hooks are needed to add / remove users from the anonymous tables
+<font color=red>     0..|      ejabberd_hooks:add(sm_register_connection_hook, Host, ?MODULE, register_connection, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(sm_remove_connection_hook, Host, ?MODULE, unregister_connection, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(session_cleanup, Host, ?MODULE, session_cleanup, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(sm_register_connection_hook, Host, ?MODULE, register_connection, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(sm_remove_connection_hook, Host, ?MODULE, unregister_connection, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(session_cleanup, Host, ?MODULE, session_cleanup, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% @doc Return true if anonymous is allowed for host or false otherwise
+        |  -spec allow_anonymous(Host :: ejabberd:lserver()) -&gt; boolean().
+        |  allow_anonymous(Host) -&gt;
+<font color=red>     0..|      lists:member(?MODULE, ejabberd_auth:auth_modules(Host)).</font>
+        |  
+        |  
+        |  %% @doc Return true if anonymous mode is enabled and if anonymous protocol is
+        |  %% SASL anonymous protocol can be: sasl_anon|login_anon|both
+        |  -spec is_sasl_anonymous_enabled(Host :: ejabberd:lserver()) -&gt; boolean().
+        |  is_sasl_anonymous_enabled(Host) -&gt;
+<font color=red>     0..|      case allow_anonymous(Host) of</font>
+<font color=red>     0..|          false -&gt; false;</font>
+        |          true -&gt;
+<font color=red>     0..|              case anonymous_protocol(Host) of</font>
+<font color=red>     0..|                  sasl_anon -&gt; true;</font>
+<font color=red>     0..|                  both      -&gt; true;</font>
+<font color=red>     0..|                  _Other    -&gt; false</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  %% @doc Return true if anonymous login is enabled on the server
+        |  %% anonymous login can be use using standard authentication method (i.e. with
+        |  %% clients that do not support anonymous login)
+        |  -spec is_login_anonymous_enabled(Host :: ejabberd:lserver()) -&gt; boolean().
+        |  is_login_anonymous_enabled(Host) -&gt;
+<font color=red>     0..|      case allow_anonymous(Host) of</font>
+<font color=red>     0..|          false -&gt; false;</font>
+        |          true  -&gt;
+<font color=red>     0..|              case anonymous_protocol(Host) of</font>
+<font color=red>     0..|                  login_anon -&gt; true;</font>
+<font color=red>     0..|                  both       -&gt; true;</font>
+<font color=red>     0..|                  _Other     -&gt; false</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  %% @doc Return the anonymous protocol to use: sasl_anon|login_anon|both
+        |  %% defaults to login_anon
+        |  -spec anonymous_protocol(Host :: ejabberd:lserver()) -&gt;
+        |                                        'both' | 'login_anon' | 'sasl_anon'.
+        |  anonymous_protocol(Host) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option({anonymous_protocol, Host}) of</font>
+<font color=red>     0..|          sasl_anon  -&gt; sasl_anon;</font>
+<font color=red>     0..|          login_anon -&gt; login_anon;</font>
+<font color=red>     0..|          both       -&gt; both;</font>
+<font color=red>     0..|          _Other     -&gt; sasl_anon</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Return true if multiple connections have been allowed in the config file
+        |  %% defaults to false
+        |  -spec allow_multiple_connections(Host :: ejabberd:lserver()) -&gt; boolean().
+        |  allow_multiple_connections(Host) -&gt;
+<font color=red>     0..|      ejabberd_config:get_local_option({allow_multiple_connections, Host}) =:= true.</font>
+        |  
+        |  
+        |  %% @doc Check if user exist in the anonymus database
+        |  -spec anonymous_user_exist(LUser :: ejabberd:luser(),
+        |                             LServer :: ejabberd:lserver()) -&gt; boolean().
+        |  anonymous_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      case catch mnesia:dirty_read({anonymous, US}) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              false;</font>
+        |          [_H|_T] -&gt;
+<font color=red>     0..|              true</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Remove connection from Mnesia tables
+        |  -spec remove_connection(SID :: ejabberd_sm:sid(),
+        |                          LUser :: ejabberd:luser(),
+        |                          LServer :: ejabberd:lserver()
+        |                          ) -&gt; {atomic|aborted|error, _}.
+        |  remove_connection(SID, LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  mnesia:delete_object({anonymous, US, SID})</font>
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  
+        |  %% @doc Register connection
+        |  -spec register_connection(SID :: ejabberd_sm:sid(),
+        |                            JID :: ejabberd:jid(),
+        |                            Info :: list()) -&gt; ok.
+        |  register_connection(SID, #jid{luser = LUser, lserver = LServer}, Info) -&gt;
+<font color=red>     0..|      case lists:keyfind(auth_module, 1, Info) of</font>
+        |          {_, ?MODULE} -&gt;
+<font color=red>     0..|              ejabberd_hooks:run(register_user, LServer, [LUser, LServer]),</font>
+<font color=red>     0..|              US = {LUser, LServer},</font>
+<font color=red>     0..|              mnesia:sync_dirty(</font>
+<font color=red>     0..|                fun() -&gt; mnesia:write(#anonymous{us = US, sid=SID})</font>
+        |                end);
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Remove an anonymous user from the anonymous users table
+        |  -spec unregister_connection(SID :: ejabberd_sm:sid(),
+        |                              JID :: ejabberd:jid(),
+        |                              any(), ejabberd_sm:close_reason()) -&gt; {atomic|error|aborted, _}.
+        |  unregister_connection(SID, #jid{luser = LUser, lserver = LServer}, _, _) -&gt;
+<font color=red>     0..|      purge_hook(anonymous_user_exist(LUser, LServer),</font>
+        |                 LUser, LServer),
+<font color=red>     0..|      remove_connection(SID, LUser, LServer).</font>
+        |  
+        |  
+        |  %% @doc Launch the hook to purge user data only for anonymous users
+        |  -spec purge_hook(boolean(), ejabberd:luser(), ejabberd:lserver()) -&gt; 'ok'.
+        |  purge_hook(false, _LUser, _LServer) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  purge_hook(true, LUser, LServer) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run(anonymous_purge_hook, LServer, [LUser, LServer]).</font>
+        |  
+        |  -spec session_cleanup(LUser :: ejabber:luser(), LServer :: ejabberd:lserver(),
+        |                     LResource :: ejabberd:lresource(), SID :: ejabberd_sm:sid()) -&gt; any().
+        |  session_cleanup(LUser, LServer, _LResource, SID) -&gt;
+<font color=red>     0..|      remove_connection(SID, LUser, LServer).</font>
+        |  
+        |  %% ---------------------------------
+        |  %% Specific anonymous auth functions
+        |  %% ---------------------------------
+        |  
+        |  %% @doc When anonymous login is enabled, check the password for permenant users
+        |  %% before allowing access
+        |  -spec check_password(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver(),
+        |                       Password :: binary()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      check_password(LUser, LServer, Password, undefined, undefined).</font>
+        |  check_password(LUser, LServer, _Password, _Digest, _DigestGen) -&gt;
+        |      %% We refuse login for registered accounts (They cannot logged but
+        |      %% they however are "reserved")
+<font color=red>     0..|      case ejabberd_auth:is_user_exists_in_other_modules(?MODULE,</font>
+        |                                                         LUser, LServer) of
+        |          %% If user exists in other module, reject anonnymous authentication
+<font color=red>     0..|          true  -&gt; false;</font>
+        |          %% If we are not sure whether the user exists in other module, reject anon auth
+<font color=red>     0..|          maybe  -&gt; false;</font>
+<font color=red>     0..|          false -&gt; login(LUser, LServer)</font>
+        |      end.
+        |  
+        |  
+        |  -spec login(LUser :: ejabberd:luser(),
+        |              LServer :: ejabberd:lserver()) -&gt; boolean().
+        |  login(LUser, LServer) -&gt;
+<font color=red>     0..|      case is_login_anonymous_enabled(LServer) of</font>
+<font color=red>     0..|          false -&gt; false;</font>
+        |          true  -&gt;
+<font color=red>     0..|              case anonymous_user_exist(LUser, LServer) of</font>
+        |                  %% Reject the login if an anonymous user with the same login
+        |                  %% is already logged and if multiple login has not been enable
+        |                  %% in the config file.
+<font color=red>     0..|                  true  -&gt; allow_multiple_connections(LServer);</font>
+        |                  %% Accept login and add user to the anonymous table
+<font color=red>     0..|                  false -&gt; true</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  %% @doc When anonymous login is enabled, check that the user is permanent before
+        |  %% changing its password
+        |  -spec set_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     Password :: binary()) -&gt; ok | {error, not_allowed}.
+        |  set_password(LUser, LServer, _Password) -&gt;
+<font color=red>     0..|      case anonymous_user_exist(LUser, LServer) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, not_allowed}</font>
+        |      end.
+        |  
+        |  %% @doc When anonymous login is enabled, check if permanent users are allowed on
+        |  %% the server:
+        |  -spec try_register(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     Password :: binary()) -&gt; {error, not_allowed}.
+        |  try_register(_LUser, _LServer, _Password) -&gt;
+<font color=red>     0..|      {error, not_allowed}.</font>
+        |  
+        |  -spec dirty_get_registered_users() -&gt; [].
+        |  dirty_get_registered_users() -&gt;
+<font color=red>     0..|      [].</font>
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver()) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer) -&gt;
+<font color=red>     0..|      [{U, S} || {{U, S, _R}, _, _, _} &lt;- ejabberd_sm:get_vh_session_list(LServer)].</font>
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver(), Opts :: list()) -&gt;
+        |      [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer, _Opts) -&gt;
+<font color=red>     0..|    get_vh_registered_users(LServer).</font>
+        |  
+        |  
+        |  %% @doc Return password of permanent user or false for anonymous users
+        |  -spec get_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver()) -&gt; binary() | false.
+        |  get_password(LUser, LServer) -&gt;
+<font color=red>     0..|      get_password(LUser, LServer, &lt;&lt;""&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec get_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     DefaultValue :: binary()) -&gt; binary() | false.
+        |  get_password(LUser, LServer, DefaultValue) -&gt;
+<font color=red>     0..|      case anonymous_user_exist(LUser, LServer) or login(LUser, LServer) of</font>
+        |          %% We return the default value if the user is anonymous
+        |          true -&gt;
+<font color=red>     0..|              DefaultValue;</font>
+        |          %% We return the permanent user password otherwise
+        |          false -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Returns true if the user exists in the DB or if an anonymous user is
+        |  %% logged under the given name
+        |  -spec does_user_exist(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver()) -&gt; boolean().
+        |  does_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      anonymous_user_exist(LUser, LServer).</font>
+        |  
+        |  
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver()) -&gt; {error, not_allowed}.
+        |  remove_user(_LUser, _LServer) -&gt;
+<font color=red>     0..|      {error, not_allowed}.</font>
+        |  
+        |  
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver(),
+        |                    Password :: binary()) -&gt; {error, not_allowed}.
+        |  remove_user(_LUser, _LServer, _Password) -&gt;
+<font color=red>     0..|      {error, not_allowed}.</font>
+        |  
+        |  
+        |  -spec plain_password_required() -&gt; 'false'.
+        |  plain_password_required() -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  store_type(_) -&gt;
+<font color=red>     0..|      plain.</font>
+        |  
+<font color=red>     0..|  get_vh_registered_users_number(_LServer) -&gt; 0.</font>
+        |  
+<font color=red>     0..|  get_vh_registered_users_number(_LServer, _Opts) -&gt; 0.</font>
+        |  
+        |  %% @doc gen_auth unimplemented callbacks
+<font color=red>     0..|  get_password_s(_LUser, _LServer) -&gt; erlang:error(not_implemented).</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,490 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/ejabberd_local.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_local.erl by COVER 2016-01-26 at 09:42:36
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_local.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Route local packets
+        |  %%% Created : 30 Nov 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_local).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  -behaviour(xmpp_router).
+        |  
+        |  %% API
+        |  -export([start_link/0]).
+        |  
+        |  -export([route/3,
+        |           route_iq/4,
+        |           route_iq/5,
+        |           process_iq_reply/3,
+        |           register_iq_handler/4,
+        |           register_iq_handler/5,
+        |           register_host/1,
+        |           register_iq_response_handler/4,
+        |           register_iq_response_handler/5,
+        |           unregister_iq_handler/2,
+        |           unregister_host/1,
+        |           unregister_iq_response_handler/2,
+        |           refresh_iq_handlers/0,
+        |           bounce_resource_packet/3
+        |          ]).
+        |  
+        |  %% Hooks callbacks
+        |  
+        |  -export([node_cleanup/1]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  %% xmpp_router callback
+        |  -export([do_route/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(state, {}).
+        |  
+        |  -type id() :: any().
+        |  -record(iq_response, {id :: id(),
+        |                        module,
+        |                        function,
+        |                        timer}).
+        |  
+        |  -define(IQTABLE, local_iqtable).
+        |  
+        |  %% This value is used in SIP and Megaco for a transaction lifetime.
+        |  -define(IQ_TIMEOUT, 32000).
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  %%--------------------------------------------------------------------
+        |  %% Function: start_link() -&gt; {ok,Pid} | ignore | {error,Error}
+        |  %% Description: Starts the server
+        |  %%--------------------------------------------------------------------
+        |  -spec start_link() -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link() -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).</font>
+        |  
+        |  -spec process_iq(From :: ejabberd:jid(),
+        |                   To :: ejabberd:jid(),
+        |                   Packet :: jlib:xmlel()
+        |                   ) -&gt; 'nothing' | 'ok' | 'todo' | pid()
+        |                      | {'error','lager_not_running'} | {'process_iq',_,_,_}.
+        |  process_iq(From, To, Packet) -&gt;
+<font color=red>     0..|      IQ = jlib:iq_query_info(Packet),</font>
+<font color=red>     0..|      case IQ of</font>
+        |          #iq{xmlns = XMLNS} -&gt;
+<font color=red>     0..|              Host = To#jid.lserver,</font>
+<font color=red>     0..|              case ets:lookup(?IQTABLE, {XMLNS, Host}) of</font>
+        |                  [{_, Module, Function}] -&gt;
+<font color=red>     0..|                      ResIQ = Module:Function(From, To, IQ),</font>
+<font color=red>     0..|                      if</font>
+        |                          ResIQ /= ignore -&gt;
+<font color=red>     0..|                              ejabberd_router:route(</font>
+        |                                To, From, jlib:iq_to_xml(ResIQ));
+        |                          true -&gt;
+<font color=red>     0..|                              ok</font>
+        |                      end;
+        |                  [{_, Module, Function, Opts}] -&gt;
+<font color=red>     0..|                      gen_iq_handler:handle(Host, Module, Function, Opts,</font>
+        |                                            From, To, IQ);
+        |                  [] -&gt;
+<font color=red>     0..|                      Err = jlib:make_error_reply(</font>
+        |                              Packet, ?ERR_FEATURE_NOT_IMPLEMENTED),
+<font color=red>     0..|                      ejabberd_router:route(To, From, Err)</font>
+        |              end;
+        |          reply -&gt;
+<font color=red>     0..|              IQReply = jlib:iq_query_or_response_info(Packet),</font>
+<font color=red>     0..|              process_iq_reply(From, To, IQReply);</font>
+        |          _ -&gt;
+<font color=red>     0..|              Err = jlib:make_error_reply(Packet, ?ERR_BAD_REQUEST),</font>
+<font color=red>     0..|              ejabberd_router:route(To, From, Err),</font>
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec process_iq_reply(From :: ejabberd:jid(),
+        |                         To :: ejabberd:jid(),
+        |                         IQ :: ejabberd:iq() ) -&gt; 'nothing' | 'ok'.
+        |  process_iq_reply(From, To, #iq{id = ID} = IQ) -&gt;
+<font color=red>     0..|      case get_iq_callback(ID) of</font>
+        |          {ok, undefined, Function} -&gt;
+<font color=red>     0..|              Function(IQ),</font>
+<font color=red>     0..|              ok;</font>
+        |          {ok, Module, Function} -&gt;
+<font color=red>     0..|              Module:Function(From, To, IQ),</font>
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              nothing</font>
+        |      end.
+        |  
+        |  
+        |  -spec route(From :: ejabberd:jid(),
+        |              To :: ejabberd:jid(),
+        |              Packet :: jlib:xmlel()) -&gt; 'ok' | {'error','lager_not_running'}.
+        |  route(From, To, Packet) -&gt;
+<font color=red>     0..|      xmpp_router:route(?MODULE, From, To, Packet).</font>
+        |  
+        |  -spec route_iq(From :: ejabberd:jid(),
+        |                 To :: ejabberd:jid(),
+        |                 IQ :: ejabberd:iq(),
+        |                 F :: fun()) -&gt; 'ok'.
+        |  route_iq(From, To, IQ, F) -&gt;
+<font color=red>     0..|      route_iq(From, To, IQ, F, undefined).</font>
+        |  
+        |  
+        |  -spec route_iq(From :: ejabberd:jid(),
+        |                 To :: ejabberd:jid(),
+        |                 IQ :: ejabberd:iq(),
+        |                 F :: fun(),
+        |                 Timeout :: undefined | integer()) -&gt; 'ok'.
+        |  route_iq(From, To, #iq{type = Type} = IQ, F, Timeout) when is_function(F) -&gt;
+<font color=red>     0..|      Packet = if Type == set; Type == get -&gt;</font>
+<font color=red>     0..|                       ID = list_to_binary(randoms:get_string()),</font>
+<font color=red>     0..|                       Host = From#jid.lserver,</font>
+<font color=red>     0..|                       register_iq_response_handler(Host, ID, undefined, F, Timeout),</font>
+<font color=red>     0..|                       jlib:iq_to_xml(IQ#iq{id = ID});</font>
+        |                  true -&gt;
+<font color=red>     0..|                       jlib:iq_to_xml(IQ)</font>
+        |               end,
+<font color=red>     0..|      ejabberd_router:route(From, To, Packet).</font>
+        |  
+        |  register_iq_response_handler(Host, ID, Module, Function) -&gt;
+<font color=red>     0..|      register_iq_response_handler(Host, ID, Module, Function, undefined).</font>
+        |  
+        |  -spec register_iq_response_handler(_Host :: ejabberd:server(),
+        |                                 ID :: id(),
+        |                                 Module :: atom(),
+        |                                 Function :: fun(),
+        |                                 Timeout :: 'undefined' | pos_integer()) -&gt; any().
+        |  register_iq_response_handler(_Host, ID, Module, Function, Timeout0) -&gt;
+<font color=red>     0..|      Timeout = case Timeout0 of</font>
+        |                    undefined -&gt;
+<font color=red>     0..|                        ?IQ_TIMEOUT;</font>
+        |                    N when is_integer(N), N &gt; 0 -&gt;
+<font color=red>     0..|                        N</font>
+        |                end,
+<font color=red>     0..|      TRef = erlang:start_timer(Timeout, ejabberd_local, ID),</font>
+<font color=red>     0..|      mnesia:dirty_write(#iq_response{id = ID,</font>
+        |                                      module = Module,
+        |                                      function = Function,
+        |                                      timer = TRef}).
+        |  
+        |  -spec register_iq_handler(Host :: ejabberd:server(),
+        |                            XMLNS :: binary(),
+        |                            Module :: atom(),
+        |                            Function :: fun()) -&gt; {register_iq_handler,_,_,_,_}.
+        |  register_iq_handler(Host, XMLNS, Module, Fun) -&gt;
+<font color=red>     0..|      ejabberd_local ! {register_iq_handler, Host, XMLNS, Module, Fun}.</font>
+        |  
+        |  -spec register_iq_handler(Host :: ejabberd:server(),
+        |                            XMLNS :: binary(),
+        |                            Module :: atom(),
+        |                            Function :: fun(),
+        |                            Opts :: [any()]) -&gt; {register_iq_handler,_,_,_,_,_}.
+        |  register_iq_handler(Host, XMLNS, Module, Fun, Opts) -&gt;
+<font color=red>     0..|      ejabberd_local ! {register_iq_handler, Host, XMLNS, Module, Fun, Opts}.</font>
+        |  
+        |  -spec unregister_iq_response_handler(_Host :: ejabberd:server(),
+        |                                       ID :: id()) -&gt; 'ok'.
+        |  unregister_iq_response_handler(_Host, ID) -&gt;
+<font color=red>     0..|      catch get_iq_callback(ID),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec unregister_iq_handler(Host :: ejabberd:server(),
+        |                             XMLNS :: binary()) -&gt; {unregister_iq_handler,_,_}.
+        |  unregister_iq_handler(Host, XMLNS) -&gt;
+<font color=red>     0..|      ejabberd_local ! {unregister_iq_handler, Host, XMLNS}.</font>
+        |  
+        |  refresh_iq_handlers() -&gt;
+<font color=red>     0..|      ejabberd_local ! refresh_iq_handlers.</font>
+        |  
+        |  -spec bounce_resource_packet(From :: ejabberd:jid(),
+        |                               To :: ejabberd:jid(),
+        |                               Packet :: jlib:xmlel()) -&gt; 'stop'.
+        |  bounce_resource_packet(From, To, Packet) -&gt;
+<font color=red>     0..|      Err = jlib:make_error_reply(Packet, ?ERR_ITEM_NOT_FOUND),</font>
+<font color=red>     0..|      ejabberd_router:route(To, From, Err),</font>
+<font color=red>     0..|      stop.</font>
+        |  
+        |  -spec register_host(Host :: ejabberd:server()) -&gt; ok.
+        |  register_host(Host) -&gt;
+<font color=red>     0..|      gen_server:call(?MODULE,{register_host,Host}).</font>
+        |  
+        |  -spec unregister_host(Host :: ejabberd:server()) -&gt; ok.
+        |  unregister_host(Host) -&gt;
+<font color=red>     0..|      gen_server:call(?MODULE,{unregister_host,Host}).</font>
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  
+        |  node_cleanup(Node) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  Keys = mnesia:select(</font>
+        |                           iq_response,
+        |                           [{#iq_response{timer = '$1', id = '$2', _ = '_'},
+        |                             [{'==', {node, '$1'}, Node}],
+        |                             ['$2']}]),
+<font color=red>     0..|                  lists:foreach(fun(Key) -&gt;</font>
+<font color=red>     0..|                                        mnesia:delete({iq_response, Key})</font>
+        |                                end, Keys)
+        |          end,
+<font color=red>     0..|      mnesia:async_dirty(F).</font>
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  init([]) -&gt;
+<font color=red>     0..|      lists:foreach(fun do_register_host/1, ?MYHOSTS),</font>
+<font color=red>     0..|      catch ets:new(?IQTABLE, [named_table, public]),</font>
+<font color=red>     0..|      update_table(),</font>
+<font color=red>     0..|      mnesia:create_table(iq_response,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {attributes, record_info(fields, iq_response)}]),
+<font color=red>     0..|      mnesia:add_table_copy(iq_response, node(), ram_copies),</font>
+<font color=red>     0..|      ejabberd_hooks:add(node_cleanup, global, ?MODULE, node_cleanup, 50),</font>
+<font color=red>     0..|      {ok, #state{}}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call({unregister_host, Host}, _From, State) -&gt;
+<font color=red>     0..|      [ejabberd_c2s:stop(Pid)</font>
+<font color=red>     0..|       || {_, {_, Pid}, _, _} &lt;- ejabberd_sm:get_vh_session_list(Host)],</font>
+<font color=red>     0..|      do_unregister_host(Host),</font>
+<font color=red>     0..|      mongoose_metrics:remove_host_metrics(Host),</font>
+<font color=red>     0..|      {reply, ok, State};</font>
+        |  handle_call({register_host, Host}, _From, State) -&gt;
+<font color=red>     0..|      do_register_host(Host),</font>
+<font color=red>     0..|      mongoose_metrics:init_predefined_host_metrics(Host),</font>
+<font color=red>     0..|      {reply, ok, State};</font>
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info({route, From, To, Packet}, State) -&gt;
+<font color=red>     0..|      route(From, To, Packet),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info({register_iq_handler, Host, XMLNS, Module, Function}, State) -&gt;
+<font color=red>     0..|      ets:insert(?IQTABLE, {{XMLNS, Host}, Module, Function}),</font>
+<font color=red>     0..|      catch mod_disco:register_feature(Host, XMLNS),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info({register_iq_handler, Host, XMLNS, Module, Function, Opts}, State) -&gt;
+<font color=red>     0..|      ets:insert(?IQTABLE, {{XMLNS, Host}, Module, Function, Opts}),</font>
+<font color=red>     0..|      catch mod_disco:register_feature(Host, XMLNS),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info({unregister_iq_handler, Host, XMLNS}, State) -&gt;
+<font color=red>     0..|      case ets:lookup(?IQTABLE, {XMLNS, Host}) of</font>
+        |          [{_, Module, Function, Opts}] -&gt;
+<font color=red>     0..|              gen_iq_handler:stop_iq_handler(Module, Function, Opts);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      ets:delete(?IQTABLE, {XMLNS, Host}),</font>
+<font color=red>     0..|      catch mod_disco:unregister_feature(Host, XMLNS),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(refresh_iq_handlers, State) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(T) -&gt;
+<font color=red>     0..|                case T of</font>
+        |                    {{XMLNS, Host}, _Module, _Function, _Opts} -&gt;
+<font color=red>     0..|                        catch mod_disco:register_feature(Host, XMLNS);</font>
+        |                    {{XMLNS, Host}, _Module, _Function} -&gt;
+<font color=red>     0..|                        catch mod_disco:register_feature(Host, XMLNS);</font>
+        |                    _ -&gt;
+<font color=red>     0..|                        ok</font>
+        |                end
+        |        end, ets:tab2list(?IQTABLE)),
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info({timeout, _TRef, ID}, State) -&gt;
+<font color=red>     0..|      process_iq_timeout(ID),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(node_cleanup, global, ?MODULE, node_cleanup, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  -spec do_route(From :: ejabberd:jid(),
+        |                 To :: ejabberd:jid(),
+        |                 Packet :: jlib:xmlel()) -&gt; 'nothing' | 'ok' | 'todo' | pid()
+        |                                          | {'error','lager_not_running'}
+        |                                          | {'process_iq',_,_,_}.
+        |  do_route(From, To, Packet) -&gt;
+<font color=red>     0..|      ?DEBUG("local route~n\tfrom ~p~n\tto ~p~n\tpacket ~P~n",</font>
+        |             [From, To, Packet, 8]),
+<font color=red>     0..|      if</font>
+        |          To#jid.luser /= &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|              ejabberd_sm:route(From, To, Packet);</font>
+        |          To#jid.lresource == &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|              #xmlel{name = Name} = Packet,</font>
+<font color=red>     0..|              case Name of</font>
+        |                  &lt;&lt;"iq"&gt;&gt; -&gt;
+<font color=red>     0..|                      process_iq(From, To, Packet);</font>
+        |                  &lt;&lt;"message"&gt;&gt; -&gt;
+<font color=red>     0..|                      ok;</font>
+        |                  &lt;&lt;"presence"&gt;&gt; -&gt;
+<font color=red>     0..|                      ok;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end;
+        |          true -&gt;
+<font color=red>     0..|              #xmlel{attrs = Attrs} = Packet,</font>
+<font color=red>     0..|              case xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs) of</font>
+<font color=red>     0..|                  &lt;&lt;"error"&gt;&gt; -&gt; ok;</font>
+<font color=red>     0..|                  &lt;&lt;"result"&gt;&gt; -&gt; ok;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      ejabberd_hooks:run(local_send_to_resource_hook,</font>
+        |                                         To#jid.lserver,
+        |                                         [From, To, Packet])
+        |              end
+        |          end.
+        |  
+        |  -spec update_table() -&gt; ok | {atomic|aborted,_}.
+        |  update_table() -&gt;
+<font color=red>     0..|      case catch mnesia:table_info(iq_response, attributes) of</font>
+        |          [id, module, function] -&gt;
+<font color=red>     0..|              mnesia:delete_table(iq_response);</font>
+        |          [id, module, function, timer] -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {'EXIT', _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec get_iq_callback(ID :: id()) -&gt; 'error' | {'ok', Mod :: atom(), fun() | atom()}.
+        |  get_iq_callback(ID) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(iq_response, ID) of</font>
+        |          [#iq_response{module = Module, timer = TRef,
+        |                        function = Function}] -&gt;
+<font color=red>     0..|              cancel_timer(TRef),</font>
+<font color=red>     0..|              mnesia:dirty_delete(iq_response, ID),</font>
+<font color=red>     0..|              {ok, Module, Function};</font>
+        |          _ -&gt;
+<font color=red>     0..|              error</font>
+        |      end.
+        |  
+        |  -spec process_iq_timeout(id()) -&gt; id().
+        |  process_iq_timeout(ID) -&gt;
+<font color=red>     0..|      spawn(fun process_iq_timeout/0) ! ID.</font>
+        |  
+        |  -spec process_iq_timeout() -&gt; ok | any().
+        |  process_iq_timeout() -&gt;
+<font color=red>     0..|      receive</font>
+        |          ID -&gt;
+<font color=red>     0..|              case get_iq_callback(ID) of</font>
+        |                  {ok, undefined, Function} -&gt;
+<font color=red>     0..|                      Function(timeout);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end
+        |      after 5000 -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec cancel_timer(reference()) -&gt; 'ok'.
+        |  cancel_timer(TRef) -&gt;
+<font color=red>     0..|      case erlang:cancel_timer(TRef) of</font>
+        |          false -&gt;
+<font color=red>     0..|              receive</font>
+        |                  {timeout, TRef, _} -&gt;
+<font color=red>     0..|                      ok</font>
+        |              after 0 -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  do_register_host(Host) -&gt;
+<font color=red>     0..|      ejabberd_router:register_route(Host, {apply, ?MODULE, route}),</font>
+<font color=red>     0..|      ejabberd_hooks:add(local_send_to_resource_hook, Host,</font>
+        |                         ?MODULE, bounce_resource_packet, 100).
+        |  
+        |  do_unregister_host(Host) -&gt;
+<font color=red>     0..|      ejabberd_router:unregister_route(Host),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(local_send_to_resource_hook, Host,</font>
+        |                            ?MODULE, bounce_resource_packet, 100).
+        |  
+</pre>
+</body>
+</html>

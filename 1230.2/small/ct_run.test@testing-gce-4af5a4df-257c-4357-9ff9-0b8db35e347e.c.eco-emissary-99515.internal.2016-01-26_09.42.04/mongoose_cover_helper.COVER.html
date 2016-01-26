@@ -1,0 +1,81 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mongoose_cover_helper.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_cover_helper.erl by COVER 2016-01-26 at 09:42:32
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2014 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mongoose_cover_helper).
+        |  
+        |  
+        |  %% API
+        |  -export([start/1, analyze/0]).
+        |  
+        |  -spec start([atom()]) -&gt; list().
+        |  start(Apps) -&gt;
+<font color=red>     0..|      cover:start(),</font>
+<font color=red>     0..|      lists:flatmap(fun cover_compile_app/1, Apps).</font>
+        |  
+        |  analyze() -&gt;
+<font color=red>     0..|      NowList = jlib:now_to_utc_string(os:timestamp()),</font>
+<font color=red>     0..|      cover:export("/tmp/" ++ atom_to_list(node())++ "." ++ NowList ++".coverdata"),</font>
+<font color=red>     0..|      cover:stop().</font>
+        |  
+        |  cover_compile_app(App) -&gt;
+<font color=red>     0..|      do_cover_compile_app(App, code:lib_dir(App)).</font>
+        |  
+        |  do_cover_compile_app(App, {error, Error}) -&gt;
+<font color=red>     0..|      [{error, App, Error}];</font>
+        |  do_cover_compile_app(_App, AppPath) -&gt;
+<font color=red>     0..|      EbinDir = filename:join(AppPath, "ebin"),</font>
+<font color=red>     0..|      BeamFilter = fun</font>
+        |          %% modules not compatible with cover
+        |          (File) when File =:= "bin_to_hex.beam"; File =:= "cover.beam" -&gt;
+<font color=red>     0..|              false;</font>
+        |          (File) -&gt;
+<font color=red>     0..|              case filename:extension(File) of</font>
+<font color=red>     0..|                  ".beam" -&gt; true;</font>
+<font color=red>     0..|                  _ -&gt; false</font>
+        |              end
+        |      end,
+<font color=red>     0..|      case file:list_dir(EbinDir) of</font>
+        |          {ok, Files} -&gt;
+<font color=red>     0..|              BeamFileNames = lists:filter(BeamFilter, Files),</font>
+<font color=red>     0..|              BeamFiles = [filename:join(EbinDir, File) || File &lt;- BeamFileNames],</font>
+<font color=red>     0..|              compile_beams(BeamFiles, []);</font>
+        |          Error -&gt;
+<font color=red>     0..|              [{error, EbinDir, Error}]</font>
+        |      end.
+        |  
+        |  compile_beams([], Result) -&gt;
+<font color=red>     0..|      Result;</font>
+        |  compile_beams([File | Files], Result) -&gt;
+<font color=red>     0..|      case catch cover:compile_beam(File) of</font>
+        |          {ok, Module} -&gt;
+<font color=red>     0..|              compile_beams(Files, [Module | Result]);</font>
+        |          _E -&gt;
+<font color=red>     0..|              compile_beams(Files, Result)</font>
+        |      end.
+        |  
+</pre>
+</body>
+</html>

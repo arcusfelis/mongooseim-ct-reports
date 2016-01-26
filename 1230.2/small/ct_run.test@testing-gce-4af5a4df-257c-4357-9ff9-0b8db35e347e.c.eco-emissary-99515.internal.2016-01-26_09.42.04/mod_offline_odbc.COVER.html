@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_offline_odbc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_offline_odbc.erl by COVER 2016-01-26 at 09:42:33
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_offline_odbc.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Store and manage offline messages in relational database.
+        |  %%% Created :  5 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_offline_odbc).
+        |  -behaviour(mod_offline).
+        |  -export([init/2,
+        |           pop_messages/2,
+        |           write_messages/3,
+        |           count_offline_messages/3,
+        |           remove_expired_messages/1,
+        |           remove_old_messages/2,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_offline.hrl").
+        |  
+        |  -define(OFFLINE_TABLE_LOCK_THRESHOLD, 1000).
+        |  
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  pop_messages(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      To = jid:make(LUser, LServer, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      SUser = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SServer = ejabberd_odbc:escape(LServer),</font>
+<font color=red>     0..|      TimeStamp = now(),</font>
+<font color=red>     0..|      STimeStamp = encode_timestamp(TimeStamp),</font>
+<font color=red>     0..|      case odbc_queries:pop_offline_messages(LServer, SUser, SServer, STimeStamp) of</font>
+        |          {atomic, {selected, [&lt;&lt;"timestamp"&gt;&gt;,&lt;&lt;"from_jid"&gt;&gt;,&lt;&lt;"packet"&gt;&gt;], Rows}} -&gt;
+<font color=red>     0..|              {ok, rows_to_records(US, To, Rows)};</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  rows_to_records(US, To, Rows) -&gt;
+<font color=red>     0..|      [row_to_record(US, To, Row) || Row &lt;- Rows].</font>
+        |  
+        |  row_to_record(US, To, {STimeStamp, SFrom, SPacket}) -&gt;
+<font color=red>     0..|      {ok, Packet} = exml:parse(SPacket),</font>
+<font color=red>     0..|      TimeStamp = usec:to_now(binary_to_integer(STimeStamp)),</font>
+<font color=red>     0..|      From = jid:from_binary(SFrom),</font>
+<font color=red>     0..|      #offline_msg{us = US,</font>
+        |               timestamp = TimeStamp,
+        |               expire = never,
+        |               from = From,
+        |               to = To,
+        |               packet = Packet}.
+        |  
+        |  
+        |  write_messages(LUser, LServer, Msgs) -&gt;
+<font color=red>     0..|      SUser = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SServer = ejabberd_odbc:escape(LServer),</font>
+<font color=red>     0..|      write_all_messages_t(LServer, SUser, SServer, Msgs).</font>
+        |  
+        |  count_offline_messages(LUser, LServer, MaxArchivedMsgs) -&gt;
+<font color=red>     0..|      SUser = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SServer = ejabberd_odbc:escape(LServer),</font>
+<font color=red>     0..|      count_offline_messages(LServer, SUser, SServer, MaxArchivedMsgs + 1).</font>
+        |  
+        |  write_all_messages_t(LServer, SUser, SServer, Msgs) -&gt;
+<font color=red>     0..|      Rows = [record_to_row(SUser, SServer, Msg) || Msg &lt;- Msgs],</font>
+<font color=red>     0..|      case catch odbc_queries:push_offline_messages(LServer, Rows) of</font>
+        |          {updated, _} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  record_to_row(SUser, SServer, #offline_msg{
+        |          from = From, packet = Packet, timestamp = TimeStamp, expire = Expire}) -&gt;
+<font color=red>     0..|      SFrom = ejabberd_odbc:escape(jid:to_binary(From)),</font>
+<font color=red>     0..|      SPacket = ejabberd_odbc:escape(exml:to_binary(Packet)),</font>
+<font color=red>     0..|      STimeStamp = encode_timestamp(TimeStamp),</font>
+<font color=red>     0..|      SExpire = maybe_encode_timestamp(Expire),</font>
+<font color=red>     0..|      odbc_queries:prepare_offline_message(SUser, SServer, STimeStamp, SExpire, SFrom, SPacket).</font>
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      SUser   = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SServer = ejabberd_odbc:escape(LServer),</font>
+<font color=red>     0..|      odbc_queries:remove_offline_messages(LServer, SUser, SServer).</font>
+        |  
+        |  -spec remove_expired_messages(ejabberd:lserver()) -&gt; {error, term()} | {ok, HowManyRemoved} when
+        |      HowManyRemoved :: integer().
+        |  remove_expired_messages(LServer) -&gt;
+<font color=red>     0..|      TimeStamp = now(),</font>
+<font color=red>     0..|      STimeStamp = encode_timestamp(TimeStamp),</font>
+<font color=red>     0..|      Result = odbc_queries:remove_expired_offline_messages(LServer, STimeStamp),</font>
+<font color=red>     0..|      case Result of</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          {updated, Count} -&gt;
+<font color=red>     0..|              {ok, Count}</font>
+        |      end.
+        |  -spec remove_old_messages(LServer, Timestamp) -&gt;
+        |      {error, term()} | {ok, HowManyRemoved} when
+        |      LServer :: ejabberd:lserver(),
+        |      Timestamp :: erlang:timestamp(),
+        |      HowManyRemoved :: integer().
+        |  remove_old_messages(LServer, TimeStamp) -&gt;
+<font color=red>     0..|      STimeStamp = encode_timestamp(TimeStamp),</font>
+<font color=red>     0..|      Result = odbc_queries:remove_old_offline_messages(LServer, STimeStamp),</font>
+<font color=red>     0..|      case Result of</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          {updated, Count} -&gt;
+<font color=red>     0..|              {ok, Count}</font>
+        |      end.
+        |  
+        |  count_offline_messages(LServer, SUser, SServer, Limit) -&gt;
+<font color=red>     0..|      case odbc_queries:count_offline_messages(LServer, SUser, SServer, Limit) of</font>
+        |          {selected, [_], [{Count}]} -&gt;
+<font color=red>     0..|              ejabberd_odbc:result_to_integer(Count);</font>
+        |          Error -&gt;
+<font color=red>     0..|              ?ERROR_MSG("count_offline_messages failed ~p", [Error]),</font>
+<font color=red>     0..|              0</font>
+        |      end.
+        |  
+        |  encode_timestamp(TimeStamp) -&gt;
+<font color=red>     0..|      integer_to_list(usec:from_now(TimeStamp)).</font>
+        |  
+        |  maybe_encode_timestamp(never) -&gt;
+<font color=red>     0..|      "null";</font>
+        |  maybe_encode_timestamp(TimeStamp) -&gt;
+<font color=red>     0..|      encode_timestamp(TimeStamp).</font>
+        |  
+</pre>
+</body>
+</html>

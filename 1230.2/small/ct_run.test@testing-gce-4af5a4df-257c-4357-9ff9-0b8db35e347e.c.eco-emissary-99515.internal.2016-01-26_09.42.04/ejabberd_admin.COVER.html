@@ -1,0 +1,500 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/ejabberd_admin.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_admin.erl by COVER 2016-01-26 at 09:42:38
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : ejabberd_admin.erl
+        |  %%% Author  : Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%% Purpose : Administrative functions and commands
+        |  %%% Created :  7 May 2006 by Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_admin).
+        |  -author('mickael.remond@process-one.net').
+        |  
+        |  -export([start/0, stop/0,
+        |           %% Server
+        |           status/0,
+        |           send_service_message_all_mucs/2,
+        |           %% Accounts
+        |           register/3, unregister/2,
+        |           registered_users/1,
+        |           %% Purge DB
+        |           delete_expired_messages/0, delete_old_messages/1,
+        |           %% Mnesia
+        |           set_master/1,
+        |           backup_mnesia/1, restore_mnesia/1,
+        |           dump_mnesia/1, dump_table/2, load_mnesia/1,
+        |           install_fallback_mnesia/1,
+        |           dump_to_textfile/1, dump_to_textfile/2,
+        |           mnesia_change_nodename/4,
+        |           restore/1, % Still used by some modules%%
+        |           get_loglevel/0]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  
+        |  start() -&gt;
+<font color=red>     0..|      ejabberd_commands:register_commands(commands()).</font>
+        |  
+        |  stop() -&gt;
+<font color=red>     0..|      ejabberd_commands:unregister_commands(commands()).</font>
+        |  
+        |  %%%
+        |  %%% ejabberd commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd()].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |       %% The commands status, stop and restart are implemented also in ejabberd_ctl
+        |       %% They are defined here so that other interfaces can use them too
+        |       #ejabberd_commands{name = status, tags = [server],
+        |                          desc = "Get status of the ejabberd server",
+        |                          module = ?MODULE, function = status,
+        |                          args = [], result = {res, restuple}},
+        |       #ejabberd_commands{name = stop, tags = [server],
+        |                          desc = "Stop ejabberd gracefully",
+        |                          module = init, function = stop,
+        |                          args = [], result = {res, rescode}},
+        |       #ejabberd_commands{name = restart, tags = [server],
+        |                          desc = "Restart ejabberd gracefully",
+        |                          module = init, function = restart,
+        |                          args = [], result = {res, rescode}},
+        |       #ejabberd_commands{name = get_loglevel, tags = [logs, server],
+        |                          desc = "Get the current loglevel",
+        |                          module = ?MODULE, function = get_loglevel,
+        |                          args = [],
+        |                          result = {res, restuple}},
+        |       #ejabberd_commands{name = register, tags = [accounts],
+        |                          desc = "Register a user",
+        |                          module = ?MODULE, function = register,
+        |                          args = [{user, binary}, {host, binary}, {password, binary}],
+        |                          result = {res, restuple}},
+        |       #ejabberd_commands{name = unregister, tags = [accounts],
+        |                          desc = "Unregister a user",
+        |                          module = ?MODULE, function = unregister,
+        |                          args = [{user, binary}, {host, binary}],
+        |                          result = {res, restuple}},
+        |       #ejabberd_commands{name = registered_users, tags = [accounts],
+        |                          desc = "List all registered users in HOST",
+        |                          module = ?MODULE, function = registered_users,
+        |                          args = [{host, binary}],
+        |                          result = {users, {list, {username, binary}}}},
+        |       #ejabberd_commands{name = delete_expired_messages, tags = [purge],
+        |                          desc = "Delete expired offline messages from database",
+        |                          module = ?MODULE, function = delete_expired_messages,
+        |                          args = [], result = {res, restuple}},
+        |       #ejabberd_commands{name = delete_old_messages, tags = [purge],
+        |                          desc = "Delete offline messages older than DAYS",
+        |                          module = ?MODULE, function = delete_old_messages,
+        |                          args = [{days, integer}], result = {res, restuple}},
+        |       #ejabberd_commands{name = set_master, tags = [mnesia],
+        |                          desc = "Set master node of the clustered Mnesia tables",
+        |                          longdesc = "If you provide as nodename \"self\", this "
+        |                          "node will be set as its own master.",
+        |                          module = ?MODULE, function = set_master,
+        |                          args = [{nodename, string}], result = {res, restuple}},
+        |       #ejabberd_commands{name = mnesia_change_nodename, tags = [mnesia],
+        |                          desc = "Change the erlang node name in a backup file",
+        |                          module = ?MODULE, function = mnesia_change_nodename,
+        |                          args = [{oldnodename, string}, {newnodename, string},
+        |                                  {oldbackup, string}, {newbackup, string}],
+        |                          result = {res, restuple}},
+        |       #ejabberd_commands{name = backup, tags = [mnesia],
+        |                          desc = "Store the database to backup file (only Mnesia)",
+        |                          module = ?MODULE, function = backup_mnesia,
+        |                          args = [{file, string}], result = {res, restuple}},
+        |       #ejabberd_commands{name = restore, tags = [mnesia],
+        |                          desc = "Restore the database from backup file (only Mnesia)",
+        |                          module = ?MODULE, function = restore_mnesia,
+        |                          args = [{file, string}], result = {res, restuple}},
+        |       #ejabberd_commands{name = dump, tags = [mnesia],
+        |                          desc = "Dump the database to text file (only Mnesia)",
+        |                          module = ?MODULE, function = dump_mnesia,
+        |                          args = [{file, string}], result = {res, restuple}},
+        |       #ejabberd_commands{name = dump_table, tags = [mnesia],
+        |                          desc = "Dump a table to text file (only Mnesia)",
+        |                          module = ?MODULE, function = dump_table,
+        |                          args = [{file, string}, {table, string}], result = {res, restuple}},
+        |       #ejabberd_commands{name = load, tags = [mnesia],
+        |                          desc = "Restore the database from text file (only Mnesia)",
+        |                          module = ?MODULE, function = load_mnesia,
+        |                          args = [{file, string}], result = {res, restuple}},
+        |       #ejabberd_commands{name = install_fallback, tags = [mnesia],
+        |                          desc = "Install the database from a fallback file (only Mnesia)",
+        |                          module = ?MODULE, function = install_fallback_mnesia,
+        |                          args = [{file, string}], result = {res, restuple}},
+        |       #ejabberd_commands{name = reload_local, tags = [server],
+        |                          desc = "Reload configuration file on the current node",
+        |                          module = ejabberd_config, function = reload_local,
+        |                          args = [], result = {res, restuple}},
+        |       #ejabberd_commands{name = reload_cluster, tags = [server],
+        |                          desc = "Reload configuration file in the cluster",
+        |                          module = ejabberd_config, function = reload_cluster,
+        |                          args = [], result = {res, restuple}}
+        |      ].
+        |  
+        |  
+        |  %%%
+        |  %%% Server management
+        |  %%%
+        |  
+        |  -spec status() -&gt; {'ejabberd_not_running', io_lib:chars()} | {'ok', io_lib:chars()}.
+        |  status() -&gt;
+<font color=red>     0..|      {InternalStatus, ProvidedStatus} = init:get_status(),</font>
+<font color=red>     0..|      String1 = io_lib:format("The node ~p is ~p. Status: ~p",</font>
+        |                              [node(), InternalStatus, ProvidedStatus]),
+<font color=red>     0..|      {Is_running, String2} =</font>
+        |          case lists:keysearch(ejabberd, 1, application:which_applications()) of
+        |              false -&gt;
+<font color=red>     0..|                  {ejabberd_not_running, "ejabberd is not running in that node."};</font>
+        |              {value, {_, _, Version}} -&gt;
+<font color=red>     0..|                  {ok, io_lib:format("ejabberd ~s is running in that node", [Version])}</font>
+        |          end,
+<font color=red>     0..|      {Is_running, String1 ++ String2}.</font>
+        |  
+        |  
+        |  -spec send_service_message_all_mucs(Subject :: string() | binary(),
+        |                                AnnouncementText :: string() | binary()) -&gt; 'ok'.
+        |  send_service_message_all_mucs(Subject, AnnouncementText) -&gt;
+<font color=red>     0..|      Message = io_lib:format("~s~n~s", [Subject, AnnouncementText]),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(ServerHost) -&gt;
+<font color=red>     0..|                MUCHost = gen_mod:get_module_opt_host(</font>
+        |                            ServerHost, mod_muc, "conference.@HOST@"),
+<font color=red>     0..|                mod_muc:broadcast_service_message(MUCHost, Message)</font>
+        |        end,
+        |        ?MYHOSTS).
+        |  
+        |  %%%
+        |  %%% Account management
+        |  %%%
+        |  
+        |  -spec register(User :: ejabberd:user(),
+        |                 Host :: ejabberd:server(),
+        |                 Password :: binary()) -&gt; {'cannot_register', io_lib:chars()}
+        |                                        | {'exists', io_lib:chars()}
+        |                                        | {'ok', io_lib:chars()}.
+        |  register(User, Host, Password) -&gt;
+<font color=red>     0..|      case ejabberd_auth:try_register(User, Host, Password) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, io_lib:format("User ~s@~s successfully registered", [User, Host])};</font>
+        |          {error, exists} -&gt;
+<font color=red>     0..|              String = io_lib:format("User ~s@~s already registered at node ~p",</font>
+        |                                     [User, Host, node()]),
+<font color=red>     0..|              {exists, String};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't register user ~s@~s at node ~p: ~p",</font>
+        |                                     [User, Host, node(), Reason]),
+<font color=red>     0..|              {cannot_register, String}</font>
+        |      end.
+        |  
+        |  
+        |  -spec unregister(User :: ejabberd:user(),
+        |                   Host :: ejabberd:server()) -&gt; {'ok', []}.
+        |  unregister(User, Host) -&gt;
+<font color=red>     0..|      ejabberd_auth:remove_user(User, Host),</font>
+<font color=red>     0..|      {ok, ""}.</font>
+        |  
+        |  -spec registered_users(Host :: ejabberd:server()) -&gt; [ejabberd:user()].
+        |  registered_users(Host) -&gt;
+<font color=red>     0..|      Users = ejabberd_auth:get_vh_registered_users(Host),</font>
+<font color=red>     0..|      SUsers = lists:sort(Users),</font>
+<font color=red>     0..|      lists:map(fun({U, _S}) -&gt; U end, SUsers).</font>
+        |  
+        |  get_loglevel() -&gt;
+<font color=red>     0..|      BackendList = ejabberd_loglevel:get(),</font>
+<font color=red>     0..|      F = fun({Backend, Level}) -&gt;</font>
+<font color=red>     0..|          {Number, Name} = Level,</font>
+<font color=red>     0..|          io_lib:format("loglevel for ~p is ~p which is '~p'",</font>
+        |                        [Backend, Number, Name])
+        |          end,
+<font color=red>     0..|      StringList = lists:map(F, BackendList),</font>
+<font color=red>     0..|      JoinedList = string:join(StringList, "\n"),</font>
+<font color=red>     0..|      {ok, JoinedList}.</font>
+        |  
+        |  %%%
+        |  %%% Purge DB
+        |  %%%
+        |  
+        |  -spec delete_expired_messages() -&gt; {ok, iolist()} | {error, iolist()}.
+        |  delete_expired_messages() -&gt;
+<font color=red>     0..|      case mod_offline:remove_expired_messages(?MYNAME) of</font>
+        |          {ok, C} -&gt;
+<font color=red>     0..|              {ok, io_lib:format("Removed ~p messages", [C])};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, io_lib:format("Can't delete expired messages: ~n~p", [Reason])}</font>
+        |      end.
+        |  
+        |  -spec delete_old_messages(Days :: integer()) -&gt; {ok, iolist()} | {error, iolist()}.
+        |  delete_old_messages(Days) -&gt;
+<font color=red>     0..|      case mod_offline:remove_old_messages(?MYNAME, Days) of</font>
+        |          {ok, C} -&gt;
+<font color=red>     0..|              {ok, io_lib:format("Removed ~p messages", [C])};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, io_lib:format("Can't remove old messages: ~n~p", [Reason])}</font>
+        |      end.
+        |  
+        |  
+        |  %%%
+        |  %%% Mnesia management
+        |  %%%
+        |  
+        |  -spec set_master(Node :: atom() | string()) -&gt; {'error', io_lib:chars()} | {'ok',[]}.
+        |  set_master("self") -&gt;
+<font color=red>     0..|      set_master(node());</font>
+        |  set_master(NodeString) when is_list(NodeString) -&gt;
+<font color=red>     0..|      set_master(list_to_atom(NodeString));</font>
+        |  set_master(Node) when is_atom(Node) -&gt;
+<font color=red>     0..|      case mnesia:set_master_nodes([Node]) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, ""};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't set master node ~p at node ~p:~n~p",</font>
+        |                                     [Node, node(), Reason]),
+<font color=red>     0..|              {error, String}</font>
+        |      end.
+        |  
+        |  -spec backup_mnesia(file:name()) -&gt; {'cannot_backup', io_lib:chars()} | {'ok',[]}.
+        |  backup_mnesia(Path) -&gt;
+<font color=red>     0..|      case mnesia:backup(Path) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, ""};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't store backup in ~p at node ~p: ~p",</font>
+        |                                     [filename:absname(Path), node(), Reason]),
+<font color=red>     0..|              {cannot_backup, String}</font>
+        |      end.
+        |  
+        |  -spec restore_mnesia(file:name()) -&gt; {'cannot_restore', io_lib:chars()}
+        |                                     | {'file_not_found', io_lib:chars()}
+        |                                     | {'ok',[]}
+        |                                     | {'table_not_exists', io_lib:chars()}.
+        |  restore_mnesia(Path) -&gt;
+<font color=red>     0..|      case ejabberd_admin:restore(Path) of</font>
+        |          {atomic, _} -&gt;
+<font color=red>     0..|              {ok, ""};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't restore backup from ~p at node ~p: ~p",</font>
+        |                                     [filename:absname(Path), node(), Reason]),
+<font color=red>     0..|              {cannot_restore, String};</font>
+        |          {aborted,{no_exists,Table}} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't restore backup from ~p at node ~p: Table ~p does not exist.",</font>
+        |                                     [filename:absname(Path), node(), Table]),
+<font color=red>     0..|              {table_not_exists, String};</font>
+        |          {aborted,enoent} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't restore backup from ~p at node ~p: File not found.",</font>
+        |                                     [filename:absname(Path), node()]),
+<font color=red>     0..|              {file_not_found, String}</font>
+        |      end.
+        |  
+        |  %% @doc Mnesia database restore
+        |  %% This function is called from ejabberd_ctl, ejabberd_web_admin and
+        |  %% mod_configure/adhoc
+        |  restore(Path) -&gt;
+<font color=red>     0..|      mnesia:restore(Path, [{keep_tables,keep_tables()},</font>
+        |                            {default_op, skip_tables}]).
+        |  
+        |  %% @doc This function return a list of tables that should be kept from a
+        |  %% previous version backup.
+        |  %% Obsolete tables or tables created by module who are no longer used are not
+        |  %% restored and are ignored.
+        |  -spec keep_tables() -&gt; [atom()].
+        |  keep_tables() -&gt;
+<font color=red>     0..|      lists:flatten([acl, passwd, config, local_config, disco_publish,</font>
+        |                     keep_modules_tables()]).
+        |  
+        |  %% @doc Returns the list of modules tables in use, according to the list of
+        |  %% actually loaded modules
+        |  -spec keep_modules_tables() -&gt; [[atom()]]. % list of lists
+        |  keep_modules_tables() -&gt;
+<font color=red>     0..|      lists:map(fun(Module) -&gt; module_tables(Module) end,</font>
+        |                gen_mod:loaded_modules(?MYNAME)).
+        |  
+        |  %% TODO: This mapping should probably be moved to a callback function in each module.
+        |  %% @doc Mapping between modules and their tables
+        |  -spec module_tables(_) -&gt; [atom()].
+<font color=red>     0..|  module_tables(mod_announce) -&gt; [motd, motd_users];</font>
+<font color=red>     0..|  module_tables(mod_irc) -&gt; [irc_custom];</font>
+<font color=red>     0..|  module_tables(mod_last) -&gt; [last_activity];</font>
+<font color=red>     0..|  module_tables(mod_muc) -&gt; [muc_room, muc_registered];</font>
+<font color=red>     0..|  module_tables(mod_offline) -&gt; [offline_msg];</font>
+<font color=red>     0..|  module_tables(mod_privacy) -&gt; [privacy];</font>
+<font color=red>     0..|  module_tables(mod_private) -&gt; [private_storage];</font>
+<font color=red>     0..|  module_tables(mod_pubsub) -&gt; [pubsub_node];</font>
+<font color=red>     0..|  module_tables(mod_roster) -&gt; [roster];</font>
+<font color=red>     0..|  module_tables(mod_shared_roster) -&gt; [sr_group, sr_user];</font>
+<font color=red>     0..|  module_tables(mod_vcard) -&gt; [vcard, vcard_search];</font>
+<font color=red>     0..|  module_tables(_Other) -&gt; [].</font>
+        |  
+        |  -spec get_local_tables() -&gt; [any()].
+        |  get_local_tables() -&gt;
+<font color=red>     0..|      Tabs1 = lists:delete(schema, mnesia:system_info(local_tables)),</font>
+<font color=red>     0..|      Tabs = lists:filter(</font>
+        |               fun(T) -&gt;
+<font color=red>     0..|                       case mnesia:table_info(T, storage_type) of</font>
+<font color=red>     0..|                           disc_copies -&gt; true;</font>
+<font color=red>     0..|                           disc_only_copies -&gt; true;</font>
+<font color=red>     0..|                           _ -&gt; false</font>
+        |                       end
+        |               end, Tabs1),
+<font color=red>     0..|      Tabs.</font>
+        |  
+        |  -spec dump_mnesia(file:name()) -&gt; {'cannot_dump', io_lib:chars()} | {'ok', []}.
+        |  dump_mnesia(Path) -&gt;
+<font color=red>     0..|      Tabs = get_local_tables(),</font>
+<font color=red>     0..|      dump_tables(Path, Tabs).</font>
+        |  
+        |  -spec dump_table(file:name(), STable :: string()) -&gt;
+        |                          {'cannot_dump', io_lib:chars()} | {'ok', []}.
+        |  dump_table(Path, STable) -&gt;
+<font color=red>     0..|      Table = list_to_atom(STable),</font>
+<font color=red>     0..|      dump_tables(Path, [Table]).</font>
+        |  
+        |  -spec dump_tables(file:name(), Tables :: [atom()]) -&gt;
+        |                          {'cannot_dump', io_lib:chars()} | {'ok', []}.
+        |  dump_tables(Path, Tables) -&gt;
+<font color=red>     0..|      case dump_to_textfile(Path, Tables) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, ""};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't store dump in ~p at node ~p: ~p",</font>
+        |                                     [filename:absname(Path), node(), Reason]),
+<font color=red>     0..|              {cannot_dump, String}</font>
+        |      end.
+        |  
+        |  -spec dump_to_textfile(file:name()) -&gt; 'ok' | {'error',atom()}.
+        |  dump_to_textfile(File) -&gt;
+<font color=red>     0..|      Tabs = get_local_tables(),</font>
+<font color=red>     0..|      dump_to_textfile(File, Tabs).</font>
+        |  
+        |  -spec dump_to_textfile(file:name(), Tabs :: list()) -&gt; 'ok' | {'error',atom()}.
+        |  dump_to_textfile(File, Tabs) -&gt;
+<font color=red>     0..|      dump_to_textfile(mnesia:system_info(is_running), Tabs, file:open(File, [write])).</font>
+        |  
+        |  -spec dump_to_textfile(any(),
+        |                        any(),
+        |                        {'error',atom()} | {'ok',pid() | {'file_descriptor',atom() | tuple(),_}}
+        |                        ) -&gt; 'ok' | {'error',atom()}.
+        |  dump_to_textfile(yes, Tabs, {ok, F}) -&gt;
+<font color=red>     0..|      Defs = lists:map(</font>
+<font color=red>     0..|               fun(T) -&gt; {T, [{record_name, mnesia:table_info(T, record_name)},</font>
+        |                              {attributes, mnesia:table_info(T, attributes)}]}
+        |               end,
+        |               Tabs),
+<font color=red>     0..|      io:format(F, "~p.~n", [{tables, Defs}]),</font>
+<font color=red>     0..|      lists:foreach(fun(T) -&gt; dump_tab(F, T) end, Tabs),</font>
+<font color=red>     0..|      file:close(F);</font>
+        |  dump_to_textfile(_, _, {ok, F}) -&gt;
+<font color=red>     0..|      file:close(F),</font>
+<font color=red>     0..|      {error, mnesia_not_running};</font>
+        |  dump_to_textfile(_, _, {error, Reason}) -&gt;
+<font color=red>     0..|      {error, Reason}.</font>
+        |  
+        |  -spec dump_tab(pid(),atom()) -&gt; 'ok'.
+        |  dump_tab(F, T) -&gt;
+<font color=red>     0..|      W = mnesia:table_info(T, wild_pattern),</font>
+<font color=red>     0..|      {atomic,All} = mnesia:transaction(</font>
+<font color=red>     0..|                       fun() -&gt; mnesia:match_object(T, W, read) end),</font>
+<font color=red>     0..|      lists:foreach(</font>
+<font color=red>     0..|        fun(Term) -&gt; io:format(F,"~p.~n", [setelement(1, Term, T)]) end, All).</font>
+        |  
+        |  -spec load_mnesia(file:name()) -&gt; {'cannot_load', io_lib:chars()} | {'ok', []}.
+        |  load_mnesia(Path) -&gt;
+<font color=red>     0..|      case mnesia:load_textfile(Path) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              {ok, ""};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't load dump in ~p at node ~p: ~p",</font>
+        |                                     [filename:absname(Path), node(), Reason]),
+<font color=red>     0..|              {cannot_load, String}</font>
+        |      end.
+        |  
+        |  -spec install_fallback_mnesia(file:name()) -&gt;
+        |                          {'cannot_fallback', io_lib:chars()} | {'ok',[]}.
+        |  install_fallback_mnesia(Path) -&gt;
+<font color=red>     0..|      case mnesia:install_fallback(Path) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, ""};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              String = io_lib:format("Can't install fallback from ~p at node ~p: ~p",</font>
+        |                                     [filename:absname(Path), node(), Reason]),
+<font color=red>     0..|              {cannot_fallback, String}</font>
+        |      end.
+        |  
+        |  -spec mnesia_change_nodename(string(),string(),_,_) -&gt; {ok,_} | {error,_}.
+        |  mnesia_change_nodename(FromString, ToString, Source, Target) -&gt;
+<font color=red>     0..|      From = list_to_atom(FromString),</font>
+<font color=red>     0..|      To = list_to_atom(ToString),</font>
+<font color=red>     0..|      Switch =</font>
+        |          fun
+        |              (Node) when Node == From -&gt;
+<font color=red>     0..|                  io:format("     - Replacing nodename: '~p' with: '~p'~n", [From, To]),</font>
+<font color=red>     0..|                  To;</font>
+        |              (Node) when Node == To -&gt;
+        |                  %% throw({error, already_exists});
+<font color=red>     0..|                  io:format("     - Node: '~p' will not be modified (it is already '~p')~n", [Node, To]),</font>
+<font color=red>     0..|                  Node;</font>
+        |              (Node) -&gt;
+<font color=red>     0..|                  io:format("     - Node: '~p' will not be modified (it is not '~p')~n", [Node, From]),</font>
+<font color=red>     0..|                  Node</font>
+        |          end,
+<font color=red>     0..|      Convert =</font>
+        |          fun
+        |              ({schema, db_nodes, Nodes}, Acc) -&gt;
+<font color=red>     0..|                  io:format(" +++ db_nodes ~p~n", [Nodes]),</font>
+<font color=red>     0..|                  {[{schema, db_nodes, lists:map(Switch,Nodes)}], Acc};</font>
+        |              ({schema, version, Version}, Acc) -&gt;
+<font color=red>     0..|                  io:format(" +++ version: ~p~n", [Version]),</font>
+<font color=red>     0..|                  {[{schema, version, Version}], Acc};</font>
+        |              ({schema, cookie, Cookie}, Acc) -&gt;
+<font color=red>     0..|                  io:format(" +++ cookie: ~p~n", [Cookie]),</font>
+<font color=red>     0..|                  {[{schema, cookie, Cookie}], Acc};</font>
+        |              ({schema, Tab, CreateList}, Acc) -&gt;
+<font color=red>     0..|                  io:format("~n * Checking table: '~p'~n", [Tab]),</font>
+<font color=red>     0..|                  Keys = [ram_copies, disc_copies, disc_only_copies],</font>
+<font color=red>     0..|                  OptSwitch =</font>
+        |                      fun({Key, Val}) -&gt;
+<font color=red>     0..|                              case lists:member(Key, Keys) of</font>
+        |                                  true -&gt;
+<font color=red>     0..|                                      io:format("   + Checking key: '~p'~n", [Key]),</font>
+<font color=red>     0..|                                      {Key, lists:map(Switch, Val)};</font>
+<font color=red>     0..|                                  false-&gt; {Key, Val}</font>
+        |                              end
+        |                      end,
+<font color=red>     0..|                  Res = {[{schema, Tab, lists:map(OptSwitch, CreateList)}], Acc},</font>
+<font color=red>     0..|                  Res;</font>
+        |              (Other, Acc) -&gt;
+<font color=red>     0..|                  {[Other], Acc}</font>
+        |          end,
+<font color=red>     0..|      mnesia:traverse_backup(Source, Target, Convert, switched).</font>
+</pre>
+</body>
+</html>

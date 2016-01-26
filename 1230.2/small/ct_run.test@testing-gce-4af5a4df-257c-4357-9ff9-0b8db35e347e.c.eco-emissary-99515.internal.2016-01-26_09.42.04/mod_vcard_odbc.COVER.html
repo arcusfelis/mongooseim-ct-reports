@@ -1,0 +1,232 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_vcard_odbc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_vcard_odbc.erl by COVER 2016-01-26 at 09:42:33
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_vcard.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : vCard support via ODBC
+        |  %%% Created :  2 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_vcard_odbc).
+        |  
+        |  -behaviour(mod_vcard).
+        |  
+        |  %% mod_vcards callbacks
+        |  -export([init/2,
+        |           remove_user/2,
+        |           get_vcard/2,
+        |           set_vcard/4,
+        |           search/2,
+        |           search_fields/1,
+        |           search_reported_fields/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_vcard.hrl").
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mod_vcards callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  init(_VHost, _Options) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      ejabberd_odbc:sql_transaction(</font>
+        |        LServer,
+        |        [["delete from vcard where username='", Username, "';"],
+        |         ["delete from vcard_search where lusername='", Username, "';"]]).
+        |  
+        |  get_vcard(LUser, LServer) -&gt;
+<font color=red>     0..|      U = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      S = ejabberd_odbc:escape(LServer),</font>
+<font color=red>     0..|      case odbc_queries:get_vcard(S,U) of</font>
+        |          {selected, [&lt;&lt;"vcard"&gt;&gt;], [{SVCARD}]} -&gt;
+<font color=red>     0..|              case exml:parse(SVCARD) of</font>
+        |                  {error, Reason} -&gt;
+<font color=red>     0..|                      ?WARNING_MSG("not sending bad vcard xml ~p~n~p",[Reason,SVCARD]),</font>
+<font color=red>     0..|                      {error, ?ERR_SERVICE_UNAVAILABLE};</font>
+        |  		{ok, VCARD} -&gt;
+<font color=red>     0..|                      {ok, [VCARD]}</font>
+        |              end;
+        |          {selected, [&lt;&lt;"vcard"&gt;&gt;],[]} -&gt;
+<font color=red>     0..|              {error, ?ERR_SERVICE_UNAVAILABLE}</font>
+        |      end.
+        |  
+        |  set_vcard(User, VHost, VCard, VCardSearch) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      Username = ejabberd_odbc:escape(User),</font>
+<font color=red>     0..|      LUsername = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      LServer = ejabberd_odbc:escape(VHost),</font>
+<font color=red>     0..|      SVCARD = ejabberd_odbc:escape( exml:to_binary(VCard)),</font>
+        |  
+<font color=red>     0..|      SFN = ejabberd_odbc:escape(VCardSearch#vcard_search.fn),</font>
+<font color=red>     0..|      SLFN = ejabberd_odbc:escape(VCardSearch#vcard_search.lfn),</font>
+<font color=red>     0..|      SFamily = ejabberd_odbc:escape(VCardSearch#vcard_search.family),</font>
+<font color=red>     0..|      SLFamily = ejabberd_odbc:escape(VCardSearch#vcard_search.lfamily),</font>
+<font color=red>     0..|      SGiven = ejabberd_odbc:escape(VCardSearch#vcard_search.given),</font>
+<font color=red>     0..|      SLGiven = ejabberd_odbc:escape(VCardSearch#vcard_search.lgiven),</font>
+<font color=red>     0..|      SMiddle = ejabberd_odbc:escape(VCardSearch#vcard_search.middle),</font>
+<font color=red>     0..|      SLMiddle = ejabberd_odbc:escape(VCardSearch#vcard_search.lmiddle),</font>
+<font color=red>     0..|      SNickname = ejabberd_odbc:escape(VCardSearch#vcard_search.nickname),</font>
+<font color=red>     0..|      SLNickname = ejabberd_odbc:escape(VCardSearch#vcard_search.lnickname),</font>
+<font color=red>     0..|      SBDay = ejabberd_odbc:escape(VCardSearch#vcard_search.bday),</font>
+<font color=red>     0..|      SLBDay = ejabberd_odbc:escape(VCardSearch#vcard_search.lbday),</font>
+<font color=red>     0..|      SCTRY = ejabberd_odbc:escape(VCardSearch#vcard_search.ctry),</font>
+<font color=red>     0..|      SLCTRY = ejabberd_odbc:escape(VCardSearch#vcard_search.lctry),</font>
+<font color=red>     0..|      SLocality = ejabberd_odbc:escape(VCardSearch#vcard_search.locality),</font>
+<font color=red>     0..|      SLLocality = ejabberd_odbc:escape(VCardSearch#vcard_search.llocality),</font>
+<font color=red>     0..|      SEMail = ejabberd_odbc:escape(VCardSearch#vcard_search.email),</font>
+<font color=red>     0..|      SLEMail = ejabberd_odbc:escape(VCardSearch#vcard_search.lemail),</font>
+<font color=red>     0..|      SOrgName = ejabberd_odbc:escape(VCardSearch#vcard_search.orgname),</font>
+<font color=red>     0..|      SLOrgName = ejabberd_odbc:escape(VCardSearch#vcard_search.lorgname),</font>
+<font color=red>     0..|      SOrgUnit = ejabberd_odbc:escape(VCardSearch#vcard_search.orgunit),</font>
+<font color=red>     0..|      SLOrgUnit = ejabberd_odbc:escape(VCardSearch#vcard_search.lorgunit),</font>
+        |  
+<font color=red>     0..|      odbc_queries:set_vcard(LServer, LUsername, SBDay, SCTRY, SEMail,</font>
+        |                             SFN, SFamily, SGiven, SLBDay, SLCTRY,
+        |                             SLEMail, SLFN, SLFamily, SLGiven,
+        |                             SLLocality, SLMiddle, SLNickname,
+        |                             SLOrgName, SLOrgUnit, SLocality,
+        |                             SMiddle, SNickname, SOrgName,
+        |                             SOrgUnit, SVCARD, Username),
+        |  
+<font color=red>     0..|      ejabberd_hooks:run(vcard_set, VHost, [LUser, VHost, VCard]),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  search(LServer, Data) -&gt;
+<font color=red>     0..|      RestrictionSQL = make_restriction_sql(LServer, Data),</font>
+<font color=red>     0..|      R = do_search(LServer, RestrictionSQL),</font>
+<font color=red>     0..|      lists:map(fun(I) -&gt; record_to_item(LServer,I) end, R).</font>
+        |  
+        |  do_search(_LServer, "") -&gt;
+<font color=red>     0..|      [];</font>
+        |  do_search(LServer, RestrictionSQL) -&gt;
+<font color=red>     0..|      Limit = mod_vcard:get_results_limit(LServer),</font>
+<font color=red>     0..|      case catch odbc_queries:search_vcard(LServer, RestrictionSQL, Limit) of</font>
+        |          {selected, [&lt;&lt;"username"&gt;&gt;, &lt;&lt;"server"&gt;&gt;, &lt;&lt;"fn"&gt;&gt;, &lt;&lt;"family"&gt;&gt;, &lt;&lt;"given"&gt;&gt;,
+        |              &lt;&lt;"middle"&gt;&gt;, &lt;&lt;"nickname"&gt;&gt;, &lt;&lt;"bday"&gt;&gt;, &lt;&lt;"ctry"&gt;&gt;, &lt;&lt;"locality"&gt;&gt;,
+        |              &lt;&lt;"email"&gt;&gt;, &lt;&lt;"orgname"&gt;&gt;, &lt;&lt;"orgunit"&gt;&gt;], Rs} when is_list(Rs) -&gt;
+<font color=red>     0..|              Rs;</font>
+        |          Error -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Error]),</font>
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  search_fields(_VHost) -&gt;
+<font color=red>     0..|      mod_vcard:default_search_fields().</font>
+        |  
+        |  search_reported_fields(_VHost, Lang) -&gt;
+<font color=red>     0..|      mod_vcard:get_default_reported_fields(Lang).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% internal
+        |  %%--------------------------------------------------------------------
+        |  make_restriction_sql(LServer, Data) -&gt;
+<font color=red>     0..|      filter_fields(Data, "", LServer).</font>
+        |  
+        |  filter_fields([], RestrictionSQLIn, LServer) -&gt;
+<font color=red>     0..|      case RestrictionSQLIn of</font>
+        |          "" -&gt;
+<font color=red>     0..|              "";</font>
+        |          _ -&gt;
+<font color=red>     0..|              [" where ", [RestrictionSQLIn, " and ", ["server = '", ejabberd_odbc:escape(LServer),"'"]]]</font>
+        |      end;
+        |  filter_fields([{SVar, [Val]} | Ds], RestrictionSQL, LServer)
+        |    when is_binary(Val) and (Val /= &lt;&lt;""&gt;&gt;) -&gt;
+<font color=red>     0..|      LVal = stringprep:tolower(Val),</font>
+<font color=red>     0..|      NewRestrictionSQL =</font>
+        |          case SVar of
+<font color=red>     0..|              &lt;&lt;"user"&gt;&gt;     -&gt; make_val(RestrictionSQL, "lusername", LVal);</font>
+<font color=red>     0..|              &lt;&lt;"fn"&gt;&gt;       -&gt; make_val(RestrictionSQL, "lfn",       LVal);</font>
+<font color=red>     0..|              &lt;&lt;"last"&gt;&gt;     -&gt; make_val(RestrictionSQL, "lfamily",   LVal);</font>
+<font color=red>     0..|              &lt;&lt;"first"&gt;&gt;    -&gt; make_val(RestrictionSQL, "lgiven",    LVal);</font>
+<font color=red>     0..|              &lt;&lt;"middle"&gt;&gt;   -&gt; make_val(RestrictionSQL, "lmiddle",   LVal);</font>
+<font color=red>     0..|              &lt;&lt;"nick"&gt;&gt;     -&gt; make_val(RestrictionSQL, "lnickname", LVal);</font>
+<font color=red>     0..|              &lt;&lt;"bday"&gt;&gt;     -&gt; make_val(RestrictionSQL, "lbday",     LVal);</font>
+<font color=red>     0..|              &lt;&lt;"ctry"&gt;&gt;     -&gt; make_val(RestrictionSQL, "lctry",     LVal);</font>
+<font color=red>     0..|              &lt;&lt;"locality"&gt;&gt; -&gt; make_val(RestrictionSQL, "llocality", LVal);</font>
+<font color=red>     0..|              &lt;&lt;"email"&gt;&gt;    -&gt; make_val(RestrictionSQL, "lemail",    LVal);</font>
+<font color=red>     0..|              &lt;&lt;"orgname"&gt;&gt;  -&gt; make_val(RestrictionSQL, "lorgname",  LVal);</font>
+<font color=red>     0..|              &lt;&lt;"orgunit"&gt;&gt;  -&gt; make_val(RestrictionSQL, "lorgunit",  LVal);</font>
+<font color=red>     0..|              _              -&gt; RestrictionSQL</font>
+        |          end,
+<font color=red>     0..|      filter_fields(Ds, NewRestrictionSQL, LServer);</font>
+        |  filter_fields([_ | Ds], RestrictionSQL, LServer) -&gt;
+<font color=red>     0..|      filter_fields(Ds,RestrictionSQL , LServer).</font>
+        |  
+        |  -spec make_val(RestrictionSQL, Field, Val) -&gt; Result when
+        |      RestrictionSQL :: iolist(),
+        |      Field :: string(),
+        |      Val :: binary(),
+        |      Result :: iolist().
+        |  make_val(RestrictionSQL, Field, Val) -&gt;
+<font color=red>     0..|      Condition =</font>
+        |  	case binary:last(Val) of
+        |  	    $* -&gt;
+<font color=red>     0..|  		Val1 = binary:part(Val, 0, byte_size(Val)-1),</font>
+<font color=red>     0..|  		SVal = ejabberd_odbc:escape_like(Val1),</font>
+<font color=red>     0..|  		[Field, " LIKE '", SVal, "%'"];</font>
+        |  	    _ -&gt;
+<font color=red>     0..|  		SVal = ejabberd_odbc:escape(Val),</font>
+<font color=red>     0..|  		[Field, " = '", SVal, "'"]</font>
+        |  	end,
+<font color=red>     0..|      case RestrictionSQL of</font>
+        |  	"" -&gt;
+<font color=red>     0..|  	    Condition;</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    [RestrictionSQL, " and ", Condition]</font>
+        |      end.
+        |  
+        |  record_to_item(_CallerVHost, {Username, VCardVHost, FN, Family, Given, Middle,
+        |               Nickname, BDay, CTRY, Locality,
+        |               EMail, OrgName, OrgUnit}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"item"&gt;&gt;,</font>
+        |             children = [
+        |                          ?FIELD(&lt;&lt;"jid"&gt;&gt;, &lt;&lt;Username/binary, "@", VCardVHost/binary&gt;&gt;),
+        |                          ?FIELD(&lt;&lt;"fn"&gt;&gt;, FN),
+        |                          ?FIELD(&lt;&lt;"last"&gt;&gt;, Family),
+        |                          ?FIELD(&lt;&lt;"first"&gt;&gt;, Given),
+        |                          ?FIELD(&lt;&lt;"middle"&gt;&gt;, Middle),
+        |                          ?FIELD(&lt;&lt;"nick"&gt;&gt;, Nickname),
+        |                          ?FIELD(&lt;&lt;"bday"&gt;&gt;, BDay),
+        |                          ?FIELD(&lt;&lt;"ctry"&gt;&gt;, CTRY),
+        |                          ?FIELD(&lt;&lt;"locality"&gt;&gt;, Locality),
+        |                          ?FIELD(&lt;&lt;"email"&gt;&gt;, EMail),
+        |                          ?FIELD(&lt;&lt;"orgname"&gt;&gt;, OrgName),
+        |                          ?FIELD(&lt;&lt;"orgunit"&gt;&gt;, OrgUnit)
+        |                         ]}.
+        |  
+        |  
+</pre>
+</body>
+</html>

@@ -1,0 +1,921 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/ejabberd_ctl.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_ctl.erl by COVER 2016-01-26 at 09:42:50
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_ctl.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : ejabberd command line admin tool
+        |  %%% Created : 11 Jan 2004 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%% @headerfile "ejabberd_ctl.hrl"
+        |  
+        |  %%% @doc Management of mongooseimctl commands and frontend to ejabberd commands.
+        |  %%%
+        |  %%% An mongooseimctl command is an abstract function identified by a
+        |  %%% name, with a defined number of calling arguments, that can be
+        |  %%% defined in any Erlang module and executed using mongooseimctl
+        |  %%% administration script.
+        |  %%%
+        |  %%% Note: strings cannot have blankspaces
+        |  %%%
+        |  %%% Does not support commands that have arguments with ctypes: list, tuple
+        |  %%%
+        |  %%% TODO: Update the guide
+        |  %%% TODO: Mention this in the release notes
+        |  %%% Note: the commands with several words use now the underline: _
+        |  %%% It is still possible to call the commands with dash: -
+        |  %%% but this is deprecated, and may be removed in a future version.
+        |  
+        |  
+        |  -module(ejabberd_ctl).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([start/0,
+        |           init/0,
+        |           process/1,
+        |           process2/2,
+        |           register_commands/3,
+        |           unregister_commands/3]).
+        |  
+        |  -include("ejabberd_ctl.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  -include("ejabberd.hrl").
+        |  
+        |  -type format() :: integer | string | binary | {list, format()}.
+        |  -type format_type() :: binary() | string() | char().
+        |  -type cmd() :: {CallString :: string(), Args :: [string()], Desc :: string()}.
+        |  
+        |  -define(ASCII_SPACE_CHARACTER, $\s).
+        |  -define(PRINT(Format, Args), io:format(lists:flatten(Format), Args)).
+        |  
+        |  %%-----------------------------
+        |  %% Module
+        |  %%-----------------------------
+        |  
+        |  -spec start() -&gt; none().
+        |  start() -&gt;
+<font color=red>     0..|      case init:get_plain_arguments() of</font>
+        |          [SNode | Args0] -&gt;
+<font color=red>     0..|          Args = args_join_xml(args_join_strings(Args0)),</font>
+<font color=red>     0..|              SNode1 = case string:tokens(SNode, "@") of</font>
+        |                           [_Node, _Server] -&gt;
+<font color=red>     0..|                               SNode;</font>
+        |                           _ -&gt;
+<font color=red>     0..|                               case net_kernel:longnames() of</font>
+        |                                   true -&gt;
+<font color=red>     0..|                                       SNode ++ "@" ++ inet_db:gethostname() ++</font>
+        |                                           "." ++ inet_db:res_option(domain);
+        |                                   false -&gt;
+<font color=red>     0..|                                       SNode ++ "@" ++ inet_db:gethostname();</font>
+        |                                   _ -&gt;
+<font color=red>     0..|                                       SNode</font>
+        |                               end
+        |                       end,
+<font color=red>     0..|              Node = list_to_atom(SNode1),</font>
+<font color=red>     0..|              Status = case rpc:call(Node, ?MODULE, process, [Args]) of</font>
+        |                           {badrpc, Reason} -&gt;
+<font color=red>     0..|                               ?PRINT("Failed RPC connection to the node ~p: ~p~n",</font>
+        |                                      [Node, Reason]),
+        |                               %% TODO: show minimal start help
+<font color=red>     0..|                               ?STATUS_BADRPC;</font>
+        |                           S -&gt;
+<font color=red>     0..|                               S</font>
+        |                       end,
+<font color=red>     0..|              halt(Status);</font>
+        |          _ -&gt;
+<font color=red>     0..|              print_usage(),</font>
+<font color=red>     0..|              halt(?STATUS_USAGE)</font>
+        |      end.
+        |  
+        |  
+        |  -spec init() -&gt; atom() | ets:tid().
+        |  init() -&gt;
+<font color=red>     0..|      ets:new(ejabberd_ctl_cmds, [named_table, set, public]),</font>
+<font color=red>     0..|      ets:new(ejabberd_ctl_host_cmds, [named_table, set, public]).</font>
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% mongooseimctl Command managment
+        |  %%-----------------------------
+        |  
+        |  -spec register_commands(CmdDescs :: [tuple()] | tuple(),
+        |                          Module :: atom(),
+        |                          Function :: atom()) -&gt; 'ok'.
+        |  register_commands(CmdDescs, Module, Function) -&gt;
+<font color=red>     0..|      ets:insert(ejabberd_ctl_cmds, CmdDescs),</font>
+<font color=red>     0..|      ejabberd_hooks:add(ejabberd_ctl_process, global, Module, Function, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec unregister_commands(CmdDescs :: [any()],
+        |                            Module :: atom(),
+        |                            Function :: atom()) -&gt; 'ok'.
+        |  unregister_commands(CmdDescs, Module, Function) -&gt;
+<font color=red>     0..|      lists:foreach(fun(CmdDesc) -&gt;</font>
+<font color=red>     0..|                            ets:delete_object(ejabberd_ctl_cmds, CmdDesc)</font>
+        |                    end, CmdDescs),
+<font color=red>     0..|      ejabberd_hooks:delete(ejabberd_ctl_process, global, Module, Function, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Process
+        |  %%-----------------------------
+        |  
+        |  %% @doc The commands status, stop and restart are defined here to ensure
+        |  %% they are usable even if ejabberd is completely stopped.
+        |  -spec process(_) -&gt; integer().
+        |  process(["status"]) -&gt;
+<font color=red>     0..|      {InternalStatus, ProvidedStatus} = init:get_status(),</font>
+<font color=red>     0..|      ?PRINT("Node ~p is ~p with status: ~p~n",</font>
+        |             [node(), InternalStatus, ProvidedStatus]),
+<font color=red>     0..|      Applications = application:which_applications(),</font>
+<font color=red>     0..|      case lists:keyfind(mongooseim, 1, Applications) of</font>
+        |          false -&gt;
+<font color=red>     0..|              ?PRINT("MongooseIM is not running on this node.~n", []),</font>
+<font color=red>     0..|              case get_log_files() of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      ?PRINT("No log files in use. "</font>
+        |                             "Maybe you should enable logging to a file in app.config?~n", []);
+        |                  LogFiles -&gt;
+<font color=red>     0..|                      ?PRINT("Refer to the following log file(s):~n~s~n",</font>
+        |                             [string:join(LogFiles, "\n")])
+        |              end,
+<font color=red>     0..|              ?STATUS_ERROR;</font>
+        |          {_, _, Version} -&gt;
+<font color=red>     0..|              ?PRINT("MongooseIM version ~s is running on this node~n",</font>
+        |                     [Version]),
+<font color=red>     0..|              ?STATUS_SUCCESS</font>
+        |      end;
+        |  process(["stop"]) -&gt;
+        |      %%ejabberd_cover:stop(),
+<font color=red>     0..|      init:stop(),</font>
+<font color=red>     0..|      ?STATUS_SUCCESS;</font>
+        |  process(["restart"]) -&gt;
+<font color=red>     0..|      init:restart(),</font>
+<font color=red>     0..|      ?STATUS_SUCCESS;</font>
+        |  process(["mnesia"]) -&gt;
+<font color=red>     0..|      ?PRINT("~p~n", [mnesia:system_info(all)]),</font>
+<font color=red>     0..|      ?STATUS_SUCCESS;</font>
+        |  process(["mnesia", "info"]) -&gt;
+<font color=red>     0..|      mnesia:info(),</font>
+<font color=red>     0..|      ?STATUS_SUCCESS;</font>
+        |  process(["mnesia", Arg]) when is_list(Arg) -&gt;
+<font color=red>     0..|      case catch mnesia:system_info(list_to_atom(Arg)) of</font>
+<font color=red>     0..|          {'EXIT', Error} -&gt; ?PRINT("Error: ~p~n", [Error]);</font>
+<font color=red>     0..|          Return -&gt; ?PRINT("~p~n", [Return])</font>
+        |      end,
+<font color=red>     0..|      ?STATUS_SUCCESS;</font>
+        |  
+        |  
+        |  %% @doc The arguments --long and --dual are not documented because they are
+        |  %% automatically selected depending in the number of columns of the shell
+        |  process(["help" | Mode]) -&gt;
+<font color=red>     0..|      {MaxC, ShCode} = get_shell_info(),</font>
+<font color=red>     0..|      case Mode of</font>
+        |          [] -&gt;
+<font color=red>     0..|              print_usage(dual, MaxC, ShCode),</font>
+<font color=red>     0..|              ?STATUS_USAGE;</font>
+        |          ["--dual"] -&gt;
+<font color=red>     0..|              print_usage(dual, MaxC, ShCode),</font>
+<font color=red>     0..|              ?STATUS_USAGE;</font>
+        |          ["--long"] -&gt;
+<font color=red>     0..|              print_usage(long, MaxC, ShCode),</font>
+<font color=red>     0..|              ?STATUS_USAGE;</font>
+        |          ["--tags"] -&gt;
+<font color=red>     0..|              print_usage_tags(MaxC, ShCode),</font>
+<font color=red>     0..|              ?STATUS_SUCCESS;</font>
+        |          ["--tags", Tag] -&gt;
+<font color=red>     0..|              print_usage_tags(Tag, MaxC, ShCode),</font>
+<font color=red>     0..|              ?STATUS_SUCCESS;</font>
+        |          ["help"] -&gt;
+<font color=red>     0..|              print_usage_help(MaxC, ShCode),</font>
+<font color=red>     0..|              ?STATUS_SUCCESS;</font>
+        |          [CmdString | _] -&gt;
+<font color=red>     0..|              CmdStringU = re:replace(CmdString, "-", "_", [global, {return, list}]),</font>
+<font color=red>     0..|              print_usage_commands(CmdStringU, MaxC, ShCode),</font>
+<font color=red>     0..|              ?STATUS_SUCCESS</font>
+        |      end;
+        |  process(Args) -&gt;
+<font color=red>     0..|      AccessCommands = get_accesscommands(),</font>
+<font color=red>     0..|      {String, Code} = process2(Args, AccessCommands),</font>
+<font color=red>     0..|      case String of</font>
+<font color=red>     0..|          [] -&gt; ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              io:format("~s~n", [String])</font>
+        |      end,
+<font color=red>     0..|      Code.</font>
+        |  
+        |  
+        |  -spec process2(Args :: [string()],
+        |                 AccessCommands :: [ejabberd_commands:access_cmd()]
+        |                 ) -&gt; {String::string(), Code::integer()}.
+        |  process2(["--auth", User, Server, Pass | Args], AccessCommands) -&gt;
+<font color=red>     0..|      process2(Args, {list_to_binary(User), list_to_binary(Server), list_to_binary(Pass)},</font>
+        |               AccessCommands);
+        |  process2(Args, AccessCommands) -&gt;
+<font color=red>     0..|      process2(Args, noauth, AccessCommands).</font>
+        |  
+        |  
+        |  %% @private
+        |  process2(Args, Auth, AccessCommands) -&gt;
+<font color=red>     0..|      case try_run_ctp(Args, Auth, AccessCommands) of</font>
+        |          {String, wrong_command_arguments} when is_list(String) -&gt;
+<font color=red>     0..|              io:format(lists:flatten(["\n" | String]++["\n"])),</font>
+<font color=red>     0..|              [CommandString | _] = Args,</font>
+<font color=red>     0..|              process(["help" | [CommandString]]),</font>
+<font color=red>     0..|              {lists:flatten(String), ?STATUS_ERROR};</font>
+        |          {String, Code} when is_list(String) and is_integer(Code) -&gt;
+<font color=red>     0..|              {lists:flatten(String), Code};</font>
+        |          String when is_list(String) -&gt;
+<font color=red>     0..|              {lists:flatten(String), ?STATUS_SUCCESS};</font>
+        |          Other -&gt;
+<font color=red>     0..|              {"Erroneous result: " ++ io_lib:format("~p", [Other]), ?STATUS_ERROR}</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_accesscommands() -&gt; [char() | tuple()].
+        |  get_accesscommands() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(mongooseimctl_access_commands) of</font>
+<font color=red>     0..|          ACs when is_list(ACs) -&gt; ACs;</font>
+<font color=red>     0..|          _ -&gt; []</font>
+        |      end.
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Command calling
+        |  %%-----------------------------
+        |  
+        |  -spec try_run_ctp(Args :: [string()],
+        |                    Auth :: ejabberd_commands:auth(),
+        |                    AccessCommands :: [ejabberd_commands:access_cmd()]
+        |                    ) -&gt; string() | integer() | {string(), integer()}.
+        |  try_run_ctp(Args, Auth, AccessCommands) -&gt;
+<font color=red>     0..|      try ejabberd_hooks:run_fold(ejabberd_ctl_process, false, [Args]) of</font>
+        |          false when Args /= [] -&gt;
+<font color=red>     0..|              try_call_command(Args, Auth, AccessCommands);</font>
+        |          false -&gt;
+<font color=red>     0..|              print_usage(),</font>
+<font color=red>     0..|              {"", ?STATUS_USAGE};</font>
+        |          Status -&gt;
+<font color=red>     0..|              {"", Status}</font>
+        |      catch
+        |          exit:Why -&gt;
+<font color=red>     0..|              print_usage(),</font>
+<font color=red>     0..|              {io_lib:format("Error in mongooseimctl process: ~p", [Why]), ?STATUS_USAGE};</font>
+        |          Error:Why -&gt;
+        |              %% In this case probably ejabberd is not started, so let's show Status
+<font color=red>     0..|              process(["status"]),</font>
+<font color=red>     0..|              ?PRINT("~n", []),</font>
+<font color=red>     0..|              {io_lib:format("Error in mongooseimctl process: '~p' ~p", [Error, Why]), ?STATUS_USAGE}</font>
+        |      end.
+        |  
+        |  
+        |  -spec try_call_command(Args :: [string()],
+        |                         Auth :: ejabberd_commands:auth(),
+        |                         AccessCommands :: [ejabberd_commands:access_cmd()]
+        |                         ) -&gt; string() | integer() | {string(), integer()}.
+        |  try_call_command(Args, Auth, AccessCommands) -&gt;
+<font color=red>     0..|      try call_command(Args, Auth, AccessCommands) of</font>
+        |          {error, command_unknown} -&gt;
+<font color=red>     0..|              {io_lib:format("Error: command ~p not known.", [hd(Args)]), ?STATUS_ERROR};</font>
+        |          Res -&gt;
+<font color=red>     0..|              Res</font>
+        |      catch
+        |          A:Why -&gt;
+<font color=red>     0..|              Stack = erlang:get_stacktrace(),</font>
+<font color=red>     0..|              {io_lib:format("Problem '~p ~p' occurred executing the command.~nStacktrace: ~p", [A, Why, Stack]), ?STATUS_ERROR}</font>
+        |      end.
+        |  
+        |  
+        |  -spec call_command(Args :: [string()],
+        |                     Auth :: ejabberd_commands:auth(),
+        |                     AccessCommands :: [ejabberd_commands:access_cmd()]
+        |                     ) -&gt; string() | integer() | {string(), integer()}
+        |                       | {error, any()}.
+        |  call_command([CmdString | Args], Auth, AccessCommands) -&gt;
+<font color=red>     0..|      CmdStringU = re:replace(CmdString, "-", "_", [global, {return, list}]),</font>
+<font color=red>     0..|      Command = list_to_atom(CmdStringU),</font>
+<font color=red>     0..|      case ejabberd_commands:get_command_format(Command) of</font>
+        |  	{error, command_unknown} -&gt;
+<font color=red>     0..|  	    {error, command_unknown};</font>
+        |  	{ArgsFormat, ResultFormat} -&gt;
+<font color=red>     0..|  	    case (catch format_args(Args, ArgsFormat)) of</font>
+        |  		ArgsFormatted when is_list(ArgsFormatted) -&gt;
+<font color=red>     0..|  		    Result = ejabberd_commands:execute_command(AccessCommands, Auth, Command,</font>
+        |  							       ArgsFormatted),
+<font color=red>     0..|  		    format_result(Result, ResultFormat);</font>
+        |  		{'EXIT', {function_clause,[{lists,zip,[A1, A2], _FileInfo} | _]}} -&gt;
+<font color=red>     0..|  		    {NumCompa, TextCompa} =</font>
+        |  			case {length(A1), length(A2)} of
+<font color=red>     0..|  			    {L1, L2} when L1 &lt; L2 -&gt; {L2-L1, "less argument"};</font>
+<font color=red>     0..|  			    {L1, L2} when L1 &gt; L2 -&gt; {L1-L2, "more argument"}</font>
+        |  			end,
+<font color=red>     0..|  		    {io_lib:format("Error: the command ~p requires ~p ~s.",</font>
+        |  				   [CmdString, NumCompa, TextCompa]),
+        |  		     wrong_command_arguments}
+        |  	    end
+        |      end.
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Format arguments
+        |  %%-----------------------------
+        |  
+        |  %% @private
+        |  -spec args_join_xml([string()]) -&gt; [string()].
+        |  args_join_xml([]) -&gt;
+<font color=red>     0..|      [];</font>
+        |  args_join_xml([ [ $&lt; | _ ] = Arg | RArgs ]) -&gt;
+<font color=red>     0..|      case bal(Arg, $&lt;, $&gt;) of</font>
+        |          true -&gt;
+<font color=red>     0..|              [Arg | args_join_xml(RArgs)];</font>
+        |          false -&gt;
+<font color=red>     0..|              [NextArg | RArgs1] = RArgs,</font>
+<font color=red>     0..|              args_join_xml([Arg ++ " " ++ NextArg | RArgs1])</font>
+        |      end;
+        |  args_join_xml([ Arg | RArgs ]) -&gt;
+<font color=red>     0..|      [ Arg | args_join_xml(RArgs) ].</font>
+        |  
+        |  
+        |  %% @private
+        |  -spec args_join_strings([string()]) -&gt; [string()].
+        |  args_join_strings([]) -&gt;
+<font color=red>     0..|      [];</font>
+        |  args_join_strings([ "\"", NextArg | RArgs ]) -&gt;
+<font color=red>     0..|      args_join_strings([ "\"" ++ NextArg | RArgs ]);</font>
+        |  args_join_strings([ [ $" | _ ] = Arg | RArgs ]) -&gt;
+<font color=red>     0..|      case lists:nthtail(length(Arg)-2, Arg) of</font>
+        |          [C1, $"] when C1 /= ?ASCII_SPACE_CHARACTER -&gt;
+<font color=red>     0..|              [ string:substr(Arg, 2, length(Arg)-2) | args_join_strings(RArgs) ];</font>
+        |          _ -&gt;
+<font color=red>     0..|              [NextArg | RArgs1] = RArgs,</font>
+<font color=red>     0..|              args_join_strings([Arg ++ " " ++ NextArg | RArgs1])</font>
+        |      end;
+        |  args_join_strings([ Arg | RArgs ]) -&gt;
+<font color=red>     0..|      [ Arg | args_join_strings(RArgs) ].</font>
+        |  
+        |  
+        |  %% @private
+        |  -spec bal(string(), char(), char()) -&gt; boolean().
+        |  bal(String, Left, Right) -&gt;
+<font color=red>     0..|      bal(String, Left, Right, 0).</font>
+        |  
+        |  
+        |  %% @private
+        |  -spec bal(string(), L :: char(), R :: char(), Bal :: integer()) -&gt; boolean().
+        |  bal([], _Left, _Right, Bal) -&gt;
+<font color=red>     0..|      Bal == 0;</font>
+        |  bal([?ASCII_SPACE_CHARACTER, _NextChar | T], Left, Right, Bal) -&gt;
+<font color=red>     0..|      bal(T, Left, Right, Bal);</font>
+        |  bal([Left | T], Left, Right, Bal) -&gt;
+<font color=red>     0..|      bal(T, Left, Right, Bal-1);</font>
+        |  bal([Right | T], Left, Right, Bal) -&gt;
+<font color=red>     0..|      bal(T, Left, Right, Bal+1);</font>
+        |  bal([_C | T], Left, Right, Bal) -&gt;
+<font color=red>     0..|      bal(T, Left, Right, Bal).</font>
+        |  
+        |  
+        |  %% @private
+        |  -spec format_args(Args :: [any()],
+        |                    ArgsFormat :: [format()]) -&gt; [any()].
+        |  format_args(Args, ArgsFormat) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun({{_ArgName, ArgFormat}, Arg}, Res) -&gt;
+<font color=red>     0..|                Formatted = format_arg(Arg, ArgFormat),</font>
+<font color=red>     0..|                Res ++ [Formatted]</font>
+        |        end,
+        |        [],
+        |        lists:zip(ArgsFormat, Args)).
+        |  
+        |  
+        |  %% @private
+        |  -spec format_arg(string(), format()) -&gt; format_type().
+        |  format_arg(Arg, integer) -&gt;
+<font color=red>     0..|      format_arg2(Arg, "~d");</font>
+        |  format_arg("", string) -&gt;
+<font color=red>     0..|      "";</font>
+        |  format_arg(Arg, string) -&gt;
+<font color=red>     0..|      NumChars = integer_to_list(string:len(Arg)),</font>
+<font color=red>     0..|      Parse = "~" ++ NumChars ++ "c",</font>
+<font color=red>     0..|      format_arg2(Arg, Parse);</font>
+        |  format_arg(Arg, binary) -&gt;
+<font color=red>     0..|      list_to_binary(format_arg(Arg, string));</font>
+        |  format_arg(Arg, {list, Type}) -&gt;
+<font color=red>     0..|      [format_arg(Token, Type) || Token &lt;- string:tokens(Arg, ";")].</font>
+        |  
+        |  
+        |  %% @private
+        |  -spec format_arg2(Arg :: string(),
+        |                    Parse :: nonempty_string()
+        |                    ) -&gt; [[any()] | char()] | char().
+        |  format_arg2(Arg, Parse)-&gt;
+<font color=red>     0..|      {ok, [Arg2], _RemainingArguments} = io_lib:fread(Parse, Arg),</font>
+<font color=red>     0..|      Arg2.</font>
+        |  
+        |  %%-----------------------------
+        |  %% Format result
+        |  %%-----------------------------
+        |  -spec format_result(In :: tuple() | atom() | integer() | string() | binary(),
+        |                      {_, 'atom'|'integer'|'string'|'binary'}
+        |                      ) -&gt; string() | {string(), _}.
+        |  format_result({error, ErrorAtom}, _) -&gt;
+<font color=red>     0..|      {io_lib:format("Error: ~p", [ErrorAtom]), make_status(error)};</font>
+        |  format_result(Atom, {_Name, atom}) -&gt;
+<font color=red>     0..|      io_lib:format("~p", [Atom]);</font>
+        |  format_result(Int, {_Name, integer}) -&gt;
+<font color=red>     0..|      io_lib:format("~p", [Int]);</font>
+        |  format_result(String, {_Name, string}) -&gt;
+<font color=red>     0..|      io_lib:format("~s", [String]);</font>
+        |  format_result(Binary, {_Name, binary}) -&gt;
+<font color=red>     0..|      io_lib:format("~s", [Binary]);</font>
+        |  format_result(Code, {_Name, rescode}) -&gt;
+<font color=red>     0..|      {"", make_status(Code)};</font>
+        |  format_result({Code, Text}, {_Name, restuple}) -&gt;
+<font color=red>     0..|      {io_lib:format("~s", [Text]), make_status(Code)};</font>
+        |  %% The result is a list of something: [something()]
+        |  format_result([], {_Name, {list, _ElementsDef}}) -&gt;
+<font color=red>     0..|      "";</font>
+        |  format_result([FirstElement | Elements], {_Name, {list, ElementsDef}}) -&gt;
+        |      %% Start formatting the first element
+<font color=red>     0..|      [format_result(FirstElement, ElementsDef) |</font>
+        |       %% If there are more elements, put always first a newline character
+        |       lists:map(
+        |         fun(Element) -&gt;
+<font color=red>     0..|                 ["\n" | format_result(Element, ElementsDef)]</font>
+        |         end,
+        |         Elements)];
+        |  %% The result is a tuple with several elements: {something1(), something2(),...}
+        |  %% NOTE: the elements in the tuple are separated with tabular characters,
+        |  %% if a string is empty, it will be difficult to notice in the shell,
+        |  %% maybe a different separation character should be used, like ;;?
+        |  format_result(ElementsTuple, {_Name, {tuple, ElementsDef}}) -&gt;
+<font color=red>     0..|      ElementsList = tuple_to_list(ElementsTuple),</font>
+<font color=red>     0..|      [{FirstE, FirstD} | ElementsAndDef] = lists:zip(ElementsList, ElementsDef),</font>
+<font color=red>     0..|      [format_result(FirstE, FirstD) |</font>
+        |       lists:map(
+        |         fun({Element, ElementDef}) -&gt;
+<font color=red>     0..|                 ["\t" | format_result(Element, ElementDef)]</font>
+        |         end,
+        |         ElementsAndDef)].
+        |  
+        |  
+        |  -spec make_status(ok | true | _) -&gt; 0 | 1.
+<font color=red>     0..|  make_status(ok) -&gt; ?STATUS_SUCCESS;</font>
+<font color=red>     0..|  make_status(true) -&gt; ?STATUS_SUCCESS;</font>
+<font color=red>     0..|  make_status(_Error) -&gt; ?STATUS_ERROR.</font>
+        |  
+        |  
+        |  -spec get_list_commands()
+        |        -&gt; [{Call :: string(), Args :: [string()], Desc :: string()}].
+        |  get_list_commands() -&gt;
+<font color=red>     0..|      try ejabberd_commands:list_commands() of</font>
+        |          Commands -&gt;
+<font color=red>     0..|              [tuple_command_help(Command)</font>
+<font color=red>     0..|               || {N,_,_}=Command &lt;- Commands,</font>
+        |                  %% Don't show again those commands, because they are already
+        |                  %% announced by ejabberd_ctl itself
+<font color=red>     0..|                  N /= status, N /= stop, N /= restart]</font>
+        |      catch
+        |          exit:_ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  
+        |  -spec tuple_command_help(ejabberd_commands:list_cmd()) -&gt; cmd().
+        |  tuple_command_help({Name, Args, Desc}) -&gt;
+<font color=red>     0..|      Arguments = [atom_to_list(ArgN) || {ArgN, _ArgF} &lt;- Args],</font>
+<font color=red>     0..|      CallString = atom_to_list(Name),</font>
+<font color=red>     0..|      {CallString, Arguments, Desc}.</font>
+        |  
+        |  
+        |  -spec get_list_ctls() -&gt; [cmd()].
+        |  get_list_ctls() -&gt;
+<font color=red>     0..|      case catch ets:tab2list(ejabberd_ctl_cmds) of</font>
+<font color=red>     0..|          {'EXIT', _} -&gt; [];</font>
+<font color=red>     0..|          Cs -&gt; [{NameArgs, [], Desc} || {NameArgs, Desc} &lt;- Cs]</font>
+        |      end.
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Print help
+        |  %%-----------------------------
+        |  
+        |  %% Bold
+        |  -define(B1, "\e[1m").
+        |  -define(B2, "\e[22m").
+        |  -define(B(S), case ShCode of true -&gt; [?B1, S, ?B2]; false -&gt; S end).
+        |  
+        |  %% Underline
+        |  -define(U1, "\e[4m").
+        |  -define(U2, "\e[24m").
+        |  -define(U(S), case ShCode of true -&gt; [?U1, S, ?U2]; false -&gt; S end).
+        |  
+        |  print_usage() -&gt;
+<font color=red>     0..|      {MaxC, ShCode} = get_shell_info(),</font>
+<font color=red>     0..|      print_usage(dual, MaxC, ShCode).</font>
+        |  
+        |  
+        |  -spec print_usage('dual' | 'long'
+        |                   , MaxC :: integer()
+        |                   , ShCode :: boolean()) -&gt; 'ok'.
+        |  print_usage(HelpMode, MaxC, ShCode) -&gt;
+<font color=red>     0..|      AllCommands =</font>
+        |          [
+        |           {"status", [], "Get MongooseIM status"},
+        |           {"stop", [], "Stop MongooseIM"},
+        |           {"restart", [], "Restart MongooseIM"},
+        |           {"help", ["[--tags [tag] | com?*]"], "Show help (try: mongooseimctl help help)"},
+        |           {"mnesia", ["[info]"], "show information of Mnesia system"}] ++
+        |          get_list_commands() ++
+        |          get_list_ctls(),
+        |  
+<font color=red>     0..|      ?PRINT(</font>
+<font color=red>     0..|         ["Usage: ", ?B("mongooseimctl"), " [--node ", ?U("nodename"), "] [--auth ",</font>
+<font color=red>     0..|          ?U("user"), " ", ?U("host"), " ", ?U("password"), "] ",</font>
+<font color=red>     0..|          ?U("command"), " [", ?U("options"), "]\n"</font>
+        |          "\n"
+        |          "Available commands in this MongooseIM node:\n"], []),
+<font color=red>     0..|      print_usage_commands(HelpMode, MaxC, ShCode, AllCommands),</font>
+<font color=red>     0..|      ?PRINT(</font>
+        |         ["\n"
+        |          "Examples:\n"
+        |          "  mongooseimctl restart\n"
+        |          "  mongooseimctl --node mongooseim@host restart\n"],
+        |         []).
+        |  
+        |  
+        |  -spec print_usage_commands(HelpMode :: 'dual' | 'long',
+        |                             MaxC :: integer(),
+        |                             ShCode :: boolean(),
+        |                             Commands :: [cmd(),...]) -&gt; 'ok'.
+        |  print_usage_commands(HelpMode, MaxC, ShCode, Commands) -&gt;
+<font color=red>     0..|      CmdDescsSorted = lists:keysort(1, Commands),</font>
+        |  
+        |      %% What is the length of the largest command?
+<font color=red>     0..|      {CmdArgsLenDescsSorted, Lens} =</font>
+        |          lists:mapfoldl(
+        |            fun({Cmd, Args, Desc}, Lengths) -&gt;
+<font color=red>     0..|                    Len =</font>
+        |                        length(Cmd) +
+        |                        lists:foldl(fun(Arg, R) -&gt;
+<font color=red>     0..|                                            R + 1 + length(Arg)</font>
+        |                                    end,
+        |                                    0,
+        |                                    Args),
+<font color=red>     0..|                    {{Cmd, Args, Len, Desc}, [Len | Lengths]}</font>
+        |            end,
+        |            [],
+        |            CmdDescsSorted),
+<font color=red>     0..|      MaxCmdLen = case Lens of</font>
+<font color=red>     0..|                      [] -&gt; 80;</font>
+<font color=red>     0..|                      _ -&gt; lists:max(Lens)</font>
+        |                  end,
+        |  
+        |      %% For each command in the list of commands
+        |      %% Convert its definition to a line
+<font color=red>     0..|      FmtCmdDescs = format_command_lines(CmdArgsLenDescsSorted, MaxCmdLen, MaxC, ShCode, HelpMode),</font>
+        |  
+<font color=red>     0..|      ?PRINT([FmtCmdDescs], []).</font>
+        |  
+        |  
+        |  %% @doc Get some info about the shell: how many columns of width and guess if
+        |  %% it supports text formatting codes.
+        |  -spec get_shell_info() -&gt; {integer(),boolean()}.
+        |  get_shell_info() -&gt;
+<font color=red>     0..|      case io:columns() of</font>
+<font color=red>     0..|          {ok, C} -&gt; {C-2, true};</font>
+<font color=red>     0..|          {error, enotsup} -&gt; {78, false}</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Split this command description in several lines of proper length
+        |  -spec prepare_description(DescInit :: non_neg_integer(),
+        |                            MaxC :: integer(),
+        |                            Desc :: string()) -&gt; [[[any()]],...].
+        |  prepare_description(DescInit, MaxC, Desc) -&gt;
+<font color=red>     0..|      Words = string:tokens(Desc, " "),</font>
+<font color=red>     0..|      prepare_long_line(DescInit, MaxC, Words).</font>
+        |  
+        |  
+        |  -spec prepare_long_line(DescInit :: non_neg_integer(),
+        |                          MaxC :: integer(),
+        |                          Words :: [nonempty_string()]
+        |                          ) -&gt; [[[any()]],...].
+        |  prepare_long_line(DescInit, MaxC, Words) -&gt;
+<font color=red>     0..|      MaxSegmentLen = MaxC - DescInit,</font>
+<font color=red>     0..|      MarginString = lists:duplicate(DescInit, ?ASCII_SPACE_CHARACTER), % Put spaces</font>
+<font color=red>     0..|      [FirstSegment | MoreSegments] = split_desc_segments(MaxSegmentLen, Words),</font>
+<font color=red>     0..|      MoreSegmentsMixed = mix_desc_segments(MarginString, MoreSegments),</font>
+<font color=red>     0..|      [FirstSegment | MoreSegmentsMixed].</font>
+        |  
+        |  
+        |  -spec mix_desc_segments(MarginStr :: [any()],
+        |                          Segments :: [[[any(),...]]]) -&gt; [[[any()],...]].
+        |  mix_desc_segments(MarginString, Segments) -&gt;
+<font color=red>     0..|      [["\n", MarginString, Segment] || Segment &lt;- Segments].</font>
+        |  
+        |  split_desc_segments(MaxL, Words) -&gt;
+<font color=red>     0..|      join(MaxL, Words).</font>
+        |  
+        |  
+        |  %% @doc Join words in a segment, but stop adding to a segment if adding this
+        |  %% word would pass L
+        |  -spec join(L :: number(), Words :: [nonempty_string()]) -&gt; [[[any(),...]],...].
+        |  join(L, Words) -&gt;
+<font color=red>     0..|      join(L, Words, 0, [], []).</font>
+        |  
+        |  
+        |  -spec join(L :: number(),
+        |             Words :: [nonempty_string()],
+        |             LenLastSeg :: non_neg_integer(),
+        |             LastSeg :: [nonempty_string()],
+        |             ResSeg :: [[[any(),...]]] ) -&gt; [[[any(),...]],...].
+        |  join(_L, [], _LenLastSeg, LastSeg, ResSeg) -&gt;
+<font color=red>     0..|      ResSeg2 = [lists:reverse(LastSeg) | ResSeg],</font>
+<font color=red>     0..|      lists:reverse(ResSeg2);</font>
+        |  join(L, [Word | Words], LenLastSeg, LastSeg, ResSeg) -&gt;
+<font color=red>     0..|      LWord = length(Word),</font>
+<font color=red>     0..|      case LWord + LenLastSeg &lt; L of</font>
+        |          true -&gt;
+        |              %% This word fits in the last segment
+        |              %% If this word ends with "\n", reset column counter
+<font color=red>     0..|              case string:str(Word, "\n") of</font>
+        |                  0 -&gt;
+<font color=red>     0..|                      join(L, Words, LenLastSeg+LWord+1, [" ", Word | LastSeg], ResSeg);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      join(L, Words, LWord+1, [" ", Word | LastSeg], ResSeg)</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              join(L, Words, LWord, [" ", Word], [lists:reverse(LastSeg) | ResSeg])</font>
+        |      end.
+        |  
+        |  
+        |  -spec format_command_lines(CALD :: [{[any()],[any()],number(),_},...],
+        |                             MaxCmdLen :: integer(),
+        |                             MaxC :: integer(),
+        |                             ShCode :: boolean(),
+        |                             'dual' | 'long') -&gt; [[any(),...],...].
+        |  format_command_lines(CALD, MaxCmdLen, MaxC, ShCode, dual)
+        |    when MaxC - MaxCmdLen &lt; 40 -&gt;
+        |      %% If the space available for descriptions is too narrow, enforce long help mode
+<font color=red>     0..|      format_command_lines(CALD, MaxCmdLen, MaxC, ShCode, long);</font>
+        |  format_command_lines(CALD, MaxCmdLen, MaxC, ShCode, dual) -&gt;
+<font color=red>     0..|      lists:map(</font>
+        |        fun({Cmd, Args, CmdArgsL, Desc}) -&gt;
+<font color=red>     0..|                DescFmt = prepare_description(MaxCmdLen+4, MaxC, Desc),</font>
+<font color=red>     0..|                ["  ", ?B(Cmd), " ", [[?U(Arg), " "] || Arg &lt;- Args], string:chars(?ASCII_SPACE_CHARACTER, MaxCmdLen - CmdArgsL + 1),</font>
+        |                 DescFmt, "\n"]
+        |        end, CALD);
+        |  format_command_lines(CALD, _MaxCmdLen, MaxC, ShCode, long) -&gt;
+<font color=red>     0..|      lists:map(</font>
+        |        fun({Cmd, Args, _CmdArgsL, Desc}) -&gt;
+<font color=red>     0..|                DescFmt = prepare_description(8, MaxC, Desc),</font>
+<font color=red>     0..|                ["\n  ", ?B(Cmd), " ", [[?U(Arg), " "] || Arg &lt;- Args], "\n", "        ",</font>
+        |                 DescFmt, "\n"]
+        |        end, CALD).
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Print Tags
+        |  %%-----------------------------
+        |  
+        |  print_usage_tags(MaxC, ShCode) -&gt;
+<font color=red>     0..|      ?PRINT("Available tags and commands:", []),</font>
+<font color=red>     0..|      TagsCommands = ejabberd_commands:get_tags_commands(),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun({Tag, Commands} = _TagCommands) -&gt;
+<font color=red>     0..|                ?PRINT(["\n\n  ", ?B(Tag), "\n     "], []),</font>
+<font color=red>     0..|                Words = lists:sort(Commands),</font>
+<font color=red>     0..|                Desc = prepare_long_line(5, MaxC, Words),</font>
+<font color=red>     0..|                ?PRINT(Desc, [])</font>
+        |        end,
+        |        TagsCommands),
+<font color=red>     0..|      ?PRINT("\n\n", []).</font>
+        |  
+        |  
+        |  print_usage_tags(Tag, MaxC, ShCode) -&gt;
+<font color=red>     0..|      ?PRINT(["Available commands with tag ", ?B(Tag), ":", "\n"], []),</font>
+<font color=red>     0..|      HelpMode = long,</font>
+<font color=red>     0..|      TagsCommands = ejabberd_commands:get_tags_commands(),</font>
+<font color=red>     0..|      CommandsNames = case lists:keysearch(Tag, 1, TagsCommands) of</font>
+<font color=red>     0..|                          {value, {Tag, CNs}} -&gt; CNs;</font>
+<font color=red>     0..|                          false -&gt; []</font>
+        |                      end,
+<font color=red>     0..|      CommandsList = lists:map(</font>
+        |                       fun(NameString) -&gt;
+<font color=red>     0..|                               C = ejabberd_commands:get_command_definition(list_to_atom(NameString)),</font>
+        |                               #ejabberd_commands{name = Name,
+        |                                                  args = Args,
+<font color=red>     0..|                                                  desc = Desc} = C,</font>
+<font color=red>     0..|                               tuple_command_help({Name, Args, Desc})</font>
+        |                       end,
+        |                       CommandsNames),
+<font color=red>     0..|      print_usage_commands(HelpMode, MaxC, ShCode, CommandsList),</font>
+<font color=red>     0..|      ?PRINT("\n", []).</font>
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Print usage of 'help' command
+        |  %%-----------------------------
+        |  
+        |  print_usage_help(MaxC, ShCode) -&gt;
+<font color=red>     0..|      LongDesc =</font>
+        |          ["The special 'help' mongooseimctl command provides help of MongooseIM commands.\n\n"
+<font color=red>     0..|           "The format is:\n  ", ?B("mongooseimctl"), " ", ?B("help"), " [", ?B("--tags"), " ", ?U("[tag]"), " | ", ?U("com?*"), "]\n\n"</font>
+        |           "The optional arguments:\n"
+<font color=red>     0..|           "  ",?B("--tags"),"      Show all tags and the names of commands in each tag\n"</font>
+<font color=red>     0..|           "  ",?B("--tags"), " ", ?U("tag"),"  Show description of commands in this tag\n"</font>
+<font color=red>     0..|           "  ",?U("command"),"     Show detailed description of the command\n"</font>
+<font color=red>     0..|           "  ",?U("com?*"),"       Show detailed description of commands that match this glob.\n"</font>
+        |           "              You can use ? to match a simple character,\n"
+        |           "              and * to match several characters.\n"
+        |           "\n",
+        |           "Some example usages:\n",
+        |           " mongooseimctl help\n",
+        |           " mongooseimctl help --tags\n",
+        |           " mongooseimctl help --tags accounts\n",
+        |           " mongooseimctl help register\n",
+        |           " mongooseimctl help regist*\n",
+        |           "\n",
+        |           "Please note that 'mongooseimctl help' shows all MongooseIM commands,\n",
+        |           "even those that cannot be used in the shell with mongooseimctl.\n",
+        |           "Those commands can be identified because the description starts with: *"],
+<font color=red>     0..|      ArgsDef = [],</font>
+<font color=red>     0..|      C = #ejabberd_commands{</font>
+        |        name = help,
+        |        desc = "Show help of MongooseIM commands",
+        |        longdesc = lists:flatten(LongDesc),
+        |        args = ArgsDef,
+        |        module = none,
+        |        function = none,
+        |        result = {help, string}},
+<font color=red>     0..|      print_usage_command("help", C, MaxC, ShCode).</font>
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Print usage command
+        |  %%-----------------------------
+        |  
+        |  %% @spec (CmdSubString::string(), MaxC::integer(), ShCode::boolean()) -&gt; ok
+        |  print_usage_commands(CmdSubString, MaxC, ShCode) -&gt;
+        |      %% Get which command names match this substring
+<font color=red>     0..|      AllCommandsNames = [atom_to_list(Name) || {Name, _, _} &lt;- ejabberd_commands:list_commands()],</font>
+<font color=red>     0..|      Cmds = filter_commands(AllCommandsNames, CmdSubString),</font>
+<font color=red>     0..|      case Cmds of</font>
+<font color=red>     0..|          [] -&gt; io:format("Error: not command found that match: ~p~n", [CmdSubString]);</font>
+<font color=red>     0..|          _ -&gt; print_usage_commands2(lists:sort(Cmds), MaxC, ShCode)</font>
+        |      end.
+        |  
+        |  
+        |  print_usage_commands2(Cmds, MaxC, ShCode) -&gt;
+        |      %% Then for each one print it
+<font color=red>     0..|      lists:mapfoldl(</font>
+        |        fun(Cmd, Remaining) -&gt;
+<font color=red>     0..|                print_usage_command(Cmd, MaxC, ShCode),</font>
+<font color=red>     0..|                case Remaining &gt; 1 of</font>
+<font color=red>     0..|                    true -&gt; ?PRINT([" ", lists:duplicate(MaxC, 126), " \n"], []);</font>
+<font color=red>     0..|                    false -&gt; ok</font>
+        |                end,
+<font color=red>     0..|                {ok, Remaining-1}</font>
+        |        end,
+        |        length(Cmds),
+        |        Cmds).
+        |  
+        |  
+        |  filter_commands(All, SubString) -&gt;
+<font color=red>     0..|      case lists:member(SubString, All) of</font>
+<font color=red>     0..|          true -&gt; [SubString];</font>
+<font color=red>     0..|          false -&gt; filter_commands_regexp(All, SubString)</font>
+        |      end.
+        |  
+        |  
+        |  filter_commands_regexp(All, Glob) -&gt;
+<font color=red>     0..|      RegExp = xmerl_regexp:sh_to_awk(Glob),</font>
+<font color=red>     0..|      lists:filter(</font>
+        |        fun(Command) -&gt;
+<font color=red>     0..|                case re:run(Command, RegExp, [{capture, none}]) of</font>
+        |                match -&gt;
+<font color=red>     0..|                    true;</font>
+        |                nomatch -&gt;
+<font color=red>     0..|                    false</font>
+        |                end
+        |        end,
+        |        All).
+        |  
+        |  
+        |  %% @spec (Cmd::string(), MaxC::integer(), ShCode::boolean()) -&gt; ok
+        |  print_usage_command(Cmd, MaxC, ShCode) -&gt;
+<font color=red>     0..|      Name = list_to_atom(Cmd),</font>
+<font color=red>     0..|      case ejabberd_commands:get_command_definition(Name) of</font>
+        |          command_not_found -&gt;
+<font color=red>     0..|              io:format("Error: command ~p not known.~n", [Cmd]);</font>
+        |          C -&gt;
+<font color=red>     0..|              print_usage_command(Cmd, C, MaxC, ShCode)</font>
+        |      end.
+        |  
+        |  
+        |  print_usage_command(Cmd, C, MaxC, ShCode) -&gt;
+        |      #ejabberd_commands{
+        |                       tags = TagsAtoms,
+        |                       desc = Desc,
+        |                       longdesc = LongDesc,
+        |                       args = ArgsDef,
+<font color=red>     0..|                       result = ResultDef} = C,</font>
+        |  
+<font color=red>     0..|      NameFmt = ["  ", ?B("Command Name"), ": ", Cmd, "\n"],</font>
+        |  
+        |      %% Initial indentation of result is 13 = length("  Arguments: ")
+<font color=red>     0..|      Args = [format_usage_ctype(ArgDef, 13) || ArgDef &lt;- ArgsDef],</font>
+<font color=red>     0..|      ArgsMargin = lists:duplicate(13, ?ASCII_SPACE_CHARACTER),</font>
+<font color=red>     0..|      ArgsListFmt = case Args of</font>
+<font color=red>     0..|                        [] -&gt; "\n";</font>
+<font color=red>     0..|                        _ -&gt; [ [Arg, "\n", ArgsMargin] || Arg &lt;- Args]</font>
+        |                    end,
+<font color=red>     0..|      ArgsFmt = ["  ", ?B("Arguments"), ": ", ArgsListFmt],</font>
+        |  
+        |      %% Initial indentation of result is 11 = length("  Returns: ")
+<font color=red>     0..|      ResultFmt = format_usage_ctype(ResultDef, 11),</font>
+<font color=red>     0..|      ReturnsFmt = ["  ",?B("Returns"),": ", ResultFmt],</font>
+        |  
+<font color=red>     0..|      TagsFmt = ["  ",?B("Tags"),": ", prepare_long_line(8, MaxC, [atom_to_list(TagA) || TagA &lt;- TagsAtoms])],</font>
+        |  
+<font color=red>     0..|      DescFmt = ["  ",?B("Description"),": ", prepare_description(15, MaxC, Desc)],</font>
+        |  
+<font color=red>     0..|      LongDescFmt = case LongDesc of</font>
+<font color=red>     0..|                        "" -&gt; "";</font>
+<font color=red>     0..|                        _ -&gt; ["", prepare_description(0, MaxC, LongDesc), "\n\n"]</font>
+        |                    end,
+        |  
+<font color=red>     0..|      ?PRINT(["\n", NameFmt, "\n", ArgsFmt, "\n", ReturnsFmt, "\n\n", TagsFmt, "\n\n", DescFmt, "\n\n", LongDescFmt], []).</font>
+        |  
+        |  
+        |  format_usage_ctype(Type, _Indentation)
+        |    when (Type==atom) or (Type==integer) or (Type==string) or (Type==rescode) or (Type==restuple) or (Type==binary)-&gt;
+<font color=red>     0..|      io_lib:format("~p", [Type]);</font>
+        |  format_usage_ctype({Name, Type}, _Indentation)
+        |    when (Type==atom) or (Type==integer) or (Type==string) or (Type==rescode) or (Type==restuple) or (Type==binary)-&gt;
+<font color=red>     0..|      io_lib:format("~p::~p", [Name, Type]);</font>
+        |  format_usage_ctype({Name, {list, ElementDef}}, Indentation) -&gt;
+<font color=red>     0..|      NameFmt = atom_to_list(Name),</font>
+<font color=red>     0..|      Indentation2 = Indentation + length(NameFmt) + 4,</font>
+<font color=red>     0..|      ElementFmt = format_usage_ctype(ElementDef, Indentation2),</font>
+<font color=red>     0..|      [NameFmt, "::[ ", ElementFmt, " ]"];</font>
+        |  format_usage_ctype({Name, {tuple, ElementsDef}}, Indentation) -&gt;
+<font color=red>     0..|      NameFmt = atom_to_list(Name),</font>
+<font color=red>     0..|      Indentation2 = Indentation + length(NameFmt) + 4,</font>
+<font color=red>     0..|      ElementsFmt = format_usage_tuple(ElementsDef, Indentation2),</font>
+<font color=red>     0..|      [NameFmt, "::{ " | ElementsFmt].</font>
+        |  
+        |  
+        |  format_usage_tuple([], _Indentation) -&gt;
+<font color=red>     0..|      [];</font>
+        |  format_usage_tuple([ElementDef], Indentation) -&gt;
+<font color=red>     0..|      [format_usage_ctype(ElementDef, Indentation) , " }"];</font>
+        |  format_usage_tuple([ElementDef | ElementsDef], Indentation) -&gt;
+<font color=red>     0..|      ElementFmt = format_usage_ctype(ElementDef, Indentation),</font>
+<font color=red>     0..|      MarginString = lists:duplicate(Indentation, ?ASCII_SPACE_CHARACTER), % Put spaces</font>
+<font color=red>     0..|      [ElementFmt, ",\n", MarginString, format_usage_tuple(ElementsDef, Indentation)].</font>
+        |  
+        |  %%-----------------------------
+        |  %% Lager specific helpers
+        |  %%-----------------------------
+        |  
+        |  get_log_files() -&gt;
+<font color=red>     0..|      Handlers = sys:get_state(lager_event),</font>
+<font color=red>     0..|      [ file_backend_path(State)</font>
+<font color=red>     0..|        || {lager_file_backend, _File, State} &lt;- Handlers ].</font>
+        |  
+        |  file_backend_path(LagerFileBackendState) when element(1, LagerFileBackendState) =:= state -&gt;
+<font color=red>     0..|      element(2, LagerFileBackendState).</font>
+</pre>
+</body>
+</html>

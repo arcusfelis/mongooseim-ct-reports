@@ -1,0 +1,305 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_adhoc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_adhoc.erl by COVER 2016-01-26 at 09:42:34
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_adhoc.erl
+        |  %%% Author  : Magnus Henoch &lt;henoch@dtek.chalmers.se&gt;
+        |  %%% Purpose : Handle incoming ad-doc requests (XEP-0050)
+        |  %%% Created : 15 Nov 2005 by Magnus Henoch &lt;henoch@dtek.chalmers.se&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  -module(mod_adhoc).
+        |  -author('henoch@dtek.chalmers.se').
+        |  
+        |  -behaviour(gen_mod).
+        |  
+        |  -export([start/2,
+        |           stop/1,
+        |           process_local_iq/3,
+        |           process_sm_iq/3,
+        |           get_local_commands/5,
+        |           get_local_identity/5,
+        |           get_local_features/5,
+        |           get_sm_commands/5,
+        |           get_sm_identity/5,
+        |           get_sm_features/5,
+        |           ping_item/4,
+        |           ping_command/4]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("adhoc.hrl").
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+        |  
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_COMMANDS,</font>
+        |                                    ?MODULE, process_local_iq, IQDisc),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_COMMANDS,</font>
+        |                                    ?MODULE, process_sm_iq, IQDisc),
+        |  
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_identity, Host, ?MODULE, get_local_identity, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_features, Host, ?MODULE, get_local_features, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_items, Host, ?MODULE, get_local_commands, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_sm_identity, Host, ?MODULE, get_sm_identity, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_sm_features, Host, ?MODULE, get_sm_features, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_sm_items, Host, ?MODULE, get_sm_commands, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:add(adhoc_local_items, Host, ?MODULE, ping_item, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(adhoc_local_commands, Host, ?MODULE, ping_command, 100).</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(adhoc_local_commands, Host, ?MODULE, ping_command, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(adhoc_local_items, Host, ?MODULE, ping_item, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_sm_items, Host, ?MODULE, get_sm_commands, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_sm_features, Host, ?MODULE, get_sm_features, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_sm_identity, Host, ?MODULE, get_sm_identity, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_items, Host, ?MODULE, get_local_commands, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_features, Host, ?MODULE, get_local_features, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_identity, Host, ?MODULE, get_local_identity, 99),</font>
+        |  
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_COMMANDS),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_COMMANDS).</font>
+        |  
+        |  %%-------------------------------------------------------------------------
+        |  
+        |  -spec get_local_commands(Acc :: [jlib:xmlel()],
+        |                           From :: ejabberd:jid(),
+        |                           To :: ejabberd:jid(),
+        |                           NS :: binary(),
+        |                           ejabberd:lang()) -&gt; {result, [jlib:xmlel()]} | [jlib:xmlel()].
+        |  get_local_commands(Acc, _From, #jid{lserver = LServer} = _To, &lt;&lt;""&gt;&gt;, Lang) -&gt;
+<font color=red>     0..|      Display = gen_mod:get_module_opt(LServer, ?MODULE, report_commands_node, false),</font>
+<font color=red>     0..|      case Display of</font>
+        |          false -&gt;
+<font color=red>     0..|              Acc;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Items = case Acc of</font>
+<font color=red>     0..|                          {result, I} -&gt; I;</font>
+<font color=red>     0..|                          _ -&gt; []</font>
+        |                      end,
+<font color=red>     0..|              Nodes = [#xmlel{name = &lt;&lt;"item"&gt;&gt;,</font>
+        |                              attrs = [{&lt;&lt;"jid"&gt;&gt;, LServer},
+        |                                       {&lt;&lt;"node"&gt;&gt;, ?NS_COMMANDS},
+        |                                       {&lt;&lt;"name"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Commands"&gt;&gt;)}]}],
+<font color=red>     0..|              {result, Items ++ Nodes}</font>
+        |      end;
+        |  get_local_commands(_Acc, From, #jid{lserver = LServer} = To, ?NS_COMMANDS, Lang) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(adhoc_local_items, LServer, {result, []}, [From, To, Lang]);</font>
+        |  get_local_commands(_Acc, _From, _To, &lt;&lt;"ping"&gt;&gt;, _Lang) -&gt;
+<font color=red>     0..|      {result, []};</font>
+        |  get_local_commands(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %%-------------------------------------------------------------------------
+        |  
+        |  -spec get_sm_commands(Acc :: [jlib:xmlel()],
+        |                        From :: ejabberd:jid(),
+        |                        To :: ejabberd:jid(),
+        |                        NS :: binary(),
+        |                        ejabberd:lang()) -&gt; {result, [jlib:xmlel()]} | [jlib:xmlel()].
+        |  get_sm_commands(Acc, _From, #jid{lserver = LServer} = To, &lt;&lt;""&gt;&gt;, Lang) -&gt;
+<font color=red>     0..|      Display = gen_mod:get_module_opt(LServer, ?MODULE, report_commands_node, false),</font>
+<font color=red>     0..|      case Display of</font>
+        |          false -&gt;
+<font color=red>     0..|              Acc;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Items = case Acc of</font>
+<font color=red>     0..|                          {result, I} -&gt; I;</font>
+<font color=red>     0..|                          _ -&gt; []</font>
+        |                      end,
+<font color=red>     0..|              Nodes = [#xmlel{name = &lt;&lt;"item"&gt;&gt;,</font>
+        |                              attrs = [{&lt;&lt;"jid"&gt;&gt;, jid:to_binary(To)},
+        |                                       {&lt;&lt;"node"&gt;&gt;, ?NS_COMMANDS},
+        |                                       {&lt;&lt;"name"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Commands"&gt;&gt;)}]}],
+<font color=red>     0..|              {result, Items ++ Nodes}</font>
+        |      end;
+        |  
+        |  get_sm_commands(_Acc, From, #jid{lserver = LServer} = To, ?NS_COMMANDS, Lang) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(adhoc_sm_items, LServer, {result, []}, [From, To, Lang]);</font>
+        |  
+        |  get_sm_commands(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %%-------------------------------------------------------------------------
+        |  
+        |  %% @doc On disco info request to the ad-hoc node, return automation/command-list.
+        |  -spec get_local_identity(Acc :: [jlib:xmlel()],
+        |                           From :: ejabberd:jid(),
+        |                           To :: ejabberd:jid(),
+        |                           NS :: binary(),
+        |                           ejabberd:lang()) -&gt; {result, [jlib:xmlel()]} | [jlib:xmlel()].
+        |  get_local_identity(Acc, _From, _To, ?NS_COMMANDS, Lang) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"identity"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"category"&gt;&gt;, &lt;&lt;"automation"&gt;&gt;},
+        |                       {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"command-list"&gt;&gt;},
+        |                       {&lt;&lt;"name"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Commands"&gt;&gt;)}]} | Acc];
+        |  get_local_identity(Acc, _From, _To, &lt;&lt;"ping"&gt;&gt;, Lang) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"identity"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"category"&gt;&gt;, &lt;&lt;"automation"&gt;&gt;},
+        |                       {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"command-node"&gt;&gt;},
+        |                       {&lt;&lt;"name"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Ping"&gt;&gt;)}]} | Acc];
+        |  get_local_identity(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %%-------------------------------------------------------------------------
+        |  
+        |  %% @doc On disco info request to the ad-hoc node, return automation/command-list.
+        |  -spec get_sm_identity(Acc :: [jlib:xmlel()],
+        |                       From :: ejabberd:jid(),
+        |                       To :: ejabberd:jid(),
+        |                       NS :: binary(),
+        |                       ejabberd:lang()) -&gt; {result, [jlib:xmlel()]} | [jlib:xmlel()].
+        |  get_sm_identity(Acc, _From, _To, ?NS_COMMANDS, Lang) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"identity"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"category"&gt;&gt;, &lt;&lt;"automation"&gt;&gt;},
+        |                       {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"command-list"&gt;&gt;},
+        |                       {&lt;&lt;"name"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Commands"&gt;&gt;)}]} | Acc];
+        |  get_sm_identity(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %%-------------------------------------------------------------------------
+        |  
+        |  -spec get_local_features(Acc :: [jlib:xmlel()],
+        |                           From :: ejabberd:jid(),
+        |                           To :: ejabberd:jid(),
+        |                           NS :: binary(),
+        |                           ejabberd:lang()) -&gt; {result, [jlib:xmlel()]} | [jlib:xmlel()].
+        |  get_local_features(Acc, _From, _To, &lt;&lt;""&gt;&gt;, _Lang) -&gt;
+<font color=red>     0..|      Feats = case Acc of</font>
+<font color=red>     0..|                  {result, I} -&gt; I;</font>
+<font color=red>     0..|                  _ -&gt; []</font>
+        |              end,
+<font color=red>     0..|      {result, Feats ++ [?NS_COMMANDS]};</font>
+        |  get_local_features(_Acc, _From, _To, ?NS_COMMANDS, _Lang) -&gt;
+        |      %% override all lesser features...
+<font color=red>     0..|      {result, []};</font>
+        |  get_local_features(_Acc, _From, _To, &lt;&lt;"ping"&gt;&gt;, _Lang) -&gt;
+        |      %% override all lesser features...
+<font color=red>     0..|      {result, [?NS_COMMANDS]};</font>
+        |  get_local_features(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %%-------------------------------------------------------------------------
+        |  
+        |  -spec get_sm_features(Acc :: [jlib:xmlel()],
+        |                               From :: ejabberd:jid(),
+        |                               To :: ejabberd:jid(),
+        |                               NS :: binary(),
+        |                               ejabberd:lang()) -&gt; {result, [jlib:xmlel()]} | [jlib:xmlel()].
+        |  get_sm_features(Acc, _From, _To, &lt;&lt;""&gt;&gt;, _Lang) -&gt;
+<font color=red>     0..|      Feats = case Acc of</font>
+<font color=red>     0..|                  {result, I} -&gt; I;</font>
+<font color=red>     0..|                  _ -&gt; []</font>
+        |              end,
+<font color=red>     0..|      {result, Feats ++ [?NS_COMMANDS]};</font>
+        |  get_sm_features(_Acc, _From, _To, ?NS_COMMANDS, _Lang) -&gt;
+        |      %% override all lesser features...
+<font color=red>     0..|      {result, []};</font>
+        |  get_sm_features(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %%-------------------------------------------------------------------------
+        |  
+        |  -spec process_local_iq(ejabberd:jid(), ejabberd:jid(), ejabberd:iq()) -&gt;
+        |                                                          ignore | ejabberd:iq().
+        |  process_local_iq(From, To, IQ) -&gt;
+<font color=red>     0..|      process_adhoc_request(From, To, IQ, adhoc_local_commands).</font>
+        |  
+        |  
+        |  -spec process_sm_iq(ejabberd:jid(), ejabberd:jid(), ejabberd:iq()) -&gt;
+        |                                                          ignore | ejabberd:iq().
+        |  process_sm_iq(From, To, IQ) -&gt;
+<font color=red>     0..|      process_adhoc_request(From, To, IQ, adhoc_sm_commands).</font>
+        |  
+        |  
+        |  -spec process_adhoc_request(ejabberd:jid(), ejabberd:jid(), ejabberd:iq(),
+        |          Hook :: atom()) -&gt; ignore | ejabberd:iq().
+        |  process_adhoc_request(From, To, #iq{sub_el = SubEl} = IQ, Hook) -&gt;
+<font color=red>     0..|      ?DEBUG("About to parse ~p...", [IQ]),</font>
+<font color=red>     0..|      case adhoc:parse_request(IQ) of</font>
+        |          {error, Error} -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, Error]};</font>
+        |          #adhoc_request{} = AdhocRequest -&gt;
+<font color=red>     0..|              Host = To#jid.lserver,</font>
+<font color=red>     0..|              case ejabberd_hooks:run_fold(Hook, Host, empty,</font>
+        |                                           [From, To, AdhocRequest]) of
+        |                  ignore -&gt;
+<font color=red>     0..|                      ignore;</font>
+        |                  empty -&gt;
+<font color=red>     0..|                      IQ#iq{type = error, sub_el = [SubEl, ?ERR_ITEM_NOT_FOUND]};</font>
+        |                  {error, Error} -&gt;
+<font color=red>     0..|                      IQ#iq{type = error, sub_el = [SubEl, Error]};</font>
+        |                  Command -&gt;
+<font color=red>     0..|                      IQ#iq{type = result, sub_el = [Command]}</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec ping_item(Acc :: [jlib:xmlel()],
+        |                  From :: ejabberd:jid(),
+        |                  To :: ejabberd:jid(),
+        |                  ejabberd:lang()) -&gt; {result, [jlib:xmlel()]}.
+        |  ping_item(Acc, _From, #jid{lserver = Server} = _To, Lang) -&gt;
+<font color=red>     0..|      Items = case Acc of</font>
+        |                  {result, I} -&gt;
+<font color=red>     0..|                      I;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      []</font>
+        |              end,
+<font color=red>     0..|      Nodes = [#xmlel{name = &lt;&lt;"item"&gt;&gt;,</font>
+        |                      attrs = [{&lt;&lt;"jid"&gt;&gt;, Server},
+        |                               {&lt;&lt;"node"&gt;&gt;, &lt;&lt;"ping"&gt;&gt;},
+        |                               {&lt;&lt;"name"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Ping"&gt;&gt;)}]}],
+<font color=red>     0..|      {result, Items ++ Nodes}.</font>
+        |  
+        |  
+        |  -spec ping_command(Acc :: _,
+        |                     From :: ejabberd:jid(),
+        |                     To :: ejabberd:jid(),
+        |                     adhoc:request()) -&gt; {error, _} | adhoc:response().
+        |  ping_command(_Acc, _From, _To,
+        |               #adhoc_request{lang = Lang,
+        |                              node = &lt;&lt;"ping"&gt;&gt;,
+        |                              session_id = _Sessionid,
+        |                              action = Action} = Request) -&gt;
+<font color=red>     0..|      if</font>
+        |          Action == &lt;&lt;""&gt;&gt;; Action == &lt;&lt;"execute"&gt;&gt; -&gt;
+<font color=red>     0..|              adhoc:produce_response(</font>
+        |                Request,
+        |                #adhoc_response{status = completed,
+        |                                notes = [{&lt;&lt;"info"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Pong"&gt;&gt;)}]});
+        |          true -&gt;
+<font color=red>     0..|              {error, ?ERR_BAD_REQUEST}</font>
+        |      end;
+        |  ping_command(Acc, _From, _To, _Request) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+</pre>
+</body>
+</html>

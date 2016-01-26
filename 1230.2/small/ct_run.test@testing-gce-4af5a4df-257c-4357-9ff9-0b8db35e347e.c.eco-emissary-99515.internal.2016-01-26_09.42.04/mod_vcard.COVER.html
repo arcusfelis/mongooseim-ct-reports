@@ -1,0 +1,549 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_vcard.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_vcard.erl by COVER 2016-01-26 at 09:42:38
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_vcard.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Vcard management in Mnesia
+        |  %%% Created :  2 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%% Store vCards in mnesia to provide "XEP-0054: vcard-temp"
+        |  %%% and "XEP-0055: Jabber Search"
+        |  %%%
+        |  %%% Most of this is now using binaries. The search fields l* in vcard_search
+        |  %%% are still stored as lists to allow string prefix search using the match
+        |  %%% spec with a trailing element String ++ '_'.
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_vcard).
+        |  -author('alexey@process-one.net').
+        |  -xep([{xep, 54}, {version, "1.2"}]).
+        |  -xep([{xep, 55}, {version, "1.3"}]).
+        |  -behaviour(gen_mod).
+        |  -behaviour(gen_server).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_vcard.hrl").
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2,stop/1]).
+        |  
+        |  %% gen_server handlers
+        |  -export([init/1,handle_info/2, handle_call/3, handle_cast/2, terminate/2, code_change/3]).
+        |  
+        |  %% Hook handlers
+        |  -export([process_local_iq/3,process_sm_iq/3,get_local_features/5,remove_user/2]).
+        |  
+        |  -export([start_link/2]).
+        |  -export([default_search_fields/0]).
+        |  -export([get_results_limit/1]).
+        |  -export([get_default_reported_fields/1]).
+        |  
+        |  -export([config_change/4]).
+        |  
+        |  -define(PROCNAME, ejabberd_mod_vcard).
+        |  -define(BACKEND, mod_vcard_backend).
+        |  
+        |  -record(state,{search           :: boolean(),
+        |                 host             :: binary(),
+        |                 directory_host   :: binary()
+        |                }).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% backend callbacks
+        |  %%--------------------------------------------------------------------
+        |  -callback init(Host, Opts) -&gt; ok when
+        |      Host :: binary(),
+        |      Opts :: list().
+        |  
+        |  -callback remove_user(LUser, LServer) -&gt; any() when
+        |      LUser :: binary(),
+        |      LServer :: binary().
+        |  
+        |  -callback set_vcard(User, VHost, VCard, VCardSearch) -&gt;
+        |      ok | {error, Reason :: term()} when
+        |      User :: binary(),
+        |      VHost :: binary(),
+        |      VCard :: term(),
+        |      VCardSearch :: term().
+        |  
+        |  -callback get_vcard(LUser, LServer) -&gt;
+        |      {ok, Vcard :: term()} | {error, Reason :: term()} when
+        |      LUser :: binary(),
+        |      LServer :: binary().
+        |  
+        |  -callback search(VHost, Data) -&gt;
+        |      Res :: term() when
+        |      VHost :: binary(),
+        |      Data :: term().
+        |  
+        |  -callback search_fields(VHost) -&gt;
+        |      Res :: list() when
+        |      VHost :: binary().
+        |  
+        |  -callback search_reported_fields(VHost, Lang) -&gt;
+        |      Res :: term() when
+        |      VHost :: ejabberd:lserver(),
+        |      Lang :: binary().
+        |  
+        |  -spec default_search_fields() -&gt; list().
+        |  default_search_fields() -&gt;
+<font color=red>     0..|      [{&lt;&lt;"User"&gt;&gt;, &lt;&lt;"user"&gt;&gt;},</font>
+        |       {&lt;&lt;"Full Name"&gt;&gt;, &lt;&lt;"fn"&gt;&gt;},
+        |       {&lt;&lt;"Given Name"&gt;&gt;, &lt;&lt;"first"&gt;&gt;},
+        |       {&lt;&lt;"Middle Name"&gt;&gt;, &lt;&lt;"middle"&gt;&gt;},
+        |       {&lt;&lt;"Family Name"&gt;&gt;, &lt;&lt;"last"&gt;&gt;},
+        |       {&lt;&lt;"Nickname"&gt;&gt;, &lt;&lt;"nick"&gt;&gt;},
+        |       {&lt;&lt;"Birthday"&gt;&gt;, &lt;&lt;"bday"&gt;&gt;},
+        |       {&lt;&lt;"Country"&gt;&gt;, &lt;&lt;"ctry"&gt;&gt;},
+        |       {&lt;&lt;"City"&gt;&gt;, &lt;&lt;"locality"&gt;&gt;},
+        |       {&lt;&lt;"Email"&gt;&gt;, &lt;&lt;"email"&gt;&gt;},
+        |       {&lt;&lt;"Organization Name"&gt;&gt;, &lt;&lt;"orgname"&gt;&gt;},
+        |       {&lt;&lt;"Organization Unit"&gt;&gt;, &lt;&lt;"orgunit"&gt;&gt;}].
+        |  
+        |  -spec get_results_limit(ejabberd:lserver()) -&gt; non_neg_integer() | inifinity.
+        |  get_results_limit(LServer) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(LServer, mod_vcard, matches, ?JUD_MATCHES) of</font>
+        |          infinity -&gt;
+<font color=red>     0..|              infinity;</font>
+        |          Val when is_integer(Val) and (Val &gt; 0) -&gt;
+<font color=red>     0..|              Val;</font>
+        |          Val -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Illegal option value ~p. "</font>
+        |              "Default value ~p substituted.",
+        |                  [{matches, Val}, ?JUD_MATCHES]),
+<font color=red>     0..|              ?JUD_MATCHES</font>
+        |      end.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %%--------------------------------------------------------------------
+        |  start(VHost, Opts) -&gt;
+<font color=red>     0..|      gen_mod:start_backend_module(?MODULE, Opts, [set_vcard, get_vcard, search]),</font>
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(VHost,?PROCNAME),</font>
+<font color=red>     0..|      ChildSpec = {Proc, {?MODULE, start_link, [VHost,Opts]},</font>
+        |                   transient, 1000, worker, [?MODULE]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, ChildSpec).</font>
+        |  
+        |  stop(VHost) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(VHost,?PROCNAME),</font>
+<font color=red>     0..|      supervisor:terminate_child(ejabberd_sup,Proc),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup,Proc).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% gen_server callbacks
+        |  %%--------------------------------------------------------------------
+        |  start_link(VHost, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(VHost, ?PROCNAME),</font>
+<font color=red>     0..|      gen_server:start_link({local, Proc}, ?MODULE, [VHost, Opts],[]).</font>
+        |  
+        |  init([VHost, Opts]) -&gt;
+<font color=red>     0..|      process_flag(trap_exit, true),</font>
+<font color=red>     0..|      ?BACKEND:init(VHost, Opts),</font>
+        |  
+<font color=red>     0..|      ejabberd_hooks:add(remove_user, VHost,</font>
+        |                         ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:add(anonymous_purge_hook, VHost,</font>
+        |                         ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_features, VHost,</font>
+        |                         ?MODULE, get_local_features,50),
+        |  
+<font color=red>     0..|      ejabberd_hooks:add(host_config_update, VHost,</font>
+        |                         ?MODULE, config_change, 50),
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, VHost, ?NS_VCARD,</font>
+        |                                    ?MODULE,process_sm_iq, IQDisc),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_local, VHost, ?NS_VCARD,</font>
+        |                                    ?MODULE,process_local_iq, IQDisc),
+        |  
+<font color=red>     0..|      DirectoryHost = gen_mod:get_opt_host(VHost, Opts, "vjud.@HOST@"),</font>
+<font color=red>     0..|      Search = gen_mod:get_opt(search, Opts, true),</font>
+        |  
+<font color=red>     0..|      case Search of</font>
+        |          true -&gt;
+<font color=red>     0..|              ejabberd_router:register_route(DirectoryHost);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      {ok, #state{host = VHost, search = Search, directory_host = DirectoryHost}}.</font>
+        |  
+        |  terminate(_Reason, State) -&gt;
+<font color=red>     0..|      VHost = State#state.host,</font>
+<font color=red>     0..|      case State#state.search of</font>
+        |          true -&gt;
+<font color=red>     0..|              ejabberd_router:unregister_route(State#state.directory_host);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      ejabberd_hooks:delete(remove_user, VHost, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(anonymous_purge_hook, VHost, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_local, VHost, ?NS_VCARD),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, VHost, ?NS_VCARD),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(host_config_update, VHost, ?MODULE, config_change, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_features, VHost, ?MODULE, get_local_features, 50).</font>
+        |  
+        |  handle_call(get_state, _From, State) -&gt;
+<font color=red>     0..|      {reply, {ok, State}, State};</font>
+        |  handle_call(stop,_From,State) -&gt;
+<font color=red>     0..|      {stop, normal, ok, State};</font>
+        |  handle_call(_Request, _From,State) -&gt;
+<font color=red>     0..|      {reply, bad_request, State}.</font>
+        |  
+        |  handle_info({route, From, To, Packet},State) -&gt;
+<font color=red>     0..|      IQ = jlib:iq_query_info(Packet),</font>
+<font color=red>     0..|      case catch do_route(State#state.host, From, To, Packet, IQ) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason]);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(_,State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  handle_cast(_Request, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Hook handlers
+        |  %%--------------------------------------------------------------------
+        |  process_local_iq(_From,_To,#iq{type = set, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |  process_local_iq(_From,_To,#iq{type = get, lang = Lang} = IQ) -&gt;
+<font color=red>     0..|      IQ#iq{type = result,</font>
+        |            sub_el = [#xmlel{name = &lt;&lt;"vCard"&gt;&gt;, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_VCARD}],
+        |                             children = [#xmlel{name = &lt;&lt;"FN"&gt;&gt;,
+        |                                                children = [#xmlcdata{content = &lt;&lt;"MongooseIM"&gt;&gt;}]},
+        |                                         #xmlel{name = &lt;&lt;"URL"&gt;&gt;,
+        |                                                children = [#xmlcdata{content = ?MONGOOSE_URI}]},
+        |                                         #xmlel{name = &lt;&lt;"DESC"&gt;&gt;,
+        |                                                children = [#xmlcdata{content = [&lt;&lt;"MongooseIM XMPP Server"&gt;&gt;,
+        |                                                                                 &lt;&lt;"\nCopyright (c) Erlang Solutions Ltd."&gt;&gt;]}]}
+        |                                        ]}]}.
+        |  process_sm_iq(From, To, #iq{type = set, sub_el = VCARD} = IQ) -&gt;
+<font color=red>     0..|      #jid{user = FromUser, lserver = FromVHost} = From,</font>
+<font color=red>     0..|      #jid{user = ToUser, lserver = ToVHost, resource = ToResource} = To,</font>
+<font color=red>     0..|      case lists:member(FromVHost, ?MYHOSTS) of</font>
+        |          true when FromUser == ToUser,
+        |                    FromVHost == ToVHost,
+        |                    ToResource == &lt;&lt;&gt;&gt;;
+        |                    ToUser == &lt;&lt;&gt;&gt;,
+        |                    ToVHost == &lt;&lt;&gt;&gt; -&gt;
+        |  
+<font color=red>     0..|              {ok, VcardSearch} = prepare_vcard_search_params(FromUser, FromVHost, VCARD),</font>
+<font color=red>     0..|              case catch ?BACKEND:set_vcard(FromUser, FromVHost,VCARD, VcardSearch) of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      IQ#iq{type = result,</font>
+        |                            sub_el = []};
+        |                  {error, Reason} -&gt;
+<font color=red>     0..|                      IQ#iq{type = error,</font>
+        |                            sub_el = [VCARD, Reason]};
+        |                  Else -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("~p",[Else]),</font>
+<font color=red>     0..|                      IQ#iq{type = error,</font>
+        |                            sub_el = [VCARD, ?ERR_INTERNAL_SERVER_ERROR]}
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              IQ#iq{type = error,</font>
+        |                    sub_el = [VCARD, ?ERR_NOT_ALLOWED]}
+        |      end;
+        |  process_sm_iq(_From, To, #iq{type = get, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      #jid{luser = LUser, lserver = LServer} = To,</font>
+<font color=red>     0..|      case catch ?BACKEND:get_vcard(LUser, LServer) of</font>
+        |          {ok, VCARD} -&gt;
+<font color=red>     0..|              IQ#iq{type = result, sub_el = VCARD};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl,Reason]};</font>
+        |          Else -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p",[Else]),</font>
+<font color=red>     0..|              IQ#iq{type = error,</font>
+        |                    sub_el = [SubEl, ?ERR_INTERNAL_SERVER_ERROR]}
+        |      end.
+        |  
+        |  get_local_features({error, _Error}=Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc;</font>
+        |  get_local_features(Acc, _From, _To, Node, _Lang) -&gt;
+<font color=red>     0..|      case Node of</font>
+        |          &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|              case Acc of</font>
+        |                  {result, Features} -&gt;
+<font color=red>     0..|                      {result, [?NS_VCARD | Features]};</font>
+        |                  empty -&gt;
+<font color=red>     0..|                      {result, [?NS_VCARD]}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              Acc</font>
+        |      end.
+        |  
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nodeprep(Server),</font>
+<font color=red>     0..|      ?BACKEND:remove_user(LUser,LServer).</font>
+        |  
+        |  %% react to "global" config change
+        |  config_change(Acc, Host, ldap, _NewConfig) -&gt;
+<font color=red>     0..|      case ?BACKEND:backend() of</font>
+        |          mod_vcard_ldap -&gt;
+<font color=red>     0..|              Mods = ejabberd_config:get_local_option({modules, Host}),</font>
+<font color=red>     0..|              Opts = proplists:get_value(?MODULE, Mods, []),</font>
+<font color=red>     0..|              gen_mod:stop_module(Host, ?MODULE),</font>
+<font color=red>     0..|              gen_mod:start_module(Host, ?MODULE, Opts);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+        |      %ok = gen_server:call(Proc,{new_config, Host, Opts}),
+<font color=red>     0..|      Acc;</font>
+        |  config_change(Acc, _, _, _) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Internal
+        |  %% ------------------------------------------------------------------
+        |  do_route(_VHost, From, #jid{user = User,
+        |                              resource =Resource} = To, Packet, _IQ)
+        |    when (User /= &lt;&lt;""&gt;&gt;) or (Resource /= &lt;&lt;""&gt;&gt;) -&gt;
+        |  
+<font color=red>     0..|      Err = jlib:make_error_reply(Packet, ?ERR_SERVICE_UNAVAILABLE),</font>
+<font color=red>     0..|      ejabberd_router:route(To, From, Err);</font>
+        |  do_route(VHost, From, To, Packet, #iq{type = set,
+        |                                        xmlns = ?NS_SEARCH,
+        |                                        lang = Lang,
+        |                                        sub_el = SubEl} = IQ) -&gt;
+        |  
+<font color=red>     0..|      XDataEl = find_xdata_el(SubEl),</font>
+<font color=red>     0..|      case XDataEl of</font>
+        |          false -&gt;
+<font color=red>     0..|              Err = jlib:make_error_reply(Packet, ?ERR_BAD_REQUEST),</font>
+<font color=red>     0..|              ejabberd_router:route(To, From, Err);</font>
+        |          _ -&gt;
+<font color=red>     0..|              XData = jlib:parse_xdata_submit(XDataEl),</font>
+<font color=red>     0..|              case XData of</font>
+        |                  invalid -&gt;
+<font color=red>     0..|                      Err = jlib:make_error_reply(Packet, ?ERR_BAD_REQUEST),</font>
+<font color=red>     0..|                      ejabberd_router:route(To, From, Err);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      ResIQ = IQ#iq{</font>
+        |                                type = result,
+        |                                sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                                 attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_SEARCH}],
+        |                                                 children = [#xmlel{name = &lt;&lt;"x"&gt;&gt;,
+        |                                                                 attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_XDATA},
+        |                                                                          {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"result"&gt;&gt;}],
+        |                                                                 children = search_result(Lang,To, VHost, XData)}]}]},
+<font color=red>     0..|                      ejabberd_router:route(To, From, jlib:iq_to_xml(ResIQ))</font>
+        |              end
+        |      end;
+        |  do_route(VHost, From, To, _Packet, #iq{type = get,
+        |                                          xmlns = ?NS_SEARCH,
+        |                                          lang = Lang} = IQ) -&gt;
+<font color=red>     0..|      ResIQ = IQ#iq{type = result,</font>
+        |                    sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                     attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_SEARCH}],
+<font color=red>     0..|                                     children = ?FORM(To,?BACKEND:search_fields(VHost),Lang)</font>
+        |                                    }]},
+<font color=red>     0..|      ejabberd_router:route(To, From, jlib:iq_to_xml(ResIQ));</font>
+        |  do_route(_VHost, From, To, Packet, #iq{type = set,
+        |                                         xmlns = ?NS_DISCO_INFO}) -&gt;
+<font color=red>     0..|      Err = jlib:make_error_reply(Packet, ?ERR_NOT_ALLOWED),</font>
+<font color=red>     0..|      ejabberd_router:route(To, From, Err);</font>
+        |  do_route(VHost, From, To, _Packet, #iq{type = get,
+        |                                         xmlns = ?NS_DISCO_INFO,
+        |                                         lang = Lang} = IQ) -&gt;
+<font color=red>     0..|      Info = ejabberd_hooks:run_fold(disco_info, VHost, [], [VHost, ?MODULE, "", ""]),</font>
+<font color=red>     0..|      ResIQ = IQ#iq{type = result,</font>
+        |                    sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                     attrs =[{&lt;&lt;"xmlns"&gt;&gt;,?NS_DISCO_INFO}],
+        |                                     children = [#xmlel{name = &lt;&lt;"identity"&gt;&gt;,
+        |                                                        attrs = [{&lt;&lt;"category"&gt;&gt;, &lt;&lt;"directory"&gt;&gt;},
+        |                                                                 {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"user"&gt;&gt;},
+        |                                                                 {&lt;&lt;"name"&gt;&gt;,
+        |                                                                  translate:translate(Lang,&lt;&lt;"vCard User Search"&gt;&gt;)}]},
+        |                                                 #xmlel{name = &lt;&lt;"feature"&gt;&gt;,
+        |                                                        attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_DISCO_INFO}]},
+        |                                                 #xmlel{name = &lt;&lt;"feature"&gt;&gt;,
+        |                                                        attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_SEARCH}]},
+        |                                                 #xmlel{name = &lt;&lt;"feature"&gt;&gt;,
+        |                                                        attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_VCARD}]}
+        |                                                ] ++ Info}]},
+<font color=red>     0..|      ejabberd_router:route(To, From, jlib:iq_to_xml(ResIQ));</font>
+        |  do_route(_VHost, From, To, Packet, #iq{type=set,
+        |                                         xmlns = ?NS_DISCO_ITEMS}) -&gt;
+<font color=red>     0..|      Err = jlib:make_error_reply(Packet, ?ERR_NOT_ALLOWED),</font>
+<font color=red>     0..|      ejabberd_router:route(To, From, Err);</font>
+        |  do_route(_VHost, From, To, _Packet, #iq{ type = get,
+        |                                           xmlns = ?NS_DISCO_ITEMS} = IQ) -&gt;
+<font color=red>     0..|      ResIQ =</font>
+        |          IQ#iq{type = result,
+        |                sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                 attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_DISCO_ITEMS}]}]},
+<font color=red>     0..|      ejabberd_router:route(To, From, jlib:iq_to_xml(ResIQ));</font>
+        |  do_route(_VHost, From, To, _Packet, #iq{ type = get,
+        |                                           xmlns = ?NS_VCARD,
+        |                                           lang = Lang} = IQ) -&gt;
+<font color=red>     0..|      ResIQ =</font>
+        |          IQ#iq{type = result,
+        |                sub_el = [#xmlel{name = &lt;&lt;"vCard"&gt;&gt;,
+        |                                 attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_VCARD}],
+        |                                 children = iq_get_vcard(Lang)}]},
+<font color=red>     0..|      ejabberd_router:route(To, From, jlib:iq_to_xml(ResIQ));</font>
+        |  do_route(_VHost, From, To, Packet, _IQ) -&gt;
+<font color=red>     0..|      Err = jlib:make_error_reply(Packet, ?ERR_SERVICE_UNAVAILABLE),</font>
+<font color=red>     0..|      ejabberd_router:route(To, From, Err).</font>
+        |  
+        |  iq_get_vcard(_Lang) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"FN"&gt;&gt;,</font>
+        |              children = [#xmlcdata{content = &lt;&lt;"MongooseIM/mod_vcard"&gt;&gt;}]},
+        |       #xmlel{name = &lt;&lt;"URL"&gt;&gt;, children = [#xmlcdata{content = ?MONGOOSE_URI}]},
+        |       #xmlel{name = &lt;&lt;"DESC"&gt;&gt;,
+        |              children = [#xmlcdata{content = [&lt;&lt;"MongooseIM vCard module"&gt;&gt;,
+        |                                               &lt;&lt;"\nCopyright (c) Erlang Solutions Ltd."&gt;&gt;]}]}].
+        |  find_xdata_el(#xmlel{children = SubEls}) -&gt;
+<font color=red>     0..|      find_xdata_el1(SubEls).</font>
+        |  
+        |  find_xdata_el1([]) -&gt;
+<font color=red>     0..|      false;</font>
+        |  find_xdata_el1([XE = #xmlel{attrs = Attrs} | Els]) -&gt;
+<font color=red>     0..|      case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs) of</font>
+        |  	?NS_XDATA -&gt;
+<font color=red>     0..|  	    XE;</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    find_xdata_el1(Els)</font>
+        |      end;
+        |  find_xdata_el1([_ | Els]) -&gt;
+<font color=red>     0..|      find_xdata_el1(Els).</font>
+        |  
+        |  search_result(Lang, JID, VHost, Data) -&gt;
+<font color=red>     0..|      TitleEl = #xmlel{name = &lt;&lt;"title"&gt;&gt;,</font>
+        |                       children = [#xmlcdata{content = [translate:translate(Lang, &lt;&lt;"Search Results for "&gt;&gt;),
+        |                                                        jid:to_binary(JID)]}]},
+<font color=red>     0..|      ReportedFields = ?BACKEND:search_reported_fields(VHost, Lang),</font>
+<font color=red>     0..|      [TitleEl, ReportedFields</font>
+        |       | ?BACKEND:search(VHost, Data)].
+        |  
+        |  b2l(Binary) -&gt;
+<font color=red>     0..|      binary_to_list(Binary).</font>
+        |  
+        |  prepare_vcard_search_params(User, VHost, VCARD) -&gt;
+<font color=red>     0..|      FN       = xml:get_path_s(VCARD, [{elem, &lt;&lt;"FN"&gt;&gt;}, cdata]),</font>
+<font color=red>     0..|      Family   = xml:get_path_s(VCARD, [{elem, &lt;&lt;"N"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"FAMILY"&gt;&gt;}, cdata]),
+<font color=red>     0..|      Given    = xml:get_path_s(VCARD, [{elem, &lt;&lt;"N"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"GIVEN"&gt;&gt;}, cdata]),
+<font color=red>     0..|      Middle   = xml:get_path_s(VCARD, [{elem, &lt;&lt;"N"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"MIDDLE"&gt;&gt;}, cdata]),
+<font color=red>     0..|      Nickname = xml:get_path_s(VCARD, [{elem, &lt;&lt;"NICKNAME"&gt;&gt;}, cdata]),</font>
+<font color=red>     0..|      BDay     = xml:get_path_s(VCARD, [{elem, &lt;&lt;"BDAY"&gt;&gt;}, cdata]),</font>
+<font color=red>     0..|      CTRY     = xml:get_path_s(VCARD, [{elem, &lt;&lt;"ADR"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"CTRY"&gt;&gt;}, cdata]),
+<font color=red>     0..|      Locality = xml:get_path_s(VCARD, [{elem, &lt;&lt;"ADR"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"LOCALITY"&gt;&gt;}, cdata]),
+<font color=red>     0..|      EMail1   = xml:get_path_s(VCARD, [{elem, &lt;&lt;"EMAIL"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"USERID"&gt;&gt;}, cdata]),
+<font color=red>     0..|      EMail2   = xml:get_path_s(VCARD, [{elem, &lt;&lt;"EMAIL"&gt;&gt;}, cdata]),</font>
+<font color=red>     0..|      OrgName  = xml:get_path_s(VCARD, [{elem, &lt;&lt;"ORG"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"ORGNAME"&gt;&gt;}, cdata]),
+<font color=red>     0..|      OrgUnit  = xml:get_path_s(VCARD, [{elem, &lt;&lt;"ORG"&gt;&gt;},</font>
+        |                                        {elem, &lt;&lt;"ORGUNIT"&gt;&gt;}, cdata]),
+<font color=red>     0..|      EMail = case EMail1 of</font>
+<font color=red>     0..|                  &lt;&lt;""&gt;&gt; -&gt; EMail2;</font>
+<font color=red>     0..|                  _ -&gt; EMail1</font>
+        |              end,
+        |  
+<font color=red>     0..|      LUser     = jid:nodeprep(User),</font>
+<font color=red>     0..|      LFN       = stringprep:tolower(FN),</font>
+<font color=red>     0..|      LFamily   = stringprep:tolower(Family),</font>
+<font color=red>     0..|      LGiven    = stringprep:tolower(Given),</font>
+<font color=red>     0..|      LMiddle   = stringprep:tolower(Middle),</font>
+<font color=red>     0..|      LNickname = stringprep:tolower(Nickname),</font>
+<font color=red>     0..|      LBDay     = stringprep:tolower(BDay),</font>
+<font color=red>     0..|      LCTRY     = stringprep:tolower(CTRY),</font>
+<font color=red>     0..|      LLocality = stringprep:tolower(Locality),</font>
+<font color=red>     0..|      LEMail    = stringprep:tolower(EMail),</font>
+<font color=red>     0..|      LOrgName  = stringprep:tolower(OrgName),</font>
+<font color=red>     0..|      LOrgUnit  = stringprep:tolower(OrgUnit),</font>
+        |  
+<font color=red>     0..|      US = {LUser, VHost},</font>
+        |  
+<font color=red>     0..|      if</font>
+        |          (LUser     == error) or
+        |          (LFN       == error) or
+        |          (LFamily   == error) or
+        |          (LGiven    == error) or
+        |          (LMiddle   == error) or
+        |          (LNickname == error) or
+        |          (LBDay     == error) or
+        |          (LCTRY     == error) or
+        |          (LLocality == error) or
+        |          (LEMail    == error) or
+        |          (LOrgName  == error) or
+        |          (LOrgUnit  == error) -&gt;
+<font color=red>     0..|              {error, badarg};</font>
+        |          true -&gt;
+<font color=red>     0..|              {ok, #vcard_search{us        = US,</font>
+        |                                 user      = {User, VHost},
+        |                                 luser     = b2l(LUser),
+        |                                 fn        = FN,       lfn        = b2l(LFN),
+        |                                 family    = Family,   lfamily    = b2l(LFamily),
+        |                                 given     = Given,    lgiven     = b2l(LGiven),
+        |                                 middle    = Middle,   lmiddle    = b2l(LMiddle),
+        |                                 nickname  = Nickname, lnickname  = b2l(LNickname),
+        |                                 bday      = BDay,     lbday      = b2l(LBDay),
+        |                                 ctry      = CTRY,     lctry      = b2l(LCTRY),
+        |                                 locality  = Locality, llocality  = b2l(LLocality),
+        |                                 email     = EMail,    lemail     = b2l(LEMail),
+        |                                 orgname   = OrgName,  lorgname   = b2l(LOrgName),
+        |                                 orgunit   = OrgUnit,  lorgunit   = b2l(LOrgUnit)
+        |                                }}
+        |      end.
+        |  
+        |  -spec get_default_reported_fields(binary()) -&gt; #xmlel{}.
+        |  get_default_reported_fields(Lang) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"reported"&gt;&gt;,</font>
+        |             children = [
+        |                         ?TLFIELD(&lt;&lt;"jid-single"&gt;&gt;, &lt;&lt;"Jabber ID"&gt;&gt;, &lt;&lt;"jid"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Full Name"&gt;&gt;, &lt;&lt;"fn"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Name"&gt;&gt;, &lt;&lt;"first"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Middle Name"&gt;&gt;, &lt;&lt;"middle"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Family Name"&gt;&gt;, &lt;&lt;"last"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Nickname"&gt;&gt;, &lt;&lt;"nick"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Birthday"&gt;&gt;, &lt;&lt;"bday"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Country"&gt;&gt;, &lt;&lt;"ctry"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"City"&gt;&gt;, &lt;&lt;"locality"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Email"&gt;&gt;, &lt;&lt;"email"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Organization Name"&gt;&gt;, &lt;&lt;"orgname"&gt;&gt;),
+        |                         ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Organization Unit"&gt;&gt;, &lt;&lt;"orgunit"&gt;&gt;)
+        |                        ]}.
+</pre>
+</body>
+</html>

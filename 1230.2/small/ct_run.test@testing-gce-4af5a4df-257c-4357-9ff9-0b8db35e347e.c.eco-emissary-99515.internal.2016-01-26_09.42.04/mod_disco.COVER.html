@@ -1,0 +1,540 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_disco.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_disco.erl by COVER 2016-01-26 at 09:42:37
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_disco.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Service Discovery (XEP-0030) support
+        |  %%% Created :  1 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_disco).
+        |  -author('alexey@process-one.net').
+        |  -xep([{xep, 30}, {version, "2.4"}]).
+        |  -xep([{xep, 157}, {version, "1.0"}]).
+        |  -behaviour(gen_mod).
+        |  
+        |  -export([start/2,
+        |           stop/1,
+        |           process_local_iq_items/3,
+        |           process_local_iq_info/3,
+        |           get_local_identity/5,
+        |           get_local_features/5,
+        |           get_local_services/5,
+        |           process_sm_iq_items/3,
+        |           process_sm_iq_info/3,
+        |           get_sm_identity/5,
+        |           get_sm_features/5,
+        |           get_sm_items/5,
+        |           get_info/5,
+        |           register_feature/2,
+        |           unregister_feature/2,
+        |           register_extra_domain/2,
+        |           unregister_extra_domain/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -type feature() :: any().
+        |  
+        |  -spec start(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      ejabberd_local:refresh_iq_handlers(),</font>
+        |  
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_DISCO_ITEMS,</font>
+        |                                    ?MODULE, process_local_iq_items, IQDisc),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_DISCO_INFO,</font>
+        |                                    ?MODULE, process_local_iq_info, IQDisc),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_DISCO_ITEMS,</font>
+        |                                    ?MODULE, process_sm_iq_items, IQDisc),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_DISCO_INFO,</font>
+        |                                    ?MODULE, process_sm_iq_info, IQDisc),
+        |  
+<font color=red>     0..|      catch ets:new(disco_features, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      register_feature(Host, &lt;&lt;"iq"&gt;&gt;),</font>
+<font color=red>     0..|      register_feature(Host, &lt;&lt;"presence"&gt;&gt;),</font>
+<font color=red>     0..|      register_feature(Host, &lt;&lt;"presence-invisible"&gt;&gt;),</font>
+        |  
+<font color=red>     0..|      catch ets:new(disco_extra_domains, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      ExtraDomains = gen_mod:get_opt(extra_domains, Opts, []),</font>
+<font color=red>     0..|      lists:foreach(fun(Domain) -&gt; register_extra_domain(Host, Domain) end,</font>
+        |                    ExtraDomains),
+<font color=red>     0..|      catch ets:new(disco_sm_features, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      catch ets:new(disco_sm_nodes, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_items, Host, ?MODULE, get_local_services, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_features, Host, ?MODULE, get_local_features, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_identity, Host, ?MODULE, get_local_identity, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_sm_items, Host, ?MODULE, get_sm_items, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_sm_features, Host, ?MODULE, get_sm_features, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_sm_identity, Host, ?MODULE, get_sm_identity, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_info, Host, ?MODULE, get_info, 100),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop(ejabberd:server()) -&gt; ok.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(disco_sm_identity, Host, ?MODULE, get_sm_identity, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_sm_features, Host, ?MODULE, get_sm_features, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_sm_items, Host, ?MODULE, get_sm_items, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_identity, Host, ?MODULE, get_local_identity, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_features, Host, ?MODULE, get_local_features, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_items, Host, ?MODULE, get_local_services, 100),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_info, Host, ?MODULE, get_info, 100),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_DISCO_ITEMS),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_DISCO_INFO),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_DISCO_ITEMS),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_DISCO_INFO),</font>
+<font color=red>     0..|      catch ets:match_delete(disco_features, {{'_', Host}}),</font>
+<font color=red>     0..|      catch ets:match_delete(disco_extra_domains, {{'_', Host}}),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec register_feature(ejabberd:server(), feature()) -&gt; 'true'.
+        |  register_feature(Host, Feature) -&gt;
+<font color=red>     0..|      catch ets:new(disco_features, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      ets:insert(disco_features, {{Feature, Host}}).</font>
+        |  
+        |  
+        |  -spec unregister_feature(ejabberd:server(), feature()) -&gt; 'true'.
+        |  unregister_feature(Host, Feature) -&gt;
+<font color=red>     0..|      catch ets:new(disco_features, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      ets:delete(disco_features, {Feature, Host}).</font>
+        |  
+        |  
+        |  -spec register_extra_domain(ejabberd:server(), binary()) -&gt; 'true'.
+        |  register_extra_domain(Host, Domain) -&gt;
+<font color=red>     0..|      catch ets:new(disco_extra_domains, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      ets:insert(disco_extra_domains, {{Domain, Host}}).</font>
+        |  
+        |  
+        |  -spec unregister_extra_domain(ejabberd:server(), binary()) -&gt; 'true'.
+        |  unregister_extra_domain(Host, Domain) -&gt;
+<font color=red>     0..|      catch ets:new(disco_extra_domains, [named_table, ordered_set, public]),</font>
+<font color=red>     0..|      ets:delete(disco_extra_domains, {Domain, Host}).</font>
+        |  
+        |  
+        |  -spec process_local_iq_items(ejabberd:jid(), ejabberd:jid(), ejabberd:iq())
+        |              -&gt; ejabberd:iq().
+        |  process_local_iq_items(From, To, #iq{type = Type, lang = Lang, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          set -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |          get -&gt;
+<font color=red>     0..|              Node = xml:get_tag_attr_s(&lt;&lt;"node"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|              Host = To#jid.lserver,</font>
+        |  
+<font color=red>     0..|              case ejabberd_hooks:run_fold(disco_local_items,</font>
+        |                                           Host,
+        |                                           empty,
+        |                                           [From, To, Node, Lang]) of
+        |                  {result, Items} -&gt;
+<font color=red>     0..|                      ANode = case Node of</font>
+<font color=red>     0..|                                  &lt;&lt;&gt;&gt; -&gt; [];</font>
+<font color=red>     0..|                                  _ -&gt; [{&lt;&lt;"node"&gt;&gt;, Node}]</font>
+        |                      end,
+<font color=red>     0..|                      IQ#iq{type = result,</font>
+        |                            sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                             attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_DISCO_ITEMS} | ANode],
+        |                                             children = Items}]};
+        |                  {error, Error} -&gt;
+<font color=red>     0..|                      IQ#iq{type = error, sub_el = [SubEl, Error]}</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec process_local_iq_info(ejabberd:jid(), ejabberd:jid(), ejabberd:iq())
+        |              -&gt; ejabberd:iq().
+        |  process_local_iq_info(From, To, #iq{type = Type, lang = Lang,
+        |                                       sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          set -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |          get -&gt;
+<font color=red>     0..|              Host = To#jid.lserver,</font>
+<font color=red>     0..|              Node = xml:get_tag_attr_s(&lt;&lt;"node"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|              Identity = ejabberd_hooks:run_fold(disco_local_identity,</font>
+        |                                                 Host,
+        |                                                 [],
+        |                                                 [From, To, Node, Lang]),
+<font color=red>     0..|              Info = ejabberd_hooks:run_fold(disco_info, Host, [],</font>
+        |                                             [Host, ?MODULE, Node, Lang]),
+<font color=red>     0..|              case ejabberd_hooks:run_fold(disco_local_features,</font>
+        |                                           Host,
+        |                                           empty,
+        |                                           [From, To, Node, Lang]) of
+        |                  {result, Features} -&gt;
+<font color=red>     0..|                      ANode = case Node of</font>
+<font color=red>     0..|                                  &lt;&lt;&gt;&gt; -&gt; [];</font>
+<font color=red>     0..|                                  _ -&gt; [{&lt;&lt;"node"&gt;&gt;, Node}]</font>
+        |                              end,
+<font color=red>     0..|                      IQ#iq{type = result,</font>
+        |                            sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                             attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_DISCO_INFO} | ANode],
+        |                                             children = Identity ++
+        |                                                        Info ++
+        |                                                        features_to_xml(Features)}]};
+        |                  {error, Error} -&gt;
+<font color=red>     0..|                      IQ#iq{type = error, sub_el = [SubEl, Error]}</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec get_local_identity(Acc :: [jlib:xmlel()],
+        |                          From :: ejabberd:jid(),
+        |                          To :: ejabberd:jid(),
+        |                          Node :: binary(),
+        |                          Lang :: ejabberd:lang()) -&gt; [jlib:xmlel()].
+        |  get_local_identity(Acc, _From, _To, &lt;&lt;&gt;&gt;, _Lang) -&gt;
+<font color=red>     0..|      Acc ++ [#xmlel{name = &lt;&lt;"identity"&gt;&gt;,</font>
+        |                     attrs = [{&lt;&lt;"category"&gt;&gt;, &lt;&lt;"server"&gt;&gt;},
+        |                              {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"im"&gt;&gt;},
+        |                              {&lt;&lt;"name"&gt;&gt;, &lt;&lt;"ejabberd"&gt;&gt;}]}];
+        |  get_local_identity(Acc, _From, _To, Node, _Lang) when is_binary(Node) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  
+        |  -spec get_local_features(Acc :: 'empty' | {'error',_} | {'result',_},
+        |                          From :: ejabberd:jid(),
+        |                          To :: ejabberd:jid(),
+        |                          Node :: binary(),
+        |                          Lang :: ejabberd:lang()) -&gt; {'error',_} | {'result',_}.
+        |  get_local_features({error, _Error} = Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc;</font>
+        |  get_local_features(Acc, _From, To, &lt;&lt;&gt;&gt;, _Lang) -&gt;
+<font color=red>     0..|      Feats = case Acc of</font>
+<font color=red>     0..|                  {result, Features} -&gt; Features;</font>
+<font color=red>     0..|                  empty -&gt; []</font>
+        |              end,
+<font color=red>     0..|      Host = To#jid.lserver,</font>
+<font color=red>     0..|      {result,</font>
+        |       ets:select(disco_features, [{{{'_', Host}}, [], ['$_']}]) ++ Feats};
+        |  get_local_features(Acc, _From, _To, Node, _Lang) when is_binary(Node) -&gt;
+<font color=red>     0..|      case Acc of</font>
+        |          {result, _Features} -&gt;
+<font color=red>     0..|              Acc;</font>
+        |          empty -&gt;
+<font color=red>     0..|              {error, ?ERR_ITEM_NOT_FOUND}</font>
+        |      end.
+        |  
+        |  
+        |  -spec features_to_xml(FeatureList :: [{feature(), ejabberd:server()}]
+        |                       ) -&gt; [jlib:xmlel()].
+        |  features_to_xml(FeatureList) -&gt;
+        |      %% Avoid duplicating features
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, Feat}]} ||</font>
+<font color=red>     0..|                    Feat &lt;- lists:usort(</font>
+        |                              lists:map(
+        |                                fun({{Feature, _Host}}) -&gt;
+<font color=red>     0..|                                    Feature;</font>
+        |                                   (Feature) when is_binary(Feature) -&gt;
+<font color=red>     0..|                            Feature</font>
+        |                                end, FeatureList))].
+        |  
+        |  
+        |  -spec domain_to_xml(binary() | {binary()}) -&gt; jlib:xmlel().
+        |  domain_to_xml({Domain}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"item"&gt;&gt;, attrs = [{&lt;&lt;"jid"&gt;&gt;, Domain}]};</font>
+        |  domain_to_xml(Domain) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"item"&gt;&gt;, attrs = [{&lt;&lt;"jid"&gt;&gt;, Domain}]}.</font>
+        |  
+        |  
+        |  -spec get_local_services(Acc :: 'empty' | {'error',_} | {'result',_},
+        |                           From :: ejabberd:jid(),
+        |                           To :: ejabberd:jid(),
+        |                           Node :: binary(),
+        |                           Lang :: ejabberd:lang()) -&gt; {'error',_} | {'result',_}.
+        |  get_local_services({error, _Error} = Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc;</font>
+        |  get_local_services(Acc, _From, To, &lt;&lt;&gt;&gt;, _Lang) -&gt;
+<font color=red>     0..|      Items = case Acc of</font>
+<font color=red>     0..|                  {result, Its} -&gt; Its;</font>
+<font color=red>     0..|                  empty -&gt; []</font>
+        |              end,
+<font color=red>     0..|      Host = To#jid.lserver,</font>
+<font color=red>     0..|      {result,</font>
+        |       lists:usort(
+        |         lists:map(fun domain_to_xml/1,
+        |                   get_vh_services(Host) ++
+        |                   ets:select(disco_extra_domains,
+        |                              [{{{'$1', Host}}, [], ['$1']}]))
+        |         ) ++ Items};
+        |  get_local_services({result, _} = Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc;</font>
+        |  get_local_services(empty, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      {error, ?ERR_ITEM_NOT_FOUND}.</font>
+        |  
+        |  
+        |  -type route() :: any().
+        |  -spec get_vh_services(ejabberd:server()) -&gt; [route()].
+        |  get_vh_services(Host) -&gt;
+<font color=red>     0..|      Hosts = lists:sort(fun(H1, H2) -&gt; size(H1) &gt;= size(H2) end, ?MYHOSTS),</font>
+<font color=red>     0..|      lists:filter(fun(H) -&gt;</font>
+<font color=red>     0..|                           case lists:dropwhile(</font>
+        |                                  fun(VH) -&gt;
+<font color=red>     0..|                                          not lists:suffix("." ++ binary_to_list(VH),</font>
+        |                                              binary_to_list(H))
+        |                                  end, Hosts) of
+        |                               [] -&gt;
+<font color=red>     0..|                                   false;</font>
+        |                               [VH | _] -&gt;
+<font color=red>     0..|                                   VH == Host</font>
+        |                           end
+        |                   end, ejabberd_router:dirty_get_all_routes()).
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  
+        |  -spec process_sm_iq_items(ejabberd:jid(), ejabberd:jid(), ejabberd:iq())
+        |              -&gt; ejabberd:iq().
+        |  process_sm_iq_items(From, To, #iq{type = Type, lang = Lang, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          set -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |          get -&gt;
+<font color=red>     0..|              case is_presence_subscribed(From, To) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      Host = To#jid.lserver,</font>
+<font color=red>     0..|                      Node = xml:get_tag_attr_s(&lt;&lt;"node"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|                      case ejabberd_hooks:run_fold(disco_sm_items,</font>
+        |                                                   Host,
+        |                                                   empty,
+        |                                                   [From, To, Node, Lang]) of
+        |                          {result, Items} -&gt;
+<font color=red>     0..|                              ANode = case Node of</font>
+<font color=red>     0..|                                          &lt;&lt;&gt;&gt; -&gt; [];</font>
+<font color=red>     0..|                                          _ -&gt; [{&lt;&lt;"node"&gt;&gt;, Node}]</font>
+        |                                      end,
+<font color=red>     0..|                              IQ#iq{type = result,</font>
+        |                                    sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                                     attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_DISCO_ITEMS} | ANode],
+        |                                                     children = Items}]};
+        |                          {error, Error} -&gt;
+<font color=red>     0..|                              IQ#iq{type = error, sub_el = [SubEl, Error]}</font>
+        |                      end;
+        |                  false -&gt;
+<font color=red>     0..|                      IQ#iq{type = error, sub_el = [SubEl, ?ERR_SERVICE_UNAVAILABLE]}</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec get_sm_items(Acc :: 'empty' | {'error',_} | {'result',_},
+        |                     From :: ejabberd:jid(),
+        |                     To :: ejabberd:jid(),
+        |                     Node :: binary(),
+        |                     Lang :: ejabberd:lang()) -&gt; {'error',_} | {'result',_}.
+        |  get_sm_items({error, _Error} = Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc;</font>
+        |  get_sm_items(Acc, From,
+        |              #jid{user = User, server = Server} = To,
+        |              [], _Lang) -&gt;
+<font color=red>     0..|      Items = case Acc of</font>
+<font color=red>     0..|                  {result, Its} -&gt; Its;</font>
+<font color=red>     0..|                  empty -&gt; []</font>
+        |              end,
+<font color=red>     0..|      Items1 = case is_presence_subscribed(From, To) of</font>
+        |                     true -&gt;
+<font color=red>     0..|                         get_user_resources(User, Server);</font>
+        |                     _ -&gt;
+<font color=red>     0..|                         []</font>
+        |                  end,
+<font color=red>     0..|      {result, Items ++ Items1};</font>
+        |  get_sm_items({result, _} = Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc;</font>
+        |  get_sm_items(empty, From, To, _Node, _Lang) -&gt;
+<font color=red>     0..|      #jid{luser = LFrom, lserver = LSFrom} = From,</font>
+<font color=red>     0..|      #jid{luser = LTo, lserver = LSTo} = To,</font>
+<font color=red>     0..|      case {LFrom, LSFrom} of</font>
+        |          {LTo, LSTo} -&gt;
+<font color=red>     0..|              {error, ?ERR_ITEM_NOT_FOUND};</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, ?ERR_NOT_ALLOWED}</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_presence_subscribed(ejabberd:jid(), ejabberd:jid()) -&gt; boolean().
+        |  is_presence_subscribed(#jid{luser=User, lserver=Server}, #jid{luser=LUser, lserver=LServer}) -&gt;
+<font color=red>     0..|      lists:any(fun({roster, _, _, {TUser, TServer, _}, _, S, _, _, _, _}) -&gt;</font>
+<font color=red>     0..|                              if</font>
+        |                                  LUser == TUser, LServer == TServer, S/=none -&gt;
+<font color=red>     0..|                                      true;</font>
+        |                                  true -&gt;
+<font color=red>     0..|                                      false</font>
+        |                              end
+        |                      end,
+        |                      ejabberd_hooks:run_fold(roster_get, Server, [], [{User, Server}]))
+<font color=red>     0..|                  orelse User == LUser andalso Server == LServer.</font>
+        |  
+        |  
+        |  -spec process_sm_iq_info(ejabberd:jid(), ejabberd:jid(), ejabberd:iq())
+        |              -&gt; ejabberd:iq().
+        |  process_sm_iq_info(From, To, #iq{type = Type, lang = Lang, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          set -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |          get -&gt;
+<font color=red>     0..|              case is_presence_subscribed(From, To) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      Host = To#jid.lserver,</font>
+<font color=red>     0..|                      Node = xml:get_tag_attr_s(&lt;&lt;"node"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|                      Identity = ejabberd_hooks:run_fold(disco_sm_identity,</font>
+        |                                                         Host,
+        |                                                         [],
+        |                                                         [From, To, Node, Lang]),
+<font color=red>     0..|                      case ejabberd_hooks:run_fold(disco_sm_features,</font>
+        |                                                   Host,
+        |                                                   empty,
+        |                                                   [From, To, Node, Lang]) of
+        |                          {result, Features} -&gt;
+<font color=red>     0..|                              ANode = case Node of</font>
+<font color=red>     0..|                                          &lt;&lt;&gt;&gt; -&gt; [];</font>
+<font color=red>     0..|                                          _ -&gt; [{&lt;&lt;"node"&gt;&gt;, Node}]</font>
+        |                                      end,
+<font color=red>     0..|                              IQ#iq{type = result,</font>
+        |                                    sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                                     attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_DISCO_INFO} | ANode],
+        |                                                     children = Identity ++
+        |                                                                features_to_xml(Features)}]};
+        |                          {error, Error} -&gt;
+<font color=red>     0..|                              IQ#iq{type = error, sub_el = [SubEl, Error]}</font>
+        |                      end;
+        |                  false -&gt;
+<font color=red>     0..|                      IQ#iq{type = error, sub_el = [SubEl, ?ERR_SERVICE_UNAVAILABLE]}</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec get_sm_identity(Acc :: [jlib:xmlel()],
+        |                        From :: ejabberd:jid(),
+        |                        To :: ejabberd:jid(),
+        |                        Node :: binary(),
+        |                        Lang :: ejabberd:lang()) -&gt; [jlib:xmlel()].
+        |  get_sm_identity(Acc, _From, #jid{luser = LUser, lserver=LServer}, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc ++  case ejabberd_auth:is_user_exists(LUser, LServer) of</font>
+        |          true -&gt;
+<font color=red>     0..|             [#xmlel{name = &lt;&lt;"identity"&gt;&gt;,</font>
+        |                     attrs = [{&lt;&lt;"category"&gt;&gt;, &lt;&lt;"account"&gt;&gt;},
+        |    {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"registered"&gt;&gt;}]}];
+        |         _ -&gt;
+<font color=red>     0..|             []</font>
+        |             end.
+        |  
+        |  
+        |  -spec get_sm_features(empty | any(),
+        |                        From :: ejabberd:jid(),
+        |                        To :: ejabberd:jid(),
+        |                        Node :: binary(),
+        |                        Lang :: ejabberd:lang()) -&gt; any().
+        |  get_sm_features(empty, From, To, _Node, _Lang) -&gt;
+<font color=red>     0..|      #jid{luser = LFrom, lserver = LSFrom} = From,</font>
+<font color=red>     0..|      #jid{luser = LTo, lserver = LSTo} = To,</font>
+<font color=red>     0..|      case {LFrom, LSFrom} of</font>
+        |          {LTo, LSTo} -&gt;
+<font color=red>     0..|              {error, ?ERR_ITEM_NOT_FOUND};</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, ?ERR_NOT_ALLOWED}</font>
+        |      end;
+        |  get_sm_features(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  
+        |  -spec get_user_resources(ejabberd:user(), ejabberd:server()) -&gt; [jlib:xmlel()].
+        |  get_user_resources(User, Server) -&gt;
+<font color=red>     0..|      Rs = ejabberd_sm:get_user_resources(User, Server),</font>
+<font color=red>     0..|      lists:map(fun(R) -&gt;</font>
+<font color=red>     0..|                  JID = jid:to_binary({User, Server, R}),</font>
+<font color=red>     0..|                  #xmlel{name = &lt;&lt;"item"&gt;&gt;,</font>
+        |                         attrs = [{&lt;&lt;"jid"&gt;&gt;, JID}, {&lt;&lt;"name"&gt;&gt;, User}]}
+        |                end, lists:sort(Rs)).
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  
+        |  %%% Support for: XEP-0157 Contact Addresses for XMPP Services
+        |  
+        |  -spec get_info(A :: [jlib:xmlel()], ejabberd:server(), module(), Node :: binary(),
+        |          Lang :: ejabberd:lang()) -&gt; [jlib:xmlel()].
+        |  get_info(_A, Host, Mod, Node, _Lang) when Node == [] -&gt;
+<font color=red>     0..|      Module = case Mod of</font>
+        |                   undefined -&gt;
+<font color=red>     0..|                       ?MODULE;</font>
+        |                   _ -&gt;
+<font color=red>     0..|                       Mod</font>
+        |               end,
+<font color=red>     0..|      Serverinfo_fields = get_fields_xml(Host, Module),</font>
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"x"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_XDATA}, {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"result"&gt;&gt;}],
+        |              children = [#xmlel{name = &lt;&lt;"field"&gt;&gt;,
+        |                                 attrs = [{&lt;&lt;"var"&gt;&gt;, &lt;&lt;"FORM_TYPE"&gt;&gt;}, {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"hidden"&gt;&gt;}],
+        |                                 children = [#xmlel{name = &lt;&lt;"value"&gt;&gt;,
+        |                                                    children = [#xmlcdata{content = ?NS_SERVERINFO}]}]}]
+        |                       ++ Serverinfo_fields}];
+        |  get_info(Acc, _, _, _Node, _) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  
+        |  -spec get_fields_xml(ejabberd:server(), module()) -&gt; [jlib:xmlel()].
+        |  get_fields_xml(Host, Module) -&gt;
+<font color=red>     0..|      Fields = gen_mod:get_module_opt(Host, ?MODULE, server_info, []),</font>
+        |  
+        |      %% filter, and get only the ones allowed for this module
+<font color=red>     0..|      Fields_good = lists:filter(</font>
+        |                      fun({Modules, _, _}) -&gt;
+<font color=red>     0..|                              case Modules of</font>
+<font color=red>     0..|                                  all -&gt; true;</font>
+<font color=red>     0..|                                  Modules -&gt; lists:member(Module, Modules)</font>
+        |                              end
+        |                      end,
+        |                      Fields),
+        |  
+<font color=red>     0..|      fields_to_xml(Fields_good).</font>
+        |  
+        |  
+        |  -spec fields_to_xml([{_, Var :: binary(), Values :: [binary()]}]) -&gt; [jlib:xmlel()].
+        |  fields_to_xml(Fields) -&gt;
+<font color=red>     0..|      [ field_to_xml(Field) || Field &lt;- Fields].</font>
+        |  
+        |  
+        |  -spec field_to_xml({_, Var :: binary(), Values :: [binary()]}) -&gt; jlib:xmlel().
+        |  field_to_xml({_, Var, Values}) -&gt;
+<font color=red>     0..|      Values_xml = values_to_xml(Values),</font>
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"field"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, Var}],</font>
+        |             children = Values_xml}.
+        |  
+        |  
+        |  -spec values_to_xml([binary()]) -&gt; [jlib:xmlel()].
+        |  values_to_xml(Values) -&gt;
+<font color=red>     0..|      lists:map(</font>
+        |        fun(Value) -&gt;
+<font color=red>     0..|                #xmlel{name = &lt;&lt;"value"&gt;&gt;, children = [#xmlcdata{content = Value}]}</font>
+        |        end,
+        |        Values
+        |       ).
+</pre>
+</body>
+</html>

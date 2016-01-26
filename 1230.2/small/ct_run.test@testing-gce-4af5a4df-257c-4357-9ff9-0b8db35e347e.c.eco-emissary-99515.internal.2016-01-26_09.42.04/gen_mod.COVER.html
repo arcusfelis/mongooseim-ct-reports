@@ -1,0 +1,420 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/gen_mod.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/gen_mod.erl by COVER 2016-01-26 at 09:42:36
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : gen_mod.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose :
+        |  %%% Created : 24 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(gen_mod).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([start/0,
+        |           start_module/3,
+        |           start_backend_module/2,
+        |           start_backend_module/3,
+        |           stop_module/2,
+        |           stop_module_keep_config/2,
+        |           reload_module/3,
+        |           get_opt/2,
+        |           get_opt/3,
+        |           get_opt_host/3,
+        |           set_opt/3,
+        |           get_module_opt/4,
+        |           get_module_opt_host/3,
+        |           set_module_opt/4,
+        |           loaded_modules/1,
+        |           loaded_modules_with_opts/1,
+        |           get_hosts/2,
+        |           get_module_proc/2,
+        |           backend_code/3,
+        |           is_loaded/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -record(ejabberd_module, {module_host, opts}).
+        |  -type ejabberd_module() :: #ejabberd_module{module_host :: {module(), ejabberd:server()},
+        |                                              opts :: list()}.
+        |  
+        |  %% -export([behaviour_info/1]).
+        |  %% behaviour_info(callbacks) -&gt;
+        |  %%     [{start, 2},
+        |  %%      {stop, 1}];
+        |  %% behaviour_info(_Other) -&gt;
+        |  %%     undefined.
+        |  -callback start(Host :: ejabberd:server(), Opts :: list()) -&gt; any().
+        |  -callback stop(Host :: ejabberd:server()) -&gt; any().
+        |  
+        |  -spec start() -&gt; 'ok'.
+        |  start() -&gt;
+<font color=red>     0..|      ets:new(ejabberd_modules,</font>
+        |              [named_table,
+        |               public,
+        |               {keypos, #ejabberd_module.module_host}]),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec start_module(Host :: ejabberd:server(),
+        |                     Module :: module(),
+        |                     Opts :: [any()]) -&gt; any().
+        |  start_module(Host, Module, Opts0) -&gt;
+<font color=red>     0..|      Opts = clear_opts(Module, Opts0),</font>
+<font color=red>     0..|      set_module_opts_mnesia(Host, Module, Opts),</font>
+<font color=red>     0..|      ets:insert(ejabberd_modules,</font>
+        |                 #ejabberd_module{module_host = {Module, Host},
+        |                                  opts = Opts}),
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          Res = Module:start(Host, Opts),</font>
+<font color=red>     0..|          ?DEBUG("Module ~p started for ~p.", [Module, Host]),</font>
+<font color=red>     0..|          Res</font>
+        |      catch
+        |          Class:Reason -&gt;
+<font color=red>     0..|              del_module_mnesia(Host, Module),</font>
+<font color=red>     0..|              ets:delete(ejabberd_modules, {Module, Host}),</font>
+<font color=red>     0..|              ErrorText = io_lib:format("Problem starting the module ~p for "</font>
+        |                                        "host ~p~n options: ~p~n ~p: ~p~n~p",
+        |                                        [Module, Host, Opts, Class, Reason,
+        |                                         erlang:get_stacktrace()]),
+<font color=red>     0..|              ?CRITICAL_MSG(ErrorText, []),</font>
+<font color=red>     0..|              case is_app_running(ejabberd) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      erlang:raise(Class, Reason, erlang:get_stacktrace());</font>
+        |                  false -&gt;
+<font color=red>     0..|                      ?CRITICAL_MSG("ejabberd initialization was aborted "</font>
+        |                                    "because a module start failed.~n"
+        |                                    "The trace is ~p.", [erlang:get_stacktrace()]),
+<font color=red>     0..|                      timer:sleep(3000),</font>
+<font color=red>     0..|                      erlang:halt(string:substr(lists:flatten(ErrorText),</font>
+        |                                                1, 199))
+        |              end
+        |      end.
+        |  
+        |  -spec start_backend_module(module(), list()) -&gt; any().
+        |  start_backend_module(Module, Opts) -&gt;
+<font color=red>     0..|      start_backend_module(Module, Opts, []).</font>
+        |  
+        |  start_backend_module(Module, Opts, TrackedFuncs) -&gt;
+<font color=red>     0..|      Backend = gen_mod:get_opt(backend, Opts, mnesia),</font>
+<font color=red>     0..|      {BackendModuleStr, CodeString} = backend_code(Module, Backend, TrackedFuncs),</font>
+<font color=red>     0..|      {Mod, Code} = dynamic_compile:from_string(CodeString),</font>
+<font color=red>     0..|      code:load_binary(Mod, BackendModuleStr ++ ".erl", Code),</font>
+<font color=red>     0..|      ensure_backend_metrics(Module, TrackedFuncs).</font>
+        |  
+        |  -spec backend_code(module(), atom(), list()) -&gt; {nonempty_string(), list()}.
+        |  backend_code(Module, Backend, TrackedFuncs) when is_atom(Backend) -&gt;
+<font color=red>     0..|      Callbacks = Module:behaviour_info(callbacks),</font>
+<font color=red>     0..|      ModuleStr = atom_to_list(Module),</font>
+<font color=red>     0..|      BackendModuleName = ModuleStr ++ "_backend",</font>
+<font color=red>     0..|      RealBackendModule = ModuleStr++"_"++atom_to_list(Backend),</font>
+<font color=red>     0..|      BehaviourExports = [generate_export(F, A) || {F, A} &lt;- Callbacks],</font>
+        |  
+<font color=red>     0..|      BehaviourImpl = [generate_fun(Module, RealBackendModule, F, A, TrackedFuncs) || {F, A} &lt;- Callbacks],</font>
+<font color=red>     0..|      Code = lists:flatten(</font>
+        |          ["-module(", BackendModuleName,").\n",
+        |          "-export([backend/0]).\n",
+        |          BehaviourExports,
+        |  
+        |  
+        |          "-spec backend() -&gt; atom().\n",
+        |          "backend() -&gt;", RealBackendModule,".\n",
+        |          BehaviourImpl
+        |          ]),
+<font color=red>     0..|      {BackendModuleName, Code}.</font>
+        |  
+        |  generate_export(F, A) -&gt;
+<font color=red>     0..|      "-export(["++atom_to_list(F)++"/"++integer_to_list(A)++"]).\n".</font>
+        |  
+        |  generate_fun(BaseModule, RealBackendModule, F, A, TrackedFuncs) -&gt;
+<font color=red>     0..|      Args = string:join(["A"++integer_to_list(I) || I &lt;- lists:seq(1, A)], ", "),</font>
+<font color=red>     0..|      IsTracked = lists:member(F, TrackedFuncs),</font>
+<font color=red>     0..|      [fun_header(F, Args)," -&gt;\n",</font>
+        |       generate_fun_body(IsTracked, BaseModule, RealBackendModule, F, Args)].
+        |  
+        |  fun_header(F, Args) -&gt;
+<font color=red>     0..|      [atom_to_list(F),"(",Args,")"].</font>
+        |  
+        |  -define(METRIC(Module, Op), [backends, Module, Op]).
+        |  
+        |  generate_fun_body(false, _, RealBackendModule, F, Args) -&gt;
+<font color=red>     0..|      ["    ",RealBackendModule,":",fun_header(F, Args),".\n"];</font>
+        |  generate_fun_body(true, BaseModule, RealBackendModule, F, Args) -&gt;
+<font color=red>     0..|      FS = atom_to_list(F),</font>
+        |  %%     returned is the following
+        |  %%     {Time, Result} = timer:tc(Backend, F, Args),
+        |  %%     mongoose_metrics:update(?METRIC(Backend, F), Time),
+        |  %%     Result.
+<font color=red>     0..|      ["    {Time, Result} = timer:tc(",RealBackendModule,", ",FS,", [",Args,"]),\n",</font>
+        |       "    mongoose_metrics:update(",
+        |            io_lib:format("~p", [?METRIC(BaseModule, F)]),
+        |            ", Time),\n",
+        |       "    Result.\n"].
+        |  
+        |  ensure_backend_metrics(Module, Ops) -&gt;
+<font color=red>     0..|      EnsureFun = fun(Op) -&gt;</font>
+<font color=red>     0..|          case exometer:info(?METRIC(Module, Op), type) of</font>
+        |              undefined -&gt;
+<font color=red>     0..|                  exometer:new(?METRIC(Module, Op), histogram);</font>
+        |              _ -&gt;
+<font color=red>     0..|                  ok</font>
+        |          end
+        |      end,
+<font color=red>     0..|      lists:foreach(EnsureFun, Ops).</font>
+        |  
+        |  -spec is_app_running(_) -&gt; boolean().
+        |  is_app_running(AppName) -&gt;
+        |      %% Use a high timeout to prevent a false positive in a high load system
+<font color=red>     0..|      Timeout = 15000,</font>
+<font color=red>     0..|      lists:keymember(AppName, 1, application:which_applications(Timeout)).</font>
+        |  
+        |  
+        |  %% @doc Stop the module in a host, and forget its configuration.
+        |  -spec stop_module(ejabberd:server(), module()) -&gt; 'error' | {'aborted',_} | {'atomic',_}.
+        |  stop_module(Host, Module) -&gt;
+<font color=red>     0..|      case stop_module_keep_config(Host, Module) of</font>
+        |          error -&gt;
+<font color=red>     0..|              error;</font>
+        |          ok -&gt;
+<font color=red>     0..|              del_module_mnesia(Host, Module)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Stop the module in a host, but keep its configuration. As the module
+        |  %% configuration is kept in the Mnesia local_config table, when ejabberd is
+        |  %% restarted the module will be started again. This function is useful when
+        |  %% ejabberd is being stopped and it stops all modules.
+        |  -spec stop_module_keep_config(ejabberd:server(), module()) -&gt; 'error' | 'ok'.
+        |  stop_module_keep_config(Host, Module) -&gt;
+<font color=red>     0..|      case catch Module:stop(Host) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason]),</font>
+<font color=red>     0..|              error;</font>
+        |          {wait, ProcList} when is_list(ProcList) -&gt;
+<font color=red>     0..|              lists:foreach(fun wait_for_process/1, ProcList),</font>
+<font color=red>     0..|              ets:delete(ejabberd_modules, {Module, Host}),</font>
+<font color=red>     0..|              ok;</font>
+        |          {wait, Process} -&gt;
+<font color=red>     0..|              wait_for_process(Process),</font>
+<font color=red>     0..|              ets:delete(ejabberd_modules, {Module, Host}),</font>
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              ets:delete(ejabberd_modules, {Module, Host}),</font>
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec reload_module(ejabberd:server(), module(), [any()]) -&gt; 'error' | 'ok'.
+        |  reload_module(Host, Module, Opts) -&gt;
+<font color=red>     0..|      stop_module_keep_config(Host, Module),</font>
+<font color=red>     0..|      start_module(Host, Module, Opts).</font>
+        |  
+        |  -spec wait_for_process(atom() | pid() | {atom(),atom()}) -&gt; 'ok'.
+        |  wait_for_process(Process) -&gt;
+<font color=red>     0..|      MonitorReference = erlang:monitor(process, Process),</font>
+<font color=red>     0..|      wait_for_stop(Process, MonitorReference).</font>
+        |  
+        |  
+        |  -spec wait_for_stop(atom() | pid() | {atom(),atom()},reference()) -&gt; 'ok'.
+        |  wait_for_stop(Process, MonitorReference) -&gt;
+<font color=red>     0..|      receive</font>
+        |          {'DOWN', MonitorReference, _Type, _Object, _Info} -&gt;
+<font color=red>     0..|              ok</font>
+        |      after 5000 -&gt;
+<font color=red>     0..|              catch exit(whereis(Process), kill),</font>
+<font color=red>     0..|              wait_for_stop1(MonitorReference)</font>
+        |      end.
+        |  
+        |  
+        |  -spec wait_for_stop1(reference()) -&gt; 'ok'.
+        |  wait_for_stop1(MonitorReference) -&gt;
+<font color=red>     0..|      receive</font>
+        |          {'DOWN', MonitorReference, _Type, _Object, _Info} -&gt;
+<font color=red>     0..|              ok</font>
+        |      after 5000 -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  get_opt(Opt, Opts) -&gt;
+<font color=red>     0..|      case lists:keysearch(Opt, 1, Opts) of</font>
+        |          false -&gt;
+        |              % TODO: replace with more appropriate function
+<font color=red>     0..|              throw({undefined_option, Opt});</font>
+        |          {value, {_, Val}} -&gt;
+<font color=red>     0..|              Val</font>
+        |      end.
+        |  
+        |  get_opt(Opt, Opts, Default) -&gt;
+     7..|      case lists:keysearch(Opt, 1, Opts) of
+        |          false -&gt;
+     4..|              Default;
+        |          {value, {_, Val}} -&gt;
+     3..|              Val
+        |      end.
+        |  
+        |  
+        |  -spec set_opt(_,[tuple()],_) -&gt; [tuple(),...].
+        |  set_opt(Opt, Opts, Value) -&gt;
+<font color=red>     0..|      lists:keystore(Opt, 1, Opts, {Opt, Value}).</font>
+        |  
+        |  
+        |  get_module_opt(global, Module, Opt, Default) -&gt;
+<font color=red>     0..|      [Value | Values] = [get_module_opt(Host, Module, Opt, Default)</font>
+<font color=red>     0..|                          || Host &lt;- ?MYHOSTS],</font>
+<font color=red>     0..|      AllSame = lists:all(fun(Other) -&gt; Other == Value end, Values),</font>
+<font color=red>     0..|      case AllSame of</font>
+        |          true -&gt;
+<font color=red>     0..|              Value;</font>
+        |          false -&gt;
+<font color=red>     0..|              Default</font>
+        |      end;
+        |  get_module_opt(Host, Module, Opt, Default) -&gt;
+<font color=red>     0..|      OptsList = ets:lookup(ejabberd_modules, {Module, Host}),</font>
+<font color=red>     0..|      case OptsList of</font>
+        |          [] -&gt;
+<font color=red>     0..|              Default;</font>
+        |          [#ejabberd_module{opts = Opts} | _] -&gt;
+<font color=red>     0..|              get_opt(Opt, Opts, Default)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Non-atomic! You have been warned.
+        |  -spec set_module_opt(ejabberd:server(), module(), _Opt, _Value) -&gt; boolean().
+        |  set_module_opt(Host, Module, Opt, Value) -&gt;
+<font color=red>     0..|      Key = {Module, Host},</font>
+<font color=red>     0..|      OptsList = ets:lookup(ejabberd_modules, Key),</font>
+<font color=red>     0..|      case OptsList of</font>
+        |          [] -&gt;
+<font color=red>     0..|              false;</font>
+        |          [#ejabberd_module{opts = Opts}] -&gt;
+<font color=red>     0..|              Updated = set_opt(Opt, Opts, Value),</font>
+<font color=red>     0..|              ets:update_element(ejabberd_modules, Key,</font>
+        |                                 {#ejabberd_module.opts, Updated})
+        |      end.
+        |  
+        |  
+        |  -spec get_module_opt_host(ejabberd:server(), module(), _) -&gt; ejabberd:server().
+        |  get_module_opt_host(Host, Module, Default) -&gt;
+<font color=red>     0..|      Val = get_module_opt(Host, Module, host, Default),</font>
+<font color=red>     0..|      re:replace(Val, "@HOST@", Host, [global, {return,binary}]).</font>
+        |  
+        |  
+        |  -spec get_opt_host(ejabberd:server(), list(), _) -&gt; ejabberd:server().
+        |  get_opt_host(Host, Opts, Default) -&gt;
+<font color=red>     0..|      Val = get_opt(host, Opts, Default),</font>
+<font color=red>     0..|      re:replace(Val, "@HOST@", Host, [global, {return,binary}]).</font>
+        |  
+        |  
+        |  -spec loaded_modules(ejabberd:server()) -&gt; [module()].
+        |  loaded_modules(Host) -&gt;
+<font color=red>     0..|      ets:select(ejabberd_modules,</font>
+        |                 [{#ejabberd_module{_ = '_', module_host = {'$1', Host}},
+        |                   [],
+        |                   ['$1']}]).
+        |  
+        |  
+        |  -spec loaded_modules_with_opts(ejabberd:server()) -&gt; [{module(), list()}].
+        |  loaded_modules_with_opts(Host) -&gt;
+<font color=red>     0..|      ets:select(ejabberd_modules,</font>
+        |                 [{#ejabberd_module{_ = '_', module_host = {'$1', Host},
+        |                                    opts = '$2'},
+        |                   [],
+        |                   [{{'$1', '$2'}}]}]).
+        |  
+        |  
+        |  -spec set_module_opts_mnesia(ejabberd:server(), module(), [any()]
+        |                              ) -&gt; {'aborted',_} | {'atomic',_}.
+        |  set_module_opts_mnesia(Host, Module, Opts) -&gt;
+<font color=red>     0..|      Modules = case ejabberd_config:get_local_option({modules, Host}) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              [];</font>
+        |          Ls -&gt;
+<font color=red>     0..|              Ls</font>
+        |      end,
+<font color=red>     0..|      Modules1 = lists:keydelete(Module, 1, Modules),</font>
+<font color=red>     0..|      Modules2 = [{Module, Opts} | Modules1],</font>
+<font color=red>     0..|      ejabberd_config:add_local_option({modules, Host}, Modules2).</font>
+        |  
+        |  
+        |  -spec del_module_mnesia(ejabberd:server(), module()) -&gt; {'aborted',_} | {'atomic',_}.
+        |  del_module_mnesia(Host, Module) -&gt;
+<font color=red>     0..|      Modules = case ejabberd_config:get_local_option({modules, Host}) of</font>
+        |                    undefined -&gt;
+<font color=red>     0..|                        [];</font>
+        |                    Ls -&gt;
+<font color=red>     0..|                        Ls</font>
+        |                end,
+<font color=red>     0..|      case lists:keydelete(Module, 1, Modules) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              ejabberd_config:del_local_option({modules, Host});</font>
+        |          OtherModules -&gt;
+<font color=red>     0..|              ejabberd_config:add_local_option({modules, Host}, OtherModules)</font>
+        |      end.
+        |  
+        |  get_hosts(Opts, Prefix) -&gt;
+<font color=red>     0..|      case catch gen_mod:get_opt(hosts, Opts) of</font>
+        |          {'EXIT', _Error1} -&gt;
+<font color=red>     0..|              case catch gen_mod:get_opt(host, Opts) of</font>
+        |                  {'EXIT', _Error2} -&gt;
+<font color=red>     0..|                      [Prefix ++ Host || Host &lt;- ?MYHOSTS];</font>
+        |                  Host -&gt;
+<font color=red>     0..|                      [Host]</font>
+        |              end;
+        |          Hosts -&gt;
+<font color=red>     0..|              Hosts</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_module_proc(binary() | string(), module()) -&gt; atom().
+        |  get_module_proc(Host, Base) when is_binary(Host) -&gt;
+<font color=red>     0..|      get_module_proc(binary_to_list(Host), Base);</font>
+        |  get_module_proc(Host, Base) -&gt;
+<font color=red>     0..|      list_to_atom(atom_to_list(Base) ++ "_" ++ Host).</font>
+        |  
+        |  
+        |  -spec is_loaded(Host :: binary(), Module :: atom()) -&gt; boolean().
+        |  is_loaded(Host, Module) -&gt;
+<font color=red>     0..|      ets:member(ejabberd_modules, {Module, Host}).</font>
+        |  
+        |  
+        |  -spec clear_opts(atom(), list()) -&gt; list().
+        |  clear_opts(Module, Opts0) -&gt;
+<font color=red>     0..|      Opts = proplists:unfold(Opts0),</font>
+        |      %% the module has to be loaded,
+        |      %% otherwise the erlang:function_exported/3 returns false
+<font color=red>     0..|      code:ensure_loaded(Module),</font>
+<font color=red>     0..|      case erlang:function_exported(Module, clean_opts, 1) of</font>
+        |          true -&gt;
+<font color=red>     0..|              Module:clean_opts(Opts);</font>
+        |          _ -&gt;
+<font color=red>     0..|              Opts</font>
+        |      end.
+</pre>
+</body>
+</html>

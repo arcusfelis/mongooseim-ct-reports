@@ -1,0 +1,815 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/ejabberd_odbc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_odbc.erl by COVER 2016-01-26 at 09:42:47
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_odbc.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Serve ODBC connection
+        |  %%% Created :  8 Dec 2004 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_odbc).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -define(GEN_FSM, p1_fsm).
+        |  
+        |  -behaviour(?GEN_FSM).
+        |  
+        |  %% External exports
+        |  -export([start_link/3,
+        |           sql_query/2,
+        |           sql_query_t/1,
+        |           sql_transaction/2,
+        |           sql_bloc/2,
+        |           escape/1,
+        |           escape_like/1,
+        |           to_bool/1,
+        |           keep_alive/1,
+        |           db_engine/1,
+        |           get_dedicated_connection/1]).
+        |  
+        |  %% BLOB escaping
+        |  -export([escape_format/1,
+        |           escape_binary/2,
+        |           unescape_binary/2,
+        |           unescape_odbc_binary/2]).
+        |  
+        |  %% count / integra types decoding
+        |  -export([result_to_integer/1]).
+        |  
+        |  %% gen_fsm callbacks
+        |  -export([init/1,
+        |           handle_event/3,
+        |           handle_sync_event/4,
+        |           handle_info/3,
+        |           terminate/3,
+        |           print_state/1,
+        |           code_change/4]).
+        |  
+        |  %% gen_fsm states
+        |  -export([connecting/2,
+        |           connecting/3,
+        |           session_established/2,
+        |           session_established/3]).
+        |  
+        |  %% internal usage
+        |  -export([get_db_info/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -record(state, {db_ref,
+        |                  db_type :: atom(),
+        |                  start_interval :: integer(),
+        |                  host :: odbc_server(),
+        |                  parent_pid :: pid(),
+        |                  dedicated :: boolean(),
+        |                  max_pending_requests_len :: integer(),
+        |                  pending_requests
+        |                }).
+        |  -type state() :: #state{}.
+        |  
+        |  -define(STATE_KEY, ejabberd_odbc_state).
+        |  -define(NESTING_KEY, ejabberd_odbc_nesting_level).
+        |  -define(TOP_LEVEL_TXN, 0).
+        |  -define(MAX_TRANSACTION_RESTARTS, 10).
+        |  -define(PGSQL_PORT, 5432).
+        |  -define(MYSQL_PORT, 3306).
+        |  
+        |  -define(TRANSACTION_TIMEOUT, 60000). % milliseconds
+        |  -define(KEEPALIVE_TIMEOUT, 60000).
+        |  -define(KEEPALIVE_QUERY, &lt;&lt;"SELECT 1;"&gt;&gt;).
+        |  
+        |  -define(QUERY_TIMEOUT, 5000).
+        |  
+        |  %%-define(DBGFSM, true).
+        |  
+        |  -ifdef(DBGFSM).
+        |  -define(FSMOPTS, [{debug, [trace]}]).
+        |  -else.
+        |  -define(FSMOPTS, []).
+        |  -endif.
+        |  
+        |  %% Points to ODBC server process
+        |  -type odbc_server() :: ejabberd:server() | pid() | {atom(), pid()}.
+        |  -export_type([odbc_server/0]).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  -spec start_link(Host :: ejabberd:server(),
+        |                   StartInterval :: integer(),
+        |                   Dedicated :: boolean()) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(Host, StartInterval, Dedicated) when is_boolean(Dedicated) -&gt;
+<font color=red>     0..|      ?GEN_FSM:start_link(ejabberd_odbc, [Host, StartInterval, self(), Dedicated],</font>
+        |                          fsm_limit_opts() ++ ?FSMOPTS).
+        |  
+        |  -spec sql_query(Host :: odbc_server(), Query :: any()) -&gt; any().
+        |  sql_query(Host, Query) -&gt;
+<font color=red>     0..|      sql_call(Host, {sql_query, Query}).</font>
+        |  
+        |  -spec get_dedicated_connection(Host :: ejabberd:server())
+        |        -&gt; 'ignore' | {'error',_} | {'ok',{Host :: ejabberd:server(), pid()}}.
+        |  get_dedicated_connection(Host) -&gt;
+<font color=red>     0..|      ejabberd_odbc_sup:get_dedicated_connection(Host).</font>
+        |  
+        |  %% @doc SQL transaction based on a list of queries
+        |  -spec sql_transaction(odbc_server(), fun() | maybe_improper_list()) -&gt; any().
+        |  sql_transaction(Host, Queries) when is_list(Queries) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  lists:foreach(fun(Query) -&gt;</font>
+<font color=red>     0..|                                        sql_query_t(Query)</font>
+        |                                end,
+        |                                Queries)
+        |          end,
+<font color=red>     0..|      sql_transaction(Host, F);</font>
+        |  %% SQL transaction, based on a erlang anonymous function (F = fun)
+        |  sql_transaction(Host, F) when is_function(F) -&gt;
+<font color=red>     0..|      sql_call(Host, {sql_transaction, F}).</font>
+        |  
+        |  %% @doc SQL bloc, based on a erlang anonymous function (F = fun)
+        |  -spec sql_bloc(Host :: odbc_server(), F :: any()) -&gt; any().
+        |  sql_bloc(Host, F) -&gt;
+<font color=red>     0..|      sql_call(Host, {sql_bloc, F}).</font>
+        |  
+        |  %% TODO: Better spec for RPC calls
+        |  -spec sql_call(Host :: odbc_server(),
+        |               Msg :: {'sql_bloc',_} | {'sql_query',_} | {'sql_transaction',fun()}
+        |               ) -&gt; any().
+        |  sql_call(Host, Msg) when is_binary(Host) -&gt;
+<font color=red>     0..|      case get(?STATE_KEY) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              Worker = ejabberd_odbc_sup:get_random_pid(Host),</font>
+<font color=red>     0..|              sql_call(Worker, Msg);</font>
+        |          _State -&gt;
+<font color=red>     0..|              nested_op(Msg)</font>
+        |      end;
+        |  %% For dedicated connections.
+        |  sql_call(Pid, Msg) when is_pid(Pid) -&gt;
+<font color=red>     0..|      ?GEN_FSM:sync_send_event(Pid,</font>
+        |               {sql_cmd, Msg, now()}, ?TRANSACTION_TIMEOUT);
+        |  sql_call({_Host, Pid}, Msg) when is_pid(Pid) -&gt;
+<font color=red>     0..|      ?GEN_FSM:sync_send_event(Pid,</font>
+        |               {sql_cmd, Msg, now()}, ?TRANSACTION_TIMEOUT).
+        |  
+        |  
+        |  %% @doc perform a harmless query on all opened connexions to avoid connexion close.
+        |  keep_alive(PID) -&gt;
+<font color=red>     0..|      Command = {sql_cmd, {sql_query, [?KEEPALIVE_QUERY]}, now()},</font>
+<font color=red>     0..|      Result = ?GEN_FSM:sync_send_event(PID, Command, ?KEEPALIVE_TIMEOUT),</font>
+<font color=red>     0..|      case Result of</font>
+        |          {selected, _, _} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {error, _}=Error -&gt;
+<font color=red>     0..|              ok = ?GEN_FSM:sync_send_all_state_event(PID,</font>
+        |                                                      {keepalive_failed, Error})
+        |      end.
+        |  
+        |  get_db_info(Pid) -&gt;
+<font color=red>     0..|      ?GEN_FSM:sync_send_all_state_event(Pid, get_db_info).</font>
+        |  %% This function is intended to be used from inside an sql_transaction:
+        |  sql_query_t(Query) -&gt;
+<font color=red>     0..|      QRes = sql_query_internal(Query),</font>
+<font color=red>     0..|      case QRes of</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              throw({aborted, Reason});</font>
+        |          Rs when is_list(Rs) -&gt;
+<font color=red>     0..|              case lists:keysearch(error, 1, Rs) of</font>
+        |                  {value, {error, Reason}} -&gt;
+<font color=red>     0..|                      throw({aborted, Reason});</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      QRes</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              QRes</font>
+        |      end.
+        |  
+        |  %% @doc Escape character that will confuse an SQL engine
+        |  -spec escape(binary() | string()) -&gt; binary() | string().
+        |  escape(S) -&gt;
+<font color=red>     0..|      odbc_queries:escape_string(S).</font>
+        |  
+        |  %% @doc Escape character that will confuse an SQL engine
+        |  %% Percent and underscore only need to be escaped for
+        |  %% pattern matching like statement
+        |  %% INFO: Used in mod_vcard_odbc.
+        |  -spec escape_like(binary() | string()) -&gt; binary() | string().
+        |  escape_like(S) -&gt;
+<font color=red>     0..|      odbc_queries:escape_like_string(S).</font>
+        |  
+        |  -spec escape_format(odbc_server()) -&gt; hex | simple_escape.
+        |  escape_format(Host) -&gt;
+<font color=red>     0..|      case db_engine(Host) of</font>
+<font color=red>     0..|          pgsql -&gt; hex;</font>
+        |          odbc -&gt;
+<font color=red>     0..|              Key = {odbc_server_type, Host},</font>
+<font color=red>     0..|              case ejabberd_config:get_local_option_or_default(Key, odbc) of</font>
+        |                  pgsql -&gt;
+<font color=red>     0..|                      hex;</font>
+        |                  mssql -&gt;
+<font color=red>     0..|                      mssql_hex;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      simple_escape</font>
+        |              end;
+<font color=red>     0..|          _     -&gt; simple_escape</font>
+        |      end.
+        |  
+        |  -spec escape_binary('hex' | 'simple_escape', binary()) -&gt; binary() | string().
+        |  escape_binary(hex, Bin) when is_binary(Bin) -&gt;
+<font color=red>     0..|      &lt;&lt;"\\\\x", (bin_to_hex:bin_to_hex(Bin))/binary&gt;&gt;;</font>
+        |  escape_binary(mssql_hex, Bin) when is_binary(Bin) -&gt;
+<font color=red>     0..|      bin_to_hex:bin_to_hex(Bin);</font>
+        |  escape_binary(simple_escape, Bin) when is_binary(Bin) -&gt;
+<font color=red>     0..|      escape(Bin).</font>
+        |  
+        |  -spec unescape_binary('hex' | 'simple_escape', binary()) -&gt; binary().
+        |  unescape_binary(hex, &lt;&lt;"\\x", Bin/binary&gt;&gt;) when is_binary(Bin) -&gt;
+<font color=red>     0..|      hex_to_bin(Bin);</font>
+        |  unescape_binary(_, Bin) -&gt;
+<font color=red>     0..|      Bin.</font>
+        |  
+        |  -spec unescape_odbc_binary(atom(), binary()) -&gt; binary().
+        |  unescape_odbc_binary(odbc, Bin) when is_binary(Bin)-&gt;
+<font color=red>     0..|      hex_to_bin(Bin);</font>
+        |  unescape_odbc_binary(_, Bin) -&gt;
+<font color=red>     0..|      Bin.</font>
+        |  
+        |  -spec result_to_integer(binary() | integer()) -&gt; integer().
+        |  result_to_integer(Int) when is_integer(Int) -&gt;
+<font color=red>     0..|      Int;</font>
+        |  result_to_integer(Bin) when is_binary(Bin) -&gt;
+<font color=red>     0..|      binary_to_integer(Bin).</font>
+        |  
+        |  -spec hex_to_bin(binary()) -&gt; &lt;&lt;_:_*1&gt;&gt;.
+        |  hex_to_bin(Bin) when is_binary(Bin) -&gt;
+<font color=red>     0..|      &lt;&lt; &lt;&lt;(hex_to_int(X, Y))&gt;&gt; || &lt;&lt;X, Y&gt;&gt; &lt;= Bin&gt;&gt;.</font>
+        |  
+        |  -spec hex_to_int(byte(),byte()) -&gt; integer().
+        |  hex_to_int(X, Y) when is_integer(X), is_integer(Y) -&gt;
+<font color=red>     0..|      list_to_integer([X,Y], 16).</font>
+        |  
+        |  -spec to_bool(binary() | string() | atom() | integer() | any()) -&gt; boolean().
+        |  to_bool(B) when is_binary(B) -&gt;
+<font color=red>     0..|      to_bool(binary_to_list(B));</font>
+<font color=red>     0..|  to_bool("t") -&gt; true;</font>
+<font color=red>     0..|  to_bool("true") -&gt; true;</font>
+<font color=red>     0..|  to_bool("1") -&gt; true;</font>
+<font color=red>     0..|  to_bool(true) -&gt; true;</font>
+<font color=red>     0..|  to_bool(1) -&gt; true;</font>
+<font color=red>     0..|  to_bool(_) -&gt; false.</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Callback functions from gen_fsm
+        |  %%%----------------------------------------------------------------------
+        |  init([Host, StartInterval, ParentPid, Dedicated]) -&gt;
+        |      %% For debugging and introspection only.
+<font color=red>     0..|      put(mim_host, Host),</font>
+<font color=red>     0..|      put(mim_process_type, odbc_worker),</font>
+<font color=red>     0..|      put(mim_odbc_dedicated, Dedicated),</font>
+<font color=red>     0..|      case ejabberd_config:get_local_option({odbc_keepalive_interval, Host}) of</font>
+        |          KeepaliveInterval when is_integer(KeepaliveInterval) -&gt;
+<font color=red>     0..|              timer:apply_interval(KeepaliveInterval*1000, ?MODULE,</font>
+        |                                   keep_alive, [self()]);
+        |          undefined -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _Other -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Wrong odbc_keepalive_interval definition '~p'"</font>
+        |                         " for host ~p.~n", [_Other, Host])
+        |      end,
+<font color=red>     0..|      [DBType | _] = db_opts(Host),</font>
+<font color=red>     0..|      ?GEN_FSM:send_event(self(), connect),</font>
+<font color=red>     0..|      case Dedicated of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ejabberd_odbc_sup:add_pid(Host, self())</font>
+        |      end,
+<font color=red>     0..|      erlang:monitor(process, ParentPid),</font>
+<font color=red>     0..|      erlang:process_flag(trap_exit, true),</font>
+<font color=red>     0..|      {ok, connecting, #state{db_type = DBType,</font>
+        |                  parent_pid = ParentPid,
+        |                  dedicated = Dedicated,
+        |                              host = Host,
+        |                              max_pending_requests_len = max_fsm_queue(),
+        |                              pending_requests = {0, queue:new()},
+        |                              start_interval = StartInterval}}.
+        |  
+        |  -spec connecting(_, state())
+        |        -&gt; {'next_state','connecting' | 'session_established',_}.
+        |  connecting(connect, #state{host = Host} = State) -&gt;
+<font color=red>     0..|      ConnectRes = case db_opts(Host) of</font>
+        |                       [mysql | Args] -&gt;
+<font color=red>     0..|                           apply(fun mysql_connect/5, Args);</font>
+        |                       [pgsql | Args] -&gt;
+<font color=red>     0..|                           apply(fun pgsql_connect/5, Args);</font>
+        |                       [odbc | Args] -&gt;
+<font color=red>     0..|                           apply(fun odbc_connect/1, Args)</font>
+        |                   end,
+<font color=red>     0..|      {_, PendingRequests} = State#state.pending_requests,</font>
+<font color=red>     0..|      case ConnectRes of</font>
+        |          {ok, Ref} -&gt;
+<font color=red>     0..|              erlang:monitor(process, Ref),</font>
+<font color=red>     0..|              lists:foreach(</font>
+        |                fun(Req) -&gt;
+<font color=red>     0..|                        ?GEN_FSM:send_event(self(), Req)</font>
+        |                end, queue:to_list(PendingRequests)),
+<font color=red>     0..|              {next_state, session_established,</font>
+        |               State#state{db_ref = Ref,
+        |                           pending_requests = {0, queue:new()}}};
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?INFO_MSG("~p connection failed:~n"</font>
+        |                        "** Reason: ~p~n"
+        |                        "** Retry after: ~p seconds",
+        |                        [State#state.db_type, Reason,
+        |                         State#state.start_interval div 1000]),
+<font color=red>     0..|              ?GEN_FSM:send_event_after(State#state.start_interval,</font>
+        |                                        connect),
+<font color=red>     0..|              {next_state, connecting, State}</font>
+        |      end;
+        |  connecting(Event, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("unexpected event in 'connecting': ~p", [Event]),</font>
+<font color=red>     0..|      {next_state, connecting, State}.</font>
+        |  
+        |  -spec connecting(_, From :: any(), state()) -&gt;
+        |    {'next_state','connecting',_} | {'reply',{'error','badarg'},'connecting',_}.
+        |  connecting({sql_cmd, {sql_query, ?KEEPALIVE_QUERY}, _Timestamp}, From, State) -&gt;
+<font color=red>     0..|      ?GEN_FSM:reply(From, {error, "SQL connection failed"}),</font>
+<font color=red>     0..|      {next_state, connecting, State};</font>
+        |  connecting({sql_cmd, Command, Timestamp} = Req, From, State) -&gt;
+<font color=red>     0..|      ?DEBUG("queuing pending request while connecting:~n\t~p", [Req]),</font>
+<font color=red>     0..|      {Len, PendingRequests} = State#state.pending_requests,</font>
+<font color=red>     0..|      NewPendingRequests =</font>
+        |          if Len &lt; State#state.max_pending_requests_len -&gt;
+<font color=red>     0..|                  {Len + 1, queue:in({sql_cmd, Command, From, Timestamp}, PendingRequests)};</font>
+        |             true -&gt;
+<font color=red>     0..|                  lists:foreach(</font>
+        |                    fun({sql_cmd, _, To, _Timestamp}) -&gt;
+<font color=red>     0..|                            ?GEN_FSM:reply(</font>
+        |                               To, {error, "SQL connection failed"})
+        |                    end, queue:to_list(PendingRequests)),
+<font color=red>     0..|                  {1, queue:from_list([{sql_cmd, Command, From, Timestamp}])}</font>
+        |          end,
+<font color=red>     0..|      {next_state, connecting,</font>
+        |       State#state{pending_requests = NewPendingRequests}};
+        |  connecting(Request, {Who, _Ref}, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("unexpected call ~p from ~p in 'connecting'",</font>
+        |                   [Request, Who]),
+<font color=red>     0..|      {reply, {error, badarg}, connecting, State}.</font>
+        |  
+        |  -spec session_established(_, From :: _, state())
+        |                         -&gt; {'next_state','session_established',_}
+        |                          | {'stop','closed' | 'timeout',_}
+        |                          | {'reply',{'error','badarg'},'session_established',_}.
+        |  session_established({sql_cmd, Command, Timestamp}, From, State) -&gt;
+<font color=red>     0..|      run_sql_cmd(Command, From, State, Timestamp);</font>
+        |  session_established(Request, {Who, _Ref}, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("unexpected call ~p from ~p in 'session_established'",</font>
+        |                   [Request, Who]),
+<font color=red>     0..|      {reply, {error, badarg}, session_established, State}.</font>
+        |  
+        |  -spec session_established(_, state()) -&gt; {'next_state','session_established',_}
+        |                                         | {'stop','closed' | 'timeout',_}.
+        |  session_established({sql_cmd, Command, From, Timestamp}, State) -&gt;
+<font color=red>     0..|      run_sql_cmd(Command, From, State, Timestamp);</font>
+        |  session_established(Event, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("unexpected event in 'session_established': ~p", [Event]),</font>
+<font color=red>     0..|      {next_state, session_established, State}.</font>
+        |  
+        |  handle_event(_Event, StateName, State) -&gt;
+<font color=red>     0..|      {next_state, StateName, State}.</font>
+        |  
+        |  handle_sync_event(get_db_info, _, StateName,
+        |                    #state{db_ref = DbRef, db_type = DbType} = State) -&gt;
+<font color=red>     0..|      {reply, {ok, DbType, DbRef}, StateName, State};</font>
+        |  handle_sync_event({keepalive_failed, Error}, _From, _StateName, State) -&gt;
+<font color=red>     0..|      {stop, {keepalive_failed, Error}, ok, State};</font>
+        |  handle_sync_event(_Event, _From, StateName, State) -&gt;
+<font color=red>     0..|      {reply, {error, badarg}, StateName, State}.</font>
+        |  
+        |  code_change(_OldVsn, StateName, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, StateName, State}.</font>
+        |  
+        |  %% We receive the down from our parent.
+        |  -spec handle_info(_, StateName :: atom(), state()) -&gt;
+        |      {'next_state', atom(), state()} | {'stop', _, state()}.
+        |  handle_info({'DOWN', _MonitorRef, process, ParentPid, Reason}, _StateName,
+        |      State=#state{parent_pid=ParentPid}) -&gt;
+<font color=red>     0..|      {stop, Reason, State};</font>
+        |  %% We receive the down signal when we loose the MySQL connection (we are
+        |  %% monitoring the connection)
+        |  handle_info({'DOWN', _MonitorRef, process, _Pid, _Info}, _StateName, State) -&gt;
+<font color=red>     0..|      ?GEN_FSM:send_event(self(), connect),</font>
+<font color=red>     0..|      {next_state, connecting, State};</font>
+        |  handle_info({'EXIT', _From, _Reason}, StateName, State) -&gt;
+<font color=red>     0..|      {next_state, StateName, State};</font>
+        |  handle_info(Info, StateName, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("unexpected info in ~p: ~p", [StateName, Info]),</font>
+<font color=red>     0..|      {next_state, StateName, State}.</font>
+        |  
+        |  -spec terminate(_,_,state()) -&gt; 'ok'.
+        |  terminate(_Reason, _StateName, State) -&gt;
+<font color=red>     0..|      case State#state.dedicated of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ejabberd_odbc_sup:remove_pid(State#state.host, self())</font>
+        |      end,
+<font color=red>     0..|      case State#state.db_type of</font>
+        |          mysql -&gt;
+        |              %% old versions of mysql driver don't have the stop function
+        |              %% so the catch
+<font color=red>     0..|              catch mysql_conn:stop(State#state.db_ref);</font>
+        |      pgsql -&gt;
+<font color=red>     0..|              catch pgsql:terminate(State#state.db_ref);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: print_state/1
+        |  %% Purpose: Prepare the state to be printed on error log
+        |  %% Returns: State to print
+        |  %%----------------------------------------------------------------------
+        |  print_state(State) -&gt;
+<font color=red>     0..|      State.</font>
+        |  %%%----------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -type odbc_timestamp() :: {non_neg_integer(),non_neg_integer(),non_neg_integer()}.
+        |  -spec run_sql_cmd(Command :: any(),
+        |                    From :: any(),
+        |                    State :: state(),
+        |                    Timestamp :: odbc_timestamp())
+        |        -&gt; {'next_state','session_established',state()}
+        |         | {'stop','closed' | 'timeout',state()}.
+        |  run_sql_cmd(Command, From, State, Timestamp) -&gt;
+<font color=red>     0..|      case timer:now_diff(now(), Timestamp) div 1000 of</font>
+        |          Age when Age  &lt; ?TRANSACTION_TIMEOUT -&gt;
+<font color=red>     0..|              put(?NESTING_KEY, ?TOP_LEVEL_TXN),</font>
+<font color=red>     0..|              put(?STATE_KEY, State),</font>
+<font color=red>     0..|              abort_on_driver_error(outer_op(Command), From);</font>
+        |          Age -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Database was not available or too slow,"</font>
+        |                         " discarding ~p milliseconds old request~n~p~n",
+        |                         [Age, Command]),
+<font color=red>     0..|              {next_state, session_established, State}</font>
+        |      end.
+        |  
+        |  %% @doc Only called by handle_call, only handles top level operations.
+        |  -spec outer_op({'sql_bloc',_} | {'sql_query',_} | {'sql_transaction',fun()}
+        |                ) -&gt; {error | aborted | atomic, _}.
+        |  outer_op({sql_query, Query}) -&gt;
+<font color=red>     0..|      sql_query_internal(Query);</font>
+        |  outer_op({sql_transaction, F}) -&gt;
+<font color=red>     0..|      outer_transaction(F, ?MAX_TRANSACTION_RESTARTS, "");</font>
+        |  outer_op({sql_bloc, F}) -&gt;
+<font color=red>     0..|      execute_bloc(F).</font>
+        |  
+        |  %% @doc Called via sql_query/transaction/bloc from client code when inside a
+        |  %% nested operation
+        |  -spec nested_op({'sql_bloc',_} | {'sql_query',_} | {'sql_transaction',fun()}) -&gt; any().
+        |  nested_op({sql_query, Query}) -&gt;
+        |      %% XXX - use sql_query_t here insted? Most likely would break
+        |      %% callers who expect {error, _} tuples (sql_query_t turns
+        |      %% these into throws)
+<font color=red>     0..|      sql_query_internal(Query);</font>
+        |  nested_op({sql_transaction, F}) -&gt;
+<font color=red>     0..|      NestingLevel = get(?NESTING_KEY),</font>
+<font color=red>     0..|      if NestingLevel =:= ?TOP_LEVEL_TXN -&gt;</font>
+        |              %% First transaction inside a (series of) sql_blocs
+<font color=red>     0..|              outer_transaction(F, ?MAX_TRANSACTION_RESTARTS, "");</font>
+        |         true -&gt;
+        |              %% Transaction inside a transaction
+<font color=red>     0..|              inner_transaction(F)</font>
+        |      end;
+        |  nested_op({sql_bloc, F}) -&gt;
+<font color=red>     0..|      execute_bloc(F).</font>
+        |  
+        |  %% @doc Never retry nested transactions - only outer transactions
+        |  -spec inner_transaction(fun()) -&gt; {'EXIT',_} | {'aborted',_} | {'atomic',_}.
+        |  inner_transaction(F) -&gt;
+<font color=red>     0..|      PreviousNestingLevel = get(?NESTING_KEY),</font>
+<font color=red>     0..|      case get(?NESTING_KEY) of</font>
+        |          ?TOP_LEVEL_TXN -&gt;
+<font color=red>     0..|              {backtrace, T} = process_info(self(), backtrace),</font>
+<font color=red>     0..|              ?ERROR_MSG("inner transaction called at outer txn level. Trace: ~s",</font>
+        |                         [T]),
+<font color=red>     0..|              erlang:exit(implementation_faulty);</font>
+<font color=red>     0..|          _N -&gt; ok</font>
+        |      end,
+<font color=red>     0..|      put(?NESTING_KEY, PreviousNestingLevel + 1),</font>
+<font color=red>     0..|      Result = (catch F()),</font>
+<font color=red>     0..|      put(?NESTING_KEY, PreviousNestingLevel),</font>
+<font color=red>     0..|      case Result of</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {aborted, Reason};</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              {'EXIT', Reason};</font>
+        |          {atomic, Res} -&gt;
+<font color=red>     0..|              {atomic, Res};</font>
+        |          Res -&gt;
+<font color=red>     0..|              {atomic, Res}</font>
+        |      end.
+        |  
+        |  -spec outer_transaction(F :: fun(),
+        |                          NRestarts :: 0..10,
+        |                          Reason :: any()) -&gt; {'aborted',_} | {'atomic',_}.
+        |  outer_transaction(F, NRestarts, _Reason) -&gt;
+<font color=red>     0..|      PreviousNestingLevel = get(?NESTING_KEY),</font>
+<font color=red>     0..|      case get(?NESTING_KEY) of</font>
+        |          ?TOP_LEVEL_TXN -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _N -&gt;
+<font color=red>     0..|              {backtrace, T} = process_info(self(), backtrace),</font>
+<font color=red>     0..|              ?ERROR_MSG("outer transaction called at inner txn level. Trace: ~s",</font>
+        |                         [T]),
+<font color=red>     0..|              erlang:exit(implementation_faulty)</font>
+        |      end,
+<font color=red>     0..|      sql_query_internal(odbc_queries:begin_trans()),</font>
+<font color=red>     0..|      put(?NESTING_KEY, PreviousNestingLevel + 1),</font>
+<font color=red>     0..|      Result = (catch F()),</font>
+<font color=red>     0..|      put(?NESTING_KEY, PreviousNestingLevel),</font>
+<font color=red>     0..|      case Result of</font>
+        |          {aborted, Reason} when NRestarts &gt; 0 -&gt;
+        |              %% Retry outer transaction upto NRestarts times.
+<font color=red>     0..|              sql_query_internal([&lt;&lt;"rollback;"&gt;&gt;]),</font>
+<font color=red>     0..|              outer_transaction(F, NRestarts - 1, Reason);</font>
+        |          {aborted, Reason} when NRestarts =:= 0 -&gt;
+        |              %% Too many retries of outer transaction.
+<font color=red>     0..|              ?ERROR_MSG("SQL transaction restarts exceeded~n"</font>
+        |                         "** Restarts: ~p~n"
+        |                         "** Last abort reason: ~p~n"
+        |                         "** Stacktrace: ~p~n"
+        |                         "** When State == ~p",
+        |                         [?MAX_TRANSACTION_RESTARTS, Reason,
+        |                          erlang:get_stacktrace(), get(?STATE_KEY)]),
+<font color=red>     0..|              sql_query_internal([&lt;&lt;"rollback;"&gt;&gt;]),</font>
+<font color=red>     0..|              {aborted, Reason};</font>
+        |          {'EXIT', Reason} -&gt;
+        |              %% Abort sql transaction on EXIT from outer txn only.
+<font color=red>     0..|              sql_query_internal([&lt;&lt;"rollback;"&gt;&gt;]),</font>
+<font color=red>     0..|              {aborted, Reason};</font>
+        |          Res -&gt;
+        |              %% Commit successful outer txn
+<font color=red>     0..|              sql_query_internal([&lt;&lt;"commit;"&gt;&gt;]),</font>
+<font color=red>     0..|              {atomic, Res}</font>
+        |      end.
+        |  
+        |  -spec execute_bloc(fun()) -&gt; {'aborted',_} | {'atomic',_}.
+        |  execute_bloc(F) -&gt;
+        |      %% We don't alter ?NESTING_KEY here as only SQL transactions alter
+        |      %% txn nesting
+<font color=red>     0..|      case catch F() of</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {aborted, Reason};</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              {aborted, Reason};</font>
+        |          Res -&gt;
+<font color=red>     0..|              {atomic, Res}</font>
+        |      end.
+        |  
+        |  sql_query_internal(Query) -&gt;
+<font color=red>     0..|      State = get(?STATE_KEY),</font>
+<font color=red>     0..|      Res = case State#state.db_type of</font>
+        |                odbc -&gt;
+<font color=red>     0..|                    binaryze_odbc(odbc:sql_query(State#state.db_ref, Query,</font>
+        |                                                 ?QUERY_TIMEOUT));
+        |                pgsql -&gt;
+<font color=red>     0..|                    ?DEBUG("Postres, Send query~n~p~n", [Query]),</font>
+<font color=red>     0..|                    pgsql_to_odbc(pgsql:squery(State#state.db_ref, Query,</font>
+        |                                               ?QUERY_TIMEOUT));
+        |                mysql -&gt;
+<font color=red>     0..|                    ?DEBUG("MySQL, Send query~n~p~n", [Query]),</font>
+<font color=red>     0..|                    R = mysql_to_odbc(mysql_conn:fetch(State#state.db_ref, Query,</font>
+        |                                                       self(), ?QUERY_TIMEOUT)),
+        |                    %% ?INFO_MSG("MySQL, Received result~n~p~n", [R]),
+<font color=red>     0..|                    R</font>
+        |            end,
+<font color=red>     0..|      case Res of</font>
+        |          {error, "No SQL-driver information available."} -&gt;
+        |              % workaround for odbc bug
+<font color=red>     0..|              {updated, 0};</font>
+<font color=red>     0..|          _Else -&gt; Res</font>
+        |      end.
+        |  
+        |  %% @doc Generate the OTP callback return tuple depending on the driver result.
+        |  -spec abort_on_driver_error(_, From :: {_,_})
+        |        -&gt; {'next_state','session_established',_} | {'stop','closed' | 'timeout',_}.
+        |  abort_on_driver_error({error, "query timed out"} = Reply, From) -&gt;
+        |      %% mysql driver error
+<font color=red>     0..|      ?GEN_FSM:reply(From, Reply),</font>
+<font color=red>     0..|      {stop, timeout, get(?STATE_KEY)};</font>
+        |  abort_on_driver_error({error, "Failed sending data on socket" ++ _} = Reply,
+        |                        From) -&gt;
+        |      %% mysql driver error
+<font color=red>     0..|      ?GEN_FSM:reply(From, Reply),</font>
+<font color=red>     0..|      {stop, closed, get(?STATE_KEY)};</font>
+        |  abort_on_driver_error(Reply, From) -&gt;
+<font color=red>     0..|      ?GEN_FSM:reply(From, Reply),</font>
+<font color=red>     0..|      {next_state, session_established, get(?STATE_KEY)}.</font>
+        |  
+        |  
+        |  %% == pure ODBC code
+        |  
+        |  %% part of init/1
+        |  %% @doc Open an ODBC database connection
+        |  -spec odbc_connect(ConnString :: string()) -&gt; {ok | error, _}.
+        |  odbc_connect(SQLServer) -&gt;
+<font color=red>     0..|      application:start(odbc),</font>
+<font color=red>     0..|      Opts = [{scrollable_cursors, off},</font>
+        |              {binary_strings, on},
+        |              {timeout, 5000}],
+<font color=red>     0..|      odbc:connect(SQLServer, Opts).</font>
+        |  
+        |  binaryze_odbc(ODBCResults) when is_list(ODBCResults) -&gt;
+<font color=red>     0..|      lists:map(fun binaryze_odbc/1, ODBCResults);</font>
+        |  binaryze_odbc({selected, ColNames, Rows}) -&gt;
+<font color=red>     0..|      ColNamesB = lists:map(fun ejabberd_binary:string_to_binary/1, ColNames),</font>
+<font color=red>     0..|      {selected, ColNamesB, Rows};</font>
+        |  binaryze_odbc(ODBCResult) -&gt;
+<font color=red>     0..|      ODBCResult.</font>
+        |  
+        |  %% == Native PostgreSQL code
+        |  
+        |  %% part of init/1
+        |  %% @doc Open a database connection to PostgreSQL
+        |  pgsql_connect(Server, Port, DB, Username, Password) -&gt;
+<font color=red>     0..|      Params = [</font>
+        |              {host, Server},
+        |              {database, DB},
+        |              {user, Username},
+        |              {password, Password},
+        |              {port, Port},
+        |              {as_binary, true}],
+<font color=red>     0..|      case pgsql:connect(Params) of</font>
+        |          {ok, Ref} -&gt;
+<font color=red>     0..|              {ok,[&lt;&lt;"SET"&gt;&gt;]} =</font>
+        |              pgsql:squery(Ref, "SET standard_conforming_strings=off;", ?QUERY_TIMEOUT),
+<font color=red>     0..|              {ok, Ref};</font>
+<font color=red>     0..|          Err -&gt; Err</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Convert PostgreSQL query result to Erlang ODBC result formalism
+        |  -spec pgsql_to_odbc({'ok', PGSQLResult :: [any()]})
+        |    -&gt; [{'error',_} | {'updated','undefined' | integer()} | {'selected',[any()],[any()]}]
+        |       | {'error',_}
+        |       | {'updated','undefined' | integer()}
+        |       | {'selected',[any()],[tuple()]}.
+        |  pgsql_to_odbc({ok, PGSQLResult}) -&gt;
+<font color=red>     0..|      case PGSQLResult of</font>
+        |          [Item] -&gt;
+<font color=red>     0..|              pgsql_item_to_odbc(Item);</font>
+        |          Items -&gt;
+<font color=red>     0..|              [pgsql_item_to_odbc(Item) || Item &lt;- Items]</font>
+        |      end.
+        |  
+        |  -spec pgsql_item_to_odbc(tuple() | binary())
+        |        -&gt; {'error',_}
+        |         | {'updated','undefined' | integer()}
+        |         | {'selected',[any()],[tuple()]}.
+        |  pgsql_item_to_odbc({&lt;&lt;"SELECT", _/binary&gt;&gt;, Rows, Recs}) -&gt;
+<font color=red>     0..|      {selected,</font>
+<font color=red>     0..|       [element(1, Row) || Row &lt;- Rows],</font>
+<font color=red>     0..|       [list_to_tuple(Rec) || Rec &lt;- Recs]};</font>
+        |  pgsql_item_to_odbc(&lt;&lt;"INSERT ", OIDN/binary&gt;&gt;) -&gt;
+<font color=red>     0..|      [_OID, N] = binary:split(OIDN, &lt;&lt;" "&gt;&gt;),</font>
+<font color=red>     0..|      {updated, list_to_integer(binary_to_list(N))};</font>
+        |  pgsql_item_to_odbc(&lt;&lt;"DELETE ", N/binary&gt;&gt;) -&gt;
+<font color=red>     0..|      {updated, list_to_integer(binary_to_list(N))};</font>
+        |  pgsql_item_to_odbc(&lt;&lt;"UPDATE ", N/binary&gt;&gt;) -&gt;
+<font color=red>     0..|      {updated, list_to_integer(binary_to_list(N))};</font>
+        |  pgsql_item_to_odbc({error, Error}) -&gt;
+<font color=red>     0..|      {error, Error};</font>
+        |  pgsql_item_to_odbc(_) -&gt;
+<font color=red>     0..|      {updated,undefined}.</font>
+        |  
+        |  %% == Native MySQL code
+        |  
+        |  %% part of init/1
+        |  %% @doc Open a database connection to MySQL
+        |  mysql_connect(Server, Port, Database, Username, Password) -&gt;
+<font color=red>     0..|      case mysql_conn:start(Server, Port, Username, Password, Database, fun log/3) of</font>
+        |          {ok, Ref} -&gt;
+<font color=red>     0..|              mysql_conn:fetch(Ref, [&lt;&lt;"set names 'utf8';"&gt;&gt;],</font>
+        |                               self(), ?QUERY_TIMEOUT),
+<font color=red>     0..|              mysql_conn:fetch(Ref, [&lt;&lt;"SET SESSION query_cache_type=1;"&gt;&gt;],</font>
+        |                               self(), ?QUERY_TIMEOUT),
+<font color=red>     0..|              {ok, Ref};</font>
+        |          Err -&gt;
+<font color=red>     0..|              Err</font>
+        |      end.
+        |  
+        |  %% @doc Convert MySQL query result to Erlang ODBC result formalism
+        |  -spec mysql_to_odbc({'data',_} | {'error',_} | {'updated',_})
+        |        -&gt; {'error',_} | {'updated',_} | {'selected',[any()],[tuple()]}.
+        |  mysql_to_odbc({updated, MySQLRes}) -&gt;
+<font color=red>     0..|      {updated, mysql:get_result_affected_rows(MySQLRes)};</font>
+        |  mysql_to_odbc({data, MySQLRes}) -&gt;
+<font color=red>     0..|      mysql_item_to_odbc(mysql:get_result_field_info(MySQLRes),</font>
+        |                         mysql:get_result_rows(MySQLRes));
+        |  mysql_to_odbc({error, MySQLRes}) when is_list(MySQLRes) -&gt;
+<font color=red>     0..|      {error, MySQLRes};</font>
+        |  mysql_to_odbc({error, MySQLRes}) -&gt;
+<font color=red>     0..|      {error, mysql:get_result_reason(MySQLRes)}.</font>
+        |  
+        |  %% @doc When tabular data is returned, convert it to the ODBC formalism
+        |  -spec mysql_item_to_odbc(Columns :: [tuple()],
+        |                           Recs :: [[any()]]) -&gt; {'selected',[any()],[tuple()]}.
+        |  mysql_item_to_odbc(Columns, Recs) -&gt;
+        |      %% For now, there is a bug and we do not get the correct value from MySQL
+        |      %% module:
+<font color=red>     0..|      {selected,</font>
+<font color=red>     0..|       [element(2, Column) || Column &lt;- Columns],</font>
+<font color=red>     0..|       [list_to_tuple(Rec) || Rec &lt;- Recs]}.</font>
+        |  
+        |  %% @doc log function used by MySQL driver
+        |  -spec log(Level :: 'debug' | 'error' | 'normal',
+        |            Format :: string(),
+        |            Args :: list()) -&gt; any().
+        |  log(Level, Format, Args) -&gt;
+<font color=red>     0..|      case Level of</font>
+        |          debug -&gt;
+<font color=red>     0..|              ?DEBUG(Format, Args);</font>
+        |          normal -&gt;
+<font color=red>     0..|              ?INFO_MSG(Format, Args);</font>
+        |          error -&gt;
+<font color=red>     0..|              ?ERROR_MSG(Format, Args)</font>
+        |      end.
+        |  
+        |  -spec db_opts(Host :: atom()) -&gt; [odbc | mysql | pgsql | [char() | tuple()],...].
+        |  db_opts(Host) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option({odbc_server, Host}) of</font>
+        |          %% Default pgsql port
+        |          {pgsql, Server, DB, User, Pass} -&gt;
+<font color=red>     0..|              [pgsql, Server, ?PGSQL_PORT, DB, User, Pass];</font>
+        |          {pgsql, Server, Port, DB, User, Pass} when is_integer(Port) -&gt;
+<font color=red>     0..|              [pgsql, Server, Port, DB, User, Pass];</font>
+        |          %% Default mysql port
+        |          {mysql, Server, DB, User, Pass} -&gt;
+<font color=red>     0..|              [mysql, Server, ?MYSQL_PORT, DB, User, Pass];</font>
+        |          {mysql, Server, Port, DB, User, Pass} when is_integer(Port) -&gt;
+<font color=red>     0..|              [mysql, Server, Port, DB, User, Pass];</font>
+        |          SQLServer when is_list(SQLServer) -&gt;
+<font color=red>     0..|              [odbc, SQLServer]</font>
+        |      end.
+        |  
+        |  -spec db_engine(Host :: odbc_server()) -&gt; ejabberd_config:value().
+        |  db_engine(Host) when is_binary(Host) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option({odbc_server, Host}) of</font>
+        |          SQLServer when is_list(SQLServer) -&gt;
+<font color=red>     0..|              odbc;</font>
+        |          Other when is_tuple(Other) -&gt;
+<font color=red>     0..|              element(1, Other)</font>
+        |      end;
+        |  db_engine({Host, _Pid}) -&gt;
+<font color=red>     0..|      db_engine(Host).</font>
+        |  
+        |  -spec max_fsm_queue() -&gt; 'undefined' | pos_integer().
+        |  max_fsm_queue() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(max_fsm_queue) of</font>
+        |          N when is_integer(N), N&gt;0 -&gt;
+<font color=red>     0..|              N;</font>
+        |          _ -&gt;
+<font color=red>     0..|              undefined</font>
+        |      end.
+        |  
+        |  -spec fsm_limit_opts() -&gt; [{'max_queue',pos_integer()}].
+        |  fsm_limit_opts() -&gt;
+<font color=red>     0..|      case max_fsm_queue() of</font>
+        |          N when is_integer(N) -&gt;
+<font color=red>     0..|              [{max_queue, N}];</font>
+        |          _ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+</pre>
+</body>
+</html>

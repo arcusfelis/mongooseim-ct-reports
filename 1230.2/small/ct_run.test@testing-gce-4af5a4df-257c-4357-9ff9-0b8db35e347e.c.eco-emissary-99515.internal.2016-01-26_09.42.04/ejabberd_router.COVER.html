@@ -1,0 +1,304 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/ejabberd_router.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_router.erl by COVER 2016-01-26 at 09:42:34
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_router.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Main router
+        |  %%% Created : 27 Nov 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_router).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  -behaviour(xmpp_router).
+        |  %% API
+        |  -export([route/3,
+        |           route_error/4,
+        |           register_route/1,
+        |           register_route/2,
+        |           register_routes/1,
+        |           unregister_route/1,
+        |           unregister_routes/1,
+        |           dirty_get_all_routes/0,
+        |           dirty_get_all_domains/0
+        |          ]).
+        |  
+        |  -export([start_link/0]).
+        |  
+        |  %% xmpp_router callback
+        |  -export([do_route/3]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -type handler() :: 'undefined'
+        |                  | {'apply_fun',fun((_,_,_) -&gt; any())}
+        |                  | {'apply', M::atom(), F::atom()}.
+        |  -type domain() :: binary().
+        |  
+        |  -record(route, {domain :: domain(),
+        |                  handler :: handler()
+        |                 }).
+        |  -record(state, {}).
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  %%--------------------------------------------------------------------
+        |  %% Description: Starts the server
+        |  %%--------------------------------------------------------------------
+        |  -spec start_link() -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link() -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).</font>
+        |  
+        |  -spec route(From   :: ejabberd:jid(),
+        |              To     :: ejabberd:jid(),
+        |              Packet :: jlib:xmlel()) -&gt; ok.
+        |  route(From, To, Packet) -&gt;
+<font color=red>     0..|      xmpp_router:route(?MODULE, From, To, Packet).</font>
+        |  
+        |  %% Route the error packet only if the originating packet is not an error itself.
+        |  %% RFC3920 9.3.1
+        |  -spec route_error(From   :: ejabberd:jid(),
+        |                    To     :: ejabberd:jid(),
+        |                    ErrPacket :: jlib:xmlel(),
+        |                    OrigPacket :: jlib:xmlel()) -&gt; ok.
+        |  route_error(From, To, ErrPacket, OrigPacket) -&gt;
+<font color=red>     0..|      #xmlel{attrs = Attrs} = OrigPacket,</font>
+<font color=red>     0..|      case &lt;&lt;"error"&gt;&gt; == xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs) of</font>
+        |          false -&gt;
+<font color=red>     0..|              route(From, To, ErrPacket);</font>
+        |          true -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec register_route(Domain :: domain()) -&gt; any().
+        |  register_route(Domain) -&gt;
+<font color=red>     0..|      register_route(Domain, undefined).</font>
+        |  
+        |  -spec register_route(Domain :: domain(),
+        |                       Handler :: handler()) -&gt; any().
+        |  register_route(Domain, Handler) -&gt;
+<font color=red>     0..|      register_route_to_ldomain(jid:nameprep(Domain), Domain, Handler).</font>
+        |  
+        |  -spec register_routes([domain()]) -&gt; 'ok'.
+        |  register_routes(Domains) -&gt;
+<font color=red>     0..|      lists:foreach(fun(Domain) -&gt;</font>
+<font color=red>     0..|                        register_route(Domain)</font>
+        |                    end,
+        |                    Domains).
+        |  
+        |  -spec register_route_to_ldomain(binary(), domain(), handler()) -&gt; any().
+        |  register_route_to_ldomain(error, Domain, _) -&gt;
+<font color=red>     0..|      erlang:error({invalid_domain, Domain});</font>
+        |  register_route_to_ldomain(LDomain, _, HandlerOrUndef) -&gt;
+<font color=red>     0..|      Handler = make_handler(HandlerOrUndef),</font>
+<font color=red>     0..|      mnesia:dirty_write(#route{domain = LDomain, handler = Handler}).</font>
+        |  
+        |  -spec make_handler(handler()) -&gt; handler().
+        |  make_handler(undefined) -&gt;
+<font color=red>     0..|      Pid = self(),</font>
+<font color=red>     0..|      {apply_fun, fun(From, To, Packet) -&gt;</font>
+<font color=red>     0..|                      Pid ! {route, From, To, Packet}</font>
+        |                  end};
+        |  make_handler({apply_fun, Fun} = Handler) when is_function(Fun, 3) -&gt;
+<font color=red>     0..|      Handler;</font>
+        |  make_handler({apply, Module, Function} = Handler)
+        |      when is_atom(Module),
+        |           is_atom(Function) -&gt;
+<font color=red>     0..|      Handler.</font>
+        |  
+        |  unregister_route(Domain) -&gt;
+<font color=red>     0..|      case jid:nameprep(Domain) of</font>
+        |          error -&gt;
+<font color=red>     0..|              erlang:error({invalid_domain, Domain});</font>
+        |          LDomain -&gt;
+<font color=red>     0..|              mnesia:dirty_delete(route, LDomain)</font>
+        |      end.
+        |  
+        |  unregister_routes(Domains) -&gt;
+<font color=red>     0..|      lists:foreach(fun(Domain) -&gt;</font>
+<font color=red>     0..|                        unregister_route(Domain)</font>
+        |                    end,
+        |                    Domains).
+        |  
+        |  
+        |  dirty_get_all_routes() -&gt;
+<font color=red>     0..|      lists:usort(mnesia:dirty_all_keys(route)) -- ?MYHOSTS.</font>
+        |  
+        |  dirty_get_all_domains() -&gt;
+<font color=red>     0..|      lists:usort(mnesia:dirty_all_keys(route)).</font>
+        |  
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  init([]) -&gt;
+<font color=red>     0..|      update_tables(),</font>
+<font color=red>     0..|      mnesia:create_table(route,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {type, set},
+        |                           {attributes, record_info(fields, route)},
+        |                           {local_content, true}]),
+<font color=red>     0..|      mnesia:add_table_copy(route, node(), ram_copies),</font>
+<font color=red>     0..|      {ok, #state{}}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_call(Request, From, State)
+        |  %%              -&gt; {reply, Reply, State} |
+        |  %%                 {reply, Reply, State, Timeout} |
+        |  %%                 {noreply, State} |
+        |  %%                 {noreply, State, Timeout} |
+        |  %%                 {stop, Reason, Reply, State} |
+        |  %%                 {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info({route, From, To, Packet}, State) -&gt;
+<font color=red>     0..|      route(From, To, Packet),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  
+        |  do_route(OrigFrom, OrigTo, OrigPacket) -&gt;
+<font color=red>     0..|      ?DEBUG("route~n\tfrom ~p~n\tto ~p~n\tpacket ~p~n",</font>
+        |             [OrigFrom, OrigTo, OrigPacket]),
+        |      %% Filter globally
+<font color=red>     0..|      case ejabberd_hooks:run_fold(filter_packet,</font>
+        |                                   {OrigFrom, OrigTo, OrigPacket}, []) of
+        |          {From, To, Packet} -&gt;
+<font color=red>     0..|              LDstDomain = To#jid.lserver,</font>
+<font color=red>     0..|              case mnesia:dirty_read(route, LDstDomain) of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      ejabberd_s2s:route(From, To, Packet);</font>
+        |                  [#route{handler=Handler}] -&gt;
+<font color=red>     0..|                      do_local_route(OrigFrom, OrigTo, OrigPacket, LDstDomain, Handler)</font>
+        |              end;
+        |          drop -&gt;
+<font color=red>     0..|              ejabberd_hooks:run(xmpp_stanza_dropped, </font>
+        |                                 OrigFrom#jid.lserver,
+        |                                 [OrigFrom, OrigTo, OrigPacket]),
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  do_local_route(OrigFrom, OrigTo, OrigPacket, LDstDomain, Handler) -&gt;
+        |      %% Filter locally
+<font color=red>     0..|      case ejabberd_hooks:run_fold(filter_local_packet, LDstDomain,</font>
+        |                                   {OrigFrom, OrigTo, OrigPacket}, []) of
+        |          {From, To, Packet} -&gt;
+<font color=red>     0..|              case Handler of</font>
+        |                  {apply_fun, Fun} -&gt;
+<font color=red>     0..|                      Fun(From, To, Packet);</font>
+        |                  {apply, Module, Function} -&gt;
+<font color=red>     0..|                      Module:Function(From, To, Packet)</font>
+        |              end;
+        |          drop -&gt;
+<font color=red>     0..|              ejabberd_hooks:run(xmpp_stanza_dropped,</font>
+        |                                 OrigFrom#jid.lserver,
+        |                                 [OrigFrom, OrigTo, OrigPacket]),
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  update_tables() -&gt;
+<font color=red>     0..|      case catch mnesia:table_info(route, attributes) of</font>
+        |          [domain, node, pid] -&gt;
+<font color=red>     0..|              mnesia:delete_table(route);</font>
+        |          [domain, pid] -&gt;
+<font color=red>     0..|              mnesia:delete_table(route);</font>
+        |          [domain, pid, local_hint] -&gt;
+<font color=red>     0..|              mnesia:delete_table(route);</font>
+        |          [domain, handler] -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {'EXIT', _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case lists:member(local_route, mnesia:system_info(tables)) of</font>
+        |          true -&gt;
+<font color=red>     0..|              mnesia:delete_table(local_route);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+</pre>
+</body>
+</html>

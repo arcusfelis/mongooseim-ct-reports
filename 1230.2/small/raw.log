@@ -1,0 +1,837 @@
+--- Test run on 2016/01/26 09:42:04 ---
+Converting "/home/travis/build/esl/MongooseIM/." to "/home/travis/build/esl/MongooseIM" and re-inserting with add_patha/1
+Converting "../mysql/ebin" to "/home/travis/build/esl/MongooseIM/apps/mysql/ebin" and re-inserting with add_patha/1
+Converting "../pgsql/ebin" to "/home/travis/build/esl/MongooseIM/apps/pgsql/ebin" and re-inserting with add_patha/1
+
+
+Common Test v1.10 starting (cwd is /home/travis/build/esl/MongooseIM/apps/ejabberd)
+
+
+Common Test: Running make in test directories...
+Including the following directories:
+"/home/travis/build/esl/MongooseIM/apps/ejabberd/include"
+Recompile: revproxy_SUITE
+Recompile: prop_helper
+Recompile: mim_ct_sup
+Recompile: mim_ct_rest_handler
+Recompile: mim_ct_rest
+Recompile: jid_gen
+Recompile: ejabberd_loglevel_SUITE_helper
+Recompile: ejabberd_helper
+Recompile: ejabberd_c2s_SUITE_mocks
+Recompile: carbon_cache_server
+Recompile: amp_gen
+
+CWD set to: "/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04"
+
+TEST INFO: 1 test(s), 18 case(s) in 1 suite(s)
+
+Cover compiling 172 modules - this may take some time... done
+
+Testing apps.ejabberd.revproxy_SUITE: Starting test, 18 test cases
+(<0.560.0>) call mod_revproxy:init({tcp,http},{http_req,#Port<0.19060>,ranch_tcp,keepalive,<0.560.0>,<<"GET">>,'HTTP/1.1',
+          {{127,0,0,1},46645},
+          <<"qwerty.com">>,undefined,80,<<"/abc/login.htm">>,
+          [<<"abc">>,<<"login.htm">>],
+          <<"ts=1231231232222&st=223232&page=32">>,undefined,[],
+          [{<<"content-length">>,<<"20">>},{<<"host">>,<<"qwerty.com">>}],
+          [],undefined,[],waiting,<<"some example body :)">>,undefined,false,
+          waiting,[],<<>>,undefined},[{custom_headers,[{<<"custom-header-1">>,<<"value">>},
+                  {<<"custom-header-2">>,<<"some other value">>}]}])
+(<0.560.0>) returned from mod_revproxy:init/3 -> {ok,
+                                                  {http_req,#Port<0.19060>,
+                                                   ranch_tcp,keepalive,
+                                                   <0.560.0>,<<"GET">>,
+                                                   'HTTP/1.1',
+                                                   {{127,0,0,1},46645},
+                                                   <<"qwerty.com">>,undefined,
+                                                   80,<<"/abc/login.htm">>,
+                                                   [<<"abc">>,<<"login.htm">>],
+                                                   <<"ts=1231231232222&st=223232&page=32">>,
+                                                   undefined,[],
+                                                   [{<<"content-length">>,
+                                                     <<"20">>},
+                                                    {<<"host">>,
+                                                     <<"qwerty.com">>}],
+                                                   [],undefined,[],waiting,
+                                                   <<"some example body :)">>,
+                                                   undefined,false,waiting,[],
+                                                   <<>>,undefined},
+                                                  {state,5000,8000000,
+                                                   [{<<"custom-header-1">>,
+                                                     <<"value">>},
+                                                    {<<"custom-header-2">>,
+                                                     <<"some other value">>}]}}
+(<0.560.0>) call mod_revproxy:handle({http_req,#Port<0.19060>,ranch_tcp,keepalive,<0.560.0>,<<"GET">>,'HTTP/1.1',
+          {{127,0,0,1},46645},
+          <<"qwerty.com">>,undefined,80,<<"/abc/login.htm">>,
+          [<<"abc">>,<<"login.htm">>],
+          <<"ts=1231231232222&st=223232&page=32">>,undefined,[],
+          [{<<"content-length">>,<<"20">>},{<<"host">>,<<"qwerty.com">>}],
+          [],undefined,[],waiting,<<"some example body :)">>,undefined,false,
+          waiting,[],<<>>,undefined},{state,5000,8000000,
+       [{<<"custom-header-1">>,<<"value">>},
+        {<<"custom-header-2">>,<<"some other value">>}]})
+(<0.560.0>) call mod_revproxy:match([{[<<"com">>,domain],
+  [<<"admin">>],
+  '_',
+  {upstream,uri,<<"https://">>,
+            [<<"localhost:5678">>],
+            [<<"secret_admin">>,domain,<<>>]}},
+ {[<<"com">>,domain],
+  [path,<<>>],
+  <<"GET">>,
+  {upstream,uri,<<"http://">>,
+            [domain,<<"localhost:1234">>],
+            [<<"domain">>,domain,<<"path">>,path,<<>>]}}],<<"qwerty.com">>,<<"/abc/login.htm?ts=1231231232222&st=223232&page=32">>,<<"GET">>)
+(<0.560.0>) call mod_revproxy:split_host(<<"qwerty.com">>)
+(<0.560.0>) call mod_revproxy:split(<<"qwerty.com">>,46,[],<<>>)
+(<0.560.0>) call mod_revproxy:split(<<"werty.com">>,46,[],<<"q">>)
+(<0.560.0>) call mod_revproxy:split(<<"erty.com">>,46,[],<<"qw">>)
+(<0.560.0>) call mod_revproxy:split(<<"rty.com">>,46,[],<<"qwe">>)
+(<0.560.0>) call mod_revproxy:split(<<"ty.com">>,46,[],<<"qwer">>)
+(<0.560.0>) call mod_revproxy:split(<<"y.com">>,46,[],<<"qwert">>)
+(<0.560.0>) call mod_revproxy:split(<<".com">>,46,[],<<"qwerty">>)
+(<0.560.0>) call mod_revproxy:split(<<"com">>,46,[<<"qwerty">>],<<>>)
+(<0.560.0>) call mod_revproxy:split(<<"om">>,46,[<<"qwerty">>],<<"c">>)
+(<0.560.0>) call mod_revproxy:split(<<"m">>,46,[<<"qwerty">>],<<"co">>)
+(<0.560.0>) call mod_revproxy:split(<<>>,46,[<<"qwerty">>],<<"com">>)
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"com">>,<<"qwerty">>]
+(<0.560.0>) returned from mod_revproxy:split_host/1 -> [<<"com">>,
+                                                        <<"qwerty">>]
+(<0.560.0>) call mod_revproxy:split_path(<<"/abc/login.htm?ts=1231231232222&st=223232&page=32">>)
+(<0.560.0>) call mod_revproxy:split(<<"/abc/login.htm?ts=1231231232222&st=223232&page=32">>,47,[],<<>>)
+(<0.560.0>) call mod_revproxy:split(<<"abc/login.htm?ts=1231231232222&st=223232&page=32">>,47,[],<<>>)
+(<0.560.0>) call mod_revproxy:split(<<"bc/login.htm?ts=1231231232222&st=223232&page=32">>,47,[],<<"a">>)
+(<0.560.0>) call mod_revproxy:split(<<"c/login.htm?ts=1231231232222&st=223232&page=32">>,47,[],<<"ab">>)
+(<0.560.0>) call mod_revproxy:split(<<"/login.htm?ts=1231231232222&st=223232&page=32">>,47,[],<<"abc">>)
+(<0.560.0>) call mod_revproxy:split(<<"login.htm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<>>)
+(<0.560.0>) call mod_revproxy:split(<<"ogin.htm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"l">>)
+(<0.560.0>) call mod_revproxy:split(<<"gin.htm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"lo">>)
+(<0.560.0>) call mod_revproxy:split(<<"in.htm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"log">>)
+(<0.560.0>) call mod_revproxy:split(<<"n.htm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"logi">>)
+(<0.560.0>) call mod_revproxy:split(<<".htm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login">>)
+(<0.560.0>) call mod_revproxy:split(<<"htm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.">>)
+(<0.560.0>) call mod_revproxy:split(<<"tm?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.h">>)
+(<0.560.0>) call mod_revproxy:split(<<"m?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.ht">>)
+(<0.560.0>) call mod_revproxy:split(<<"?ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm">>)
+(<0.560.0>) call mod_revproxy:split(<<"ts=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?">>)
+(<0.560.0>) call mod_revproxy:split(<<"s=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?t">>)
+(<0.560.0>) call mod_revproxy:split(<<"=1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts">>)
+(<0.560.0>) call mod_revproxy:split(<<"1231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=">>)
+(<0.560.0>) call mod_revproxy:split(<<"231231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1">>)
+(<0.560.0>) call mod_revproxy:split(<<"31231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=12">>)
+(<0.560.0>) call mod_revproxy:split(<<"1231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=123">>)
+(<0.560.0>) call mod_revproxy:split(<<"231232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231">>)
+(<0.560.0>) call mod_revproxy:split(<<"31232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=12312">>)
+(<0.560.0>) call mod_revproxy:split(<<"1232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=123123">>)
+(<0.560.0>) call mod_revproxy:split(<<"232222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231">>)
+(<0.560.0>) call mod_revproxy:split(<<"32222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=12312312">>)
+(<0.560.0>) call mod_revproxy:split(<<"2222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=123123123">>)
+(<0.560.0>) call mod_revproxy:split(<<"222&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232">>)
+(<0.560.0>) call mod_revproxy:split(<<"22&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=12312312322">>)
+(<0.560.0>) call mod_revproxy:split(<<"2&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=123123123222">>)
+(<0.560.0>) call mod_revproxy:split(<<"&st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222">>)
+(<0.560.0>) call mod_revproxy:split(<<"st=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&">>)
+(<0.560.0>) call mod_revproxy:split(<<"t=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&s">>)
+(<0.560.0>) call mod_revproxy:split(<<"=223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st">>)
+(<0.560.0>) call mod_revproxy:split(<<"223232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=">>)
+(<0.560.0>) call mod_revproxy:split(<<"23232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=2">>)
+(<0.560.0>) call mod_revproxy:split(<<"3232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=22">>)
+(<0.560.0>) call mod_revproxy:split(<<"232&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223">>)
+(<0.560.0>) call mod_revproxy:split(<<"32&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=2232">>)
+(<0.560.0>) call mod_revproxy:split(<<"2&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=22323">>)
+(<0.560.0>) call mod_revproxy:split(<<"&page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232">>)
+(<0.560.0>) call mod_revproxy:split(<<"page=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&">>)
+(<0.560.0>) call mod_revproxy:split(<<"age=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&p">>)
+(<0.560.0>) call mod_revproxy:split(<<"ge=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&pa">>)
+(<0.560.0>) call mod_revproxy:split(<<"e=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&pag">>)
+(<0.560.0>) call mod_revproxy:split(<<"=32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&page">>)
+(<0.560.0>) call mod_revproxy:split(<<"32">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&page=">>)
+(<0.560.0>) call mod_revproxy:split(<<"2">>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&page=3">>)
+(<0.560.0>) call mod_revproxy:split(<<>>,47,[<<"abc">>],<<"login.htm?ts=1231231232222&st=223232&page=32">>)
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split/4 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                   <<"abc">>]
+(<0.560.0>) call mod_revproxy:include_trailing(<<"/abc/login.htm?ts=1231231232222&st=223232&page=32">>,47,[<<"login.htm?ts=1231231232222&st=223232&page=32">>,<<"abc">>])
+(<0.560.0>) returned from mod_revproxy:include_trailing/3 -> [<<"login.htm?ts=1231231232222&st=223232&page=32">>,
+                                                              <<"abc">>]
+(<0.560.0>) returned from mod_revproxy:split_path/1 -> [<<"abc">>,
+                                                        <<"login.htm?ts=1231231232222&st=223232&page=32">>]
+(<0.560.0>) call mod_revproxy:match([{[<<"com">>,domain],
+  [<<"admin">>],
+  '_',
+  {upstream,uri,<<"https://">>,
+            [<<"localhost:5678">>],
+            [<<"secret_admin">>,domain,<<>>]}},
+ {[<<"com">>,domain],
+  [path,<<>>],
+  <<"GET">>,
+  {upstream,uri,<<"http://">>,
+            [domain,<<"localhost:1234">>],
+            [<<"domain">>,domain,<<"path">>,path,<<>>]}}],[<<"com">>,<<"qwerty">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],<<"GET">>)
+(<0.560.0>) call mod_revproxy:match_rules([{[<<"com">>,domain],
+  [<<"admin">>],
+  '_',
+  {upstream,uri,<<"https://">>,
+            [<<"localhost:5678">>],
+            [<<"secret_admin">>,domain,<<>>]}},
+ {[<<"com">>,domain],
+  [path,<<>>],
+  <<"GET">>,
+  {upstream,uri,<<"http://">>,
+            [domain,<<"localhost:1234">>],
+            [<<"domain">>,domain,<<"path">>,path,<<>>]}}],[<<"com">>,<<"qwerty">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],<<"GET">>)
+(<0.560.0>) call mod_revproxy:match_method({[<<"com">>,domain],
+ [<<"admin">>],
+ '_',
+ {upstream,uri,<<"https://">>,
+           [<<"localhost:5678">>],
+           [<<"secret_admin">>,domain,<<>>]}},[<<"com">>,<<"qwerty">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],<<"GET">>)
+(<0.560.0>) call mod_revproxy:match_path({[<<"com">>,domain],
+ [<<"admin">>],
+ '_',
+ {upstream,uri,<<"https://">>,
+           [<<"localhost:5678">>],
+           [<<"secret_admin">>,domain,<<>>]}},[<<"com">>,<<"qwerty">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>])
+(<0.560.0>) call mod_revproxy:match_path_segments([<<"admin">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],{[<<"com">>,domain],
+ [<<"admin">>],
+ '_',
+ {upstream,uri,<<"https://">>,
+           [<<"localhost:5678">>],
+           [<<"secret_admin">>,domain,<<>>]}},[<<"com">>,<<"qwerty">>],[])
+(<0.560.0>) returned from mod_revproxy:match_path_segments/5 -> false
+(<0.560.0>) returned from mod_revproxy:match_path/3 -> false
+(<0.560.0>) returned from mod_revproxy:match_method/4 -> false
+(<0.560.0>) call mod_revproxy:match_rules([{[<<"com">>,domain],
+  [path,<<>>],
+  <<"GET">>,
+  {upstream,uri,<<"http://">>,
+            [domain,<<"localhost:1234">>],
+            [<<"domain">>,domain,<<"path">>,path,<<>>]}}],[<<"com">>,<<"qwerty">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],<<"GET">>)
+(<0.560.0>) call mod_revproxy:match_method({[<<"com">>,domain],
+ [path,<<>>],
+ <<"GET">>,
+ {upstream,uri,<<"http://">>,
+           [domain,<<"localhost:1234">>],
+           [<<"domain">>,domain,<<"path">>,path,<<>>]}},[<<"com">>,<<"qwerty">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],<<"GET">>)
+(<0.560.0>) call mod_revproxy:match_path({[<<"com">>,domain],
+ [path,<<>>],
+ <<"GET">>,
+ {upstream,uri,<<"http://">>,
+           [domain,<<"localhost:1234">>],
+           [<<"domain">>,domain,<<"path">>,path,<<>>]}},[<<"com">>,<<"qwerty">>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>])
+(<0.560.0>) call mod_revproxy:match_path_segments([path,<<>>],[<<"abc">>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],{[<<"com">>,domain],
+ [path,<<>>],
+ <<"GET">>,
+ {upstream,uri,<<"http://">>,
+           [domain,<<"localhost:1234">>],
+           [<<"domain">>,domain,<<"path">>,path,<<>>]}},[<<"com">>,<<"qwerty">>],[])
+(<0.560.0>) call mod_revproxy:match_bindings(path,<<"abc">>,[])
+(<0.560.0>) returned from mod_revproxy:match_bindings/3 -> [{path,<<"abc">>}]
+(<0.560.0>) call mod_revproxy:match_path_segments([<<>>],[<<"login.htm?ts=1231231232222&st=223232&page=32">>],{[<<"com">>,domain],
+ [path,<<>>],
+ <<"GET">>,
+ {upstream,uri,<<"http://">>,
+           [domain,<<"localhost:1234">>],
+           [<<"domain">>,domain,<<"path">>,path,<<>>]}},[<<"com">>,<<"qwerty">>],[{path,<<"abc">>}])
+(<0.560.0>) call mod_revproxy:match_path_segments([],[<<"login.htm?ts=1231231232222&st=223232&page=32">>],{[<<"com">>,domain],
+ [path,<<>>],
+ <<"GET">>,
+ {upstream,uri,<<"http://">>,
+           [domain,<<"localhost:1234">>],
+           [<<"domain">>,domain,<<"path">>,path,<<>>]}},[<<"com">>,<<"qwerty">>],[{path,<<"abc">>}])
+(<0.560.0>) call mod_revproxy:match_host({[<<"com">>,domain],
+ [path,<<>>],
+ <<"GET">>,
+ {upstream,uri,<<"http://">>,
+           [domain,<<"localhost:1234">>],
+           [<<"domain">>,domain,<<"path">>,path,<<>>]}},[<<"com">>,<<"qwerty">>],[<<"login.htm?ts=1231231232222&st=223232&page=32">>],[{path,<<"abc">>}])
+(<0.560.0>) call mod_revproxy:match_host_segments([<<"com">>,domain],[<<"com">>,<<"qwerty">>],{upstream,uri,<<"http://">>,
+          [domain,<<"localhost:1234">>],
+          [<<"domain">>,domain,<<"path">>,path,<<>>]},[<<"login.htm?ts=1231231232222&st=223232&page=32">>],[path,<<>>],[{path,<<"abc">>}])
+(<0.560.0>) call mod_revproxy:match_host_segments([domain],[<<"qwerty">>],{upstream,uri,<<"http://">>,
+          [domain,<<"localhost:1234">>],
+          [<<"domain">>,domain,<<"path">>,path,<<>>]},[<<"login.htm?ts=1231231232222&st=223232&page=32">>],[path,<<>>],[{path,<<"abc">>}])
+(<0.560.0>) call mod_revproxy:match_bindings(domain,<<"qwerty">>,[{path,<<"abc">>}])
+(<0.560.0>) returned from mod_revproxy:match_bindings/3 -> [{path,<<"abc">>},
+                                                            {domain,
+                                                             <<"qwerty">>}]
+(<0.560.0>) call mod_revproxy:match_host_segments([],[],{upstream,uri,<<"http://">>,
+          [domain,<<"localhost:1234">>],
+          [<<"domain">>,domain,<<"path">>,path,<<>>]},[<<"login.htm?ts=1231231232222&st=223232&page=32">>],[path,<<>>],[{path,<<"abc">>},{domain,<<"qwerty">>}])
+(<0.560.0>) returned from mod_revproxy:match_host_segments/6 -> {match,
+                                                                 {upstream,
+                                                                  uri,
+                                                                  <<"http://">>,
+                                                                  [domain,
+                                                                   <<"localhost:1234">>],
+                                                                  [<<"domain">>,
+                                                                   domain,
+                                                                   <<"path">>,
+                                                                   path,<<>>]},
+                                                                 [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                                 [path,<<>>],
+                                                                 [{path,
+                                                                   <<"abc">>},
+                                                                  {domain,
+                                                                   <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_host_segments/6 -> {match,
+                                                                 {upstream,
+                                                                  uri,
+                                                                  <<"http://">>,
+                                                                  [domain,
+                                                                   <<"localhost:1234">>],
+                                                                  [<<"domain">>,
+                                                                   domain,
+                                                                   <<"path">>,
+                                                                   path,<<>>]},
+                                                                 [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                                 [path,<<>>],
+                                                                 [{path,
+                                                                   <<"abc">>},
+                                                                  {domain,
+                                                                   <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_host_segments/6 -> {match,
+                                                                 {upstream,
+                                                                  uri,
+                                                                  <<"http://">>,
+                                                                  [domain,
+                                                                   <<"localhost:1234">>],
+                                                                  [<<"domain">>,
+                                                                   domain,
+                                                                   <<"path">>,
+                                                                   path,<<>>]},
+                                                                 [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                                 [path,<<>>],
+                                                                 [{path,
+                                                                   <<"abc">>},
+                                                                  {domain,
+                                                                   <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_host/4 -> {match,
+                                                        {upstream,uri,
+                                                         <<"http://">>,
+                                                         [domain,
+                                                          <<"localhost:1234">>],
+                                                         [<<"domain">>,domain,
+                                                          <<"path">>,path,
+                                                          <<>>]},
+                                                        [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                        [path,<<>>],
+                                                        [{path,<<"abc">>},
+                                                         {domain,
+                                                          <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_path_segments/5 -> {match,
+                                                                 {upstream,
+                                                                  uri,
+                                                                  <<"http://">>,
+                                                                  [domain,
+                                                                   <<"localhost:1234">>],
+                                                                  [<<"domain">>,
+                                                                   domain,
+                                                                   <<"path">>,
+                                                                   path,<<>>]},
+                                                                 [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                                 [path,<<>>],
+                                                                 [{path,
+                                                                   <<"abc">>},
+                                                                  {domain,
+                                                                   <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_path_segments/5 -> {match,
+                                                                 {upstream,
+                                                                  uri,
+                                                                  <<"http://">>,
+                                                                  [domain,
+                                                                   <<"localhost:1234">>],
+                                                                  [<<"domain">>,
+                                                                   domain,
+                                                                   <<"path">>,
+                                                                   path,<<>>]},
+                                                                 [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                                 [path,<<>>],
+                                                                 [{path,
+                                                                   <<"abc">>},
+                                                                  {domain,
+                                                                   <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_path_segments/5 -> {match,
+                                                                 {upstream,
+                                                                  uri,
+                                                                  <<"http://">>,
+                                                                  [domain,
+                                                                   <<"localhost:1234">>],
+                                                                  [<<"domain">>,
+                                                                   domain,
+                                                                   <<"path">>,
+                                                                   path,<<>>]},
+                                                                 [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                                 [path,<<>>],
+                                                                 [{path,
+                                                                   <<"abc">>},
+                                                                  {domain,
+                                                                   <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_path/3 -> {match,
+                                                        {upstream,uri,
+                                                         <<"http://">>,
+                                                         [domain,
+                                                          <<"localhost:1234">>],
+                                                         [<<"domain">>,domain,
+                                                          <<"path">>,path,
+                                                          <<>>]},
+                                                        [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                        [path,<<>>],
+                                                        [{path,<<"abc">>},
+                                                         {domain,
+                                                          <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_method/4 -> {match,
+                                                          {upstream,uri,
+                                                           <<"http://">>,
+                                                           [domain,
+                                                            <<"localhost:1234">>],
+                                                           [<<"domain">>,
+                                                            domain,<<"path">>,
+                                                            path,<<>>]},
+                                                          [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                          [path,<<>>],
+                                                          [{path,<<"abc">>},
+                                                           {domain,
+                                                            <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_rules/4 -> {match,
+                                                         {upstream,uri,
+                                                          <<"http://">>,
+                                                          [domain,
+                                                           <<"localhost:1234">>],
+                                                          [<<"domain">>,
+                                                           domain,<<"path">>,
+                                                           path,<<>>]},
+                                                         [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                         [path,<<>>],
+                                                         [{path,<<"abc">>},
+                                                          {domain,
+                                                           <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match_rules/4 -> {match,
+                                                         {upstream,uri,
+                                                          <<"http://">>,
+                                                          [domain,
+                                                           <<"localhost:1234">>],
+                                                          [<<"domain">>,
+                                                           domain,<<"path">>,
+                                                           path,<<>>]},
+                                                         [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                         [path,<<>>],
+                                                         [{path,<<"abc">>},
+                                                          {domain,
+                                                           <<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match/4 -> {match,
+                                                   {upstream,uri,
+                                                    <<"http://">>,
+                                                    [domain,
+                                                     <<"localhost:1234">>],
+                                                    [<<"domain">>,domain,
+                                                     <<"path">>,path,<<>>]},
+                                                   [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                   [path,<<>>],
+                                                   [{path,<<"abc">>},
+                                                    {domain,<<"qwerty">>}]}
+(<0.560.0>) returned from mod_revproxy:match/4 -> {match,
+                                                   {upstream,uri,
+                                                    <<"http://">>,
+                                                    [domain,
+                                                     <<"localhost:1234">>],
+                                                    [<<"domain">>,domain,
+                                                     <<"path">>,path,<<>>]},
+                                                   [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+                                                   [path,<<>>],
+                                                   [{path,<<"abc">>},
+                                                    {domain,<<"qwerty">>}]}
+(<0.560.0>) call mod_revproxy:handle_match({match,{upstream,uri,<<"http://">>,
+                 [domain,<<"localhost:1234">>],
+                 [<<"domain">>,domain,<<"path">>,path,<<>>]},
+       [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+       [path,<<>>],
+       [{path,<<"abc">>},{domain,<<"qwerty">>}]},<<"GET">>,{http_req,#Port<0.19060>,ranch_tcp,keepalive,<0.560.0>,<<"GET">>,'HTTP/1.1',
+          {{127,0,0,1},46645},
+          <<"qwerty.com">>,undefined,80,<<"/abc/login.htm">>,
+          [<<"abc">>,<<"login.htm">>],
+          <<"ts=1231231232222&st=223232&page=32">>,undefined,[],
+          [{<<"content-length">>,<<"20">>},{<<"host">>,<<"qwerty.com">>}],
+          [],undefined,[],waiting,<<"some example body :)">>,undefined,false,
+          waiting,[],<<>>,undefined},{state,5000,8000000,
+       [{<<"custom-header-1">>,<<"value">>},
+        {<<"custom-header-2">>,<<"some other value">>}]})
+(<0.560.0>) call mod_revproxy:upstream_uri({match,{upstream,uri,<<"http://">>,
+                 [domain,<<"localhost:1234">>],
+                 [<<"domain">>,domain,<<"path">>,path,<<>>]},
+       [<<"login.htm?ts=1231231232222&st=223232&page=32">>],
+       [path,<<>>],
+       [{path,<<"abc">>},{domain,<<"qwerty">>}]})
+(<0.560.0>) call mod_revproxy:upstream_bindings([domain,<<"localhost:1234">>],46,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<>>)
+(<0.560.0>) call mod_revproxy:upstream_append(<<"qwerty">>,46,<<>>)
+(<0.560.0>) returned from mod_revproxy:upstream_append/3 -> <<"qwerty">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([<<"localhost:1234">>],46,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"qwerty">>)
+(<0.560.0>) call mod_revproxy:upstream_append(<<"localhost:1234">>,46,<<"qwerty">>)
+(<0.560.0>) returned from mod_revproxy:upstream_append/3 -> <<"qwerty.localhost:1234">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([],46,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"qwerty.localhost:1234">>)
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"qwerty.localhost:1234">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"qwerty.localhost:1234">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"qwerty.localhost:1234">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([<<"domain">>,domain,<<"path">>,path,<<>>,
+ <<"login.htm?ts=1231231232222&st=223232&page=32">>],47,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<>>)
+(<0.560.0>) call mod_revproxy:upstream_append(<<"domain">>,47,<<>>)
+(<0.560.0>) returned from mod_revproxy:upstream_append/3 -> <<"domain">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([domain,<<"path">>,path,<<>>,
+ <<"login.htm?ts=1231231232222&st=223232&page=32">>],47,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"domain">>)
+(<0.560.0>) call mod_revproxy:upstream_append(<<"qwerty">>,47,<<"domain">>)
+(<0.560.0>) returned from mod_revproxy:upstream_append/3 -> <<"domain/qwerty">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([<<"path">>,path,<<>>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],47,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"domain/qwerty">>)
+(<0.560.0>) call mod_revproxy:upstream_append(<<"path">>,47,<<"domain/qwerty">>)
+(<0.560.0>) returned from mod_revproxy:upstream_append/3 -> <<"domain/qwerty/path">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([path,<<>>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],47,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"domain/qwerty/path">>)
+(<0.560.0>) call mod_revproxy:upstream_append(<<"abc">>,47,<<"domain/qwerty/path">>)
+(<0.560.0>) returned from mod_revproxy:upstream_append/3 -> <<"domain/qwerty/path/abc">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([<<>>,<<"login.htm?ts=1231231232222&st=223232&page=32">>],47,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"domain/qwerty/path/abc">>)
+(<0.560.0>) call mod_revproxy:upstream_bindings([<<"login.htm?ts=1231231232222&st=223232&page=32">>],47,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"domain/qwerty/path/abc">>)
+(<0.560.0>) call mod_revproxy:upstream_append(<<"login.htm?ts=1231231232222&st=223232&page=32">>,47,<<"domain/qwerty/path/abc">>)
+(<0.560.0>) returned from mod_revproxy:upstream_append/3 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) call mod_revproxy:upstream_bindings([],47,[{path,<<"abc">>},{domain,<<"qwerty">>}],<<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>)
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) returned from mod_revproxy:upstream_bindings/4 -> <<"domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>
+(<0.560.0>) returned from mod_revproxy:upstream_uri/1 -> {"http://qwerty.localhost:1234",
+                                                          <<"/domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>}
+(<0.560.0>) call mod_revproxy:pass_request("http://qwerty.localhost:1234",<<"/domain/qwerty/path/abc/login.htm?ts=1231231232222&st=223232&page=32">>,<<"GET">>,{http_req,#Port<0.19060>,ranch_tcp,keepalive,<0.560.0>,<<"GET">>,'HTTP/1.1',
+          {{127,0,0,1},46645},
+          <<"qwerty.com">>,undefined,80,<<"/abc/login.htm">>,
+          [<<"abc">>,<<"login.htm">>],
+          <<"ts=1231231232222&st=223232&page=32">>,undefined,[],
+          [{<<"content-length">>,<<"20">>},{<<"host">>,<<"qwerty.com">>}],
+          [],undefined,[],waiting,<<"some example body :)">>,undefined,false,
+          waiting,[],<<>>,undefined},{state,5000,8000000,
+       [{<<"custom-header-1">>,<<"value">>},
+        {<<"custom-header-2">>,<<"some other value">>}]})
+(<0.560.0>) call mod_revproxy:request_body({http_req,#Port<0.19060>,ranch_tcp,keepalive,<0.560.0>,<<"GET">>,'HTTP/1.1',
+          {{127,0,0,1},46645},
+          <<"qwerty.com">>,undefined,80,<<"/abc/login.htm">>,
+          [<<"abc">>,<<"login.htm">>],
+          <<"ts=1231231232222&st=223232&page=32">>,undefined,[],
+          [{<<"content-length">>,<<"20">>},{<<"host">>,<<"qwerty.com">>}],
+          [],undefined,[],waiting,<<"some example body :)">>,undefined,false,
+          waiting,[],<<>>,undefined},{state,5000,8000000,
+       [{<<"custom-header-1">>,<<"value">>},
+        {<<"custom-header-2">>,<<"some other value">>}]})
+(<0.560.0>) returned from mod_revproxy:request_body/2 -> {<<"some example body :)">>,
+                                                          {http_req,
+                                                           #Port<0.19060>,
+                                                           ranch_tcp,
+                                                           keepalive,
+                                                           <0.560.0>,
+                                                           <<"GET">>,
+                                                           'HTTP/1.1',
+                                                           {{127,0,0,1},46645},
+                                                           <<"qwerty.com">>,
+                                                           undefined,80,
+                                                           <<"/abc/login.htm">>,
+                                                           [<<"abc">>,
+                                                            <<"login.htm">>],
+                                                           <<"ts=1231231232222&st=223232&page=32">>,
+                                                           undefined,[],
+                                                           [{<<"content-length">>,
+                                                             <<"20">>},
+                                                            {<<"host">>,
+                                                             <<"qwerty.com">>}],
+                                                           [{<<"content-length">>,
+                                                             20},
+                                                            {<<"expect">>,
+                                                             undefined}],
+                                                           undefined,[],done,
+                                                           <<>>,undefined,
+                                                           false,waiting,[],
+                                                           <<>>,undefined}}
+(<0.560.0>) call mod_revproxy:return_response({error,nxdomain},{http_req,#Port<0.19060>,ranch_tcp,keepalive,<0.560.0>,<<"GET">>,'HTTP/1.1',
+          {{127,0,0,1},46645},
+          <<"qwerty.com">>,undefined,80,<<"/abc/login.htm">>,
+          [<<"abc">>,<<"login.htm">>],
+          <<"ts=1231231232222&st=223232&page=32">>,undefined,[],
+          [{<<"content-length">>,<<"20">>},{<<"host">>,<<"qwerty.com">>}],
+          [{<<"content-length">>,20},{<<"expect">>,undefined}],
+          undefined,[],done,<<>>,undefined,false,waiting,[],<<>>,undefined},{state,5000,8000000,
+       [{<<"custom-header-1">>,<<"value">>},
+        {<<"custom-header-2">>,<<"some other value">>}]})
+(<0.560.0>) returned from mod_revproxy:return_response/3 -> {ok,
+                                                             {http_req,
+                                                              #Port<0.19060>,
+                                                              ranch_tcp,
+                                                              keepalive,
+                                                              <0.560.0>,
+                                                              <<"GET">>,
+                                                              'HTTP/1.1',
+                                                              {{127,0,0,1},
+                                                               46645},
+                                                              <<"qwerty.com">>,
+                                                              undefined,80,
+                                                              <<"/abc/login.htm">>,
+                                                              [<<"abc">>,
+                                                               <<"login.htm">>],
+                                                              <<"ts=1231231232222&st=223232&page=32">>,
+                                                              undefined,[],
+                                                              [{<<"content-length">>,
+                                                                <<"20">>},
+                                                               {<<"host">>,
+                                                                <<"qwerty.com">>}],
+                                                              [{<<"content-length">>,
+                                                                20},
+                                                               {<<"expect">>,
+                                                                undefined}],
+                                                              undefined,[],
+                                                              done,<<>>,
+                                                              undefined,false,
+                                                              done,[],<<>>,
+                                                              undefined},
+                                                             {state,5000,
+                                                              8000000,
+                                                              [{<<"custom-header-1">>,
+                                                                <<"value">>},
+                                                               {<<"custom-header-2">>,
+                                                                <<"some other value">>}]}}
+(<0.560.0>) returned from mod_revproxy:pass_request/5 -> {ok,
+                                                          {http_req,
+                                                           #Port<0.19060>,
+                                                           ranch_tcp,
+                                                           keepalive,
+                                                           <0.560.0>,
+                                                           <<"GET">>,
+                                                           'HTTP/1.1',
+                                                           {{127,0,0,1},46645},
+                                                           <<"qwerty.com">>,
+                                                           undefined,80,
+                                                           <<"/abc/login.htm">>,
+                                                           [<<"abc">>,
+                                                            <<"login.htm">>],
+                                                           <<"ts=1231231232222&st=223232&page=32">>,
+                                                           undefined,[],
+                                                           [{<<"content-length">>,
+                                                             <<"20">>},
+                                                            {<<"host">>,
+                                                             <<"qwerty.com">>}],
+                                                           [{<<"content-length">>,
+                                                             20},
+                                                            {<<"expect">>,
+                                                             undefined}],
+                                                           undefined,[],done,
+                                                           <<>>,undefined,
+                                                           false,done,[],<<>>,
+                                                           undefined},
+                                                          {state,5000,
+                                                           8000000,
+                                                           [{<<"custom-header-1">>,
+                                                             <<"value">>},
+                                                            {<<"custom-header-2">>,
+                                                             <<"some other value">>}]}}
+(<0.560.0>) returned from mod_revproxy:handle_match/4 -> {ok,
+                                                          {http_req,
+                                                           #Port<0.19060>,
+                                                           ranch_tcp,
+                                                           keepalive,
+                                                           <0.560.0>,
+                                                           <<"GET">>,
+                                                           'HTTP/1.1',
+                                                           {{127,0,0,1},46645},
+                                                           <<"qwerty.com">>,
+                                                           undefined,80,
+                                                           <<"/abc/login.htm">>,
+                                                           [<<"abc">>,
+                                                            <<"login.htm">>],
+                                                           <<"ts=1231231232222&st=223232&page=32">>,
+                                                           undefined,[],
+                                                           [{<<"content-length">>,
+                                                             <<"20">>},
+                                                            {<<"host">>,
+                                                             <<"qwerty.com">>}],
+                                                           [{<<"content-length">>,
+                                                             20},
+                                                            {<<"expect">>,
+                                                             undefined}],
+                                                           undefined,[],done,
+                                                           <<>>,undefined,
+                                                           false,done,[],<<>>,
+                                                           undefined},
+                                                          {state,5000,
+                                                           8000000,
+                                                           [{<<"custom-header-1">>,
+                                                             <<"value">>},
+                                                            {<<"custom-header-2">>,
+                                                             <<"some other value">>}]}}
+(<0.560.0>) returned from mod_revproxy:handle/2 -> {ok,
+                                                    {http_req,#Port<0.19060>,
+                                                     ranch_tcp,keepalive,
+                                                     <0.560.0>,<<"GET">>,
+                                                     'HTTP/1.1',
+                                                     {{127,0,0,1},46645},
+                                                     <<"qwerty.com">>,
+                                                     undefined,80,
+                                                     <<"/abc/login.htm">>,
+                                                     [<<"abc">>,
+                                                      <<"login.htm">>],
+                                                     <<"ts=1231231232222&st=223232&page=32">>,
+                                                     undefined,[],
+                                                     [{<<"content-length">>,
+                                                       <<"20">>},
+                                                      {<<"host">>,
+                                                       <<"qwerty.com">>}],
+                                                     [{<<"content-length">>,
+                                                       20},
+                                                      {<<"expect">>,
+                                                       undefined}],
+                                                     undefined,[],done,<<>>,
+                                                     undefined,false,done,[],
+                                                     <<>>,undefined},
+                                                    {state,5000,8000000,
+                                                     [{<<"custom-header-1">>,
+                                                       <<"value">>},
+                                                      {<<"custom-header-2">>,
+                                                       <<"some other value">>}]}}
+(<0.560.0>) call mod_revproxy:terminate({normal,shutdown},{http_req,#Port<0.19060>,ranch_tcp,keepalive,<0.560.0>,<<"GET">>,'HTTP/1.1',
+          {{127,0,0,1},46645},
+          <<"qwerty.com">>,undefined,80,<<"/abc/login.htm">>,
+          [<<"abc">>,<<"login.htm">>],
+          <<"ts=1231231232222&st=223232&page=32">>,undefined,[],
+          [{<<"content-length">>,<<"20">>},{<<"host">>,<<"qwerty.com">>}],
+          [{<<"content-length">>,20},{<<"expect">>,undefined}],
+          undefined,[],done,<<>>,undefined,false,locked,[],<<>>,undefined},{state,5000,8000000,
+       [{<<"custom-header-1">>,<<"value">>},
+        {<<"custom-header-2">>,<<"some other value">>}]})
+(<0.560.0>) returned from mod_revproxy:terminate/3 -> ok
+
+----------------------------------------------------
+2016-01-26 09:42:13.776
+Resp {ok,{{<<"502">>,<<"Bad Gateway">>},
+          [{<<"content-length">>,<<"0">>},
+           {<<"date">>,<<"Tue, 26 Jan 2016 09:42:12 GMT">>},
+           {<<"server">>,<<"Cowboy">>},
+           {<<"connection">>,<<"keep-alive">>}],
+          <<>>,124,34255}}
+
+
+- - - - - - - - - - - - - - - - - - - - - - - - - -
+revproxy_SUITE:http_upstream failed on line 159
+Reason: {badmatch,false}
+- - - - - - - - - - - - - - - - - - - - - - - - - -
+
+Testing apps.ejabberd.revproxy_SUITE: *** FAILED test case 16 of 18 ***
+Testing apps.ejabberd.revproxy_SUITE: TEST COMPLETE, 15 ok, 1 failed, 2 skipped of 18 test cases
+
+Cover analysing... done
+
+Updating /home/travis/build/esl/MongooseIM/apps/ejabberd/logs/index.html... done
+Updating /home/travis/build/esl/MongooseIM/apps/ejabberd/logs/all_runs.html... done
+

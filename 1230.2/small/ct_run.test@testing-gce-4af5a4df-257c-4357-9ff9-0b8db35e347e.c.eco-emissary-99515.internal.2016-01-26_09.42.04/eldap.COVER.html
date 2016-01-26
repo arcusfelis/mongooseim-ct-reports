@@ -1,0 +1,1283 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/eldap.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/eldap.erl by COVER 2016-01-26 at 09:42:55
+
+****************************************************************************
+
+        |  -module(eldap).
+        |  %%% --------------------------------------------------------------------
+        |  %%% Created:  12 Oct 2000 by Tobbe &lt;tnt@home.se&gt;
+        |  %%% Function: Erlang client LDAP implementation according RFC 2251.
+        |  %%%           The interface is based on RFC 1823, and
+        |  %%%           draft-ietf-asid-ldap-c-api-00.txt
+        |  %%%
+        |  %%% Copyright (C) 2000  Torbjorn Tornkvist, tnt@home.se
+        |  %%%
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or modify
+        |  %%% it under the terms of the GNU General Public License as published by
+        |  %%% the Free Software Foundation; either version 2 of the License, or
+        |  %%% (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+        |  %%% GNU General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+        |  
+        |  %%% Modified by Sean Hinde &lt;shinde@iee.org&gt; 7th Dec 2000
+        |  %%% Turned into gen_fsm, made non-blocking, added timers etc to support this.
+        |  %%% Now has the concept of a name (string() or atom()) per instance which allows
+        |  %%% multiple users to call by name if so desired.
+        |  %%%
+        |  %%% Can be configured with start_link parameters or use a config file to get
+        |  %%% host to connect to, dn, password, log function etc.
+        |  
+        |  %%% Modified by Alexey Shchepin &lt;alexey@sevcom.net&gt;
+        |  
+        |  %%% Modified by Evgeniy Khramtsov &lt;ekhramtsov@process-one.net&gt;
+        |  %%% Implemented queue for bind() requests to prevent pending binds.
+        |  %%% Implemented extensibleMatch/2 function.
+        |  %%% Implemented LDAP Extended Operations (currently only Password Modify
+        |  %%%   is supported - RFC 3062).
+        |  
+        |  %%% Modified by Christophe Romain &lt;christophe.romain@process-one.net&gt;
+        |  %%% Improve error case handling
+        |  
+        |  %%% Modified by Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%% Now use ejabberd log mechanism
+        |  
+        |  %%% Modified by:
+        |  %%%   Thomas Baden &lt;roo@ham9.net&gt; 2008 April 6th
+        |  %%%   Andy Harb &lt;Ahmad.N.Abou-Harb@jpl.nasa.gov&gt; 2008 April 28th
+        |  %%%   Anton Podavalov &lt;a.podavalov@gmail.com&gt; 2009 February 22th
+        |  %%% Added LDAPS support, modeled off jungerl eldap.erl version.
+        |  %%% NOTICE: STARTTLS is not supported.
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  -vc('$Id$ ').
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% LDAP Client state machine.
+        |  %%% Possible states are:
+        |  %%%     connecting - actually disconnected, but retrying periodically
+        |  %%%     wait_bind_response  - connected and sent bind request
+        |  %%%     active - bound to LDAP Server and ready to handle commands
+        |  %%%     active_bind - sent bind() request and waiting for response
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -behaviour(gen_fsm).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% External exports
+        |  -export([start_link/1, start_link/6]).
+        |  
+        |  -export([baseObject/0, singleLevel/0, wholeSubtree/0,
+        |           close/1, equalityMatch/2, greaterOrEqual/2,
+        |           lessOrEqual/2, approxMatch/2, search/2, substrings/2,
+        |           present/1, extensibleMatch/2, 'and'/1, 'or'/1, 'not'/1,
+        |           modify/3, mod_add/2, mod_delete/2, mod_replace/2, add/3,
+        |           delete/2, modify_dn/5, modify_passwd/3, bind/3]).
+        |  
+        |  -export([get_status/1]).
+        |  
+        |  %% gen_fsm callbacks
+        |  -export([init/1, connecting/2, connecting/3,
+        |           wait_bind_response/3, active/3, active_bind/3,
+        |           handle_event/3, handle_sync_event/4, handle_info/3,
+        |           terminate/3, code_change/4]).
+        |  
+        |  -include("ELDAPv3.hrl").
+        |  
+        |  -include("eldap.hrl").
+        |  
+        |  -define(LDAP_VERSION, 3).
+        |  
+        |  -define(RETRY_TIMEOUT, 500).
+        |  
+        |  -define(BIND_TIMEOUT, 10000).
+        |  
+        |  -define(CMD_TIMEOUT, 100000).
+        |  %% Used in gen_fsm sync calls.
+        |  %% Used as a timeout for gen_tcp:send/2
+        |  
+        |  -define(CALL_TIMEOUT,
+        |          (?CMD_TIMEOUT) + (?BIND_TIMEOUT) + (?RETRY_TIMEOUT)).
+        |  
+        |  -define(SEND_TIMEOUT, 30000).
+        |  
+        |  -define(MAX_TRANSACTION_ID, 65535).
+        |  
+        |  -define(MIN_TRANSACTION_ID, 0).
+        |  %% Grace period after "soft" LDAP bind errors:
+        |  
+        |  -define(GRACEFUL_RETRY_TIMEOUT, 5000).
+        |  
+        |  -define(SUPPORTEDEXTENSION,
+        |          &lt;&lt;"1.3.6.1.4.1.1466.101.120.7"&gt;&gt;).
+        |  
+        |  -define(SUPPORTEDEXTENSIONSYNTAX,
+        |          &lt;&lt;"1.3.6.1.4.1.1466.115.121.1.38"&gt;&gt;).
+        |  
+        |  -define(STARTTLS, &lt;&lt;"1.3.6.1.4.1.1466.20037"&gt;&gt;).
+        |  
+        |  -type handle() :: pid() | atom() | binary().
+        |  
+        |  -type statename() :: 'active' | 'active_bind' | 'connecting'.
+        |  -type fsm_return() :: {'next_state', statename(), _}
+        |                      | {'stop','normal',_}.
+        |  
+        |  -type eldap_cmd() :: {'delete',_}
+        |                     | {'search', eldap_search()}
+        |                     | {'add',_,_}
+        |                     | {'bind',_,_}
+        |                     | {'modify',_,_}
+        |                     | {'modify_passwd',_,_}
+        |                     | {'modify_dn',_,_,_,_}.
+        |  
+        |  -type eldap_req_tag() :: 'addRequest' | 'bindRequest' | 'delRequest'
+        |                         | 'extendedReq' | 'modDNRequest' | 'modifyRequest'
+        |                         | 'searchRequest'.
+        |  -type eldap_request() :: {eldap_req_tag(), _}.
+        |  
+        |  -record(eldap,
+        |          {version = ?LDAP_VERSION :: non_neg_integer(),
+        |           hosts = []              :: [ejabberd:server()],
+        |           host                    :: ejabberd:server(),
+        |           port = 389              :: inet:port_number(),
+        |           sockmod = gen_tcp       :: ssl | gen_tcp,
+        |           tls = none              :: none | tls,
+        |           tls_options = []        :: [{cacertfile, string()} |
+        |                                       {depth, non_neg_integer()} |
+        |                                       {verify, non_neg_integer()}],
+        |           fd,
+        |           rootdn = &lt;&lt;""&gt;&gt;         :: binary(),
+        |           passwd = &lt;&lt;""&gt;&gt;         :: binary(),
+        |           id = 0                  :: non_neg_integer(),
+        |           bind_timer = make_ref() :: reference(),
+        |  	     dict = dict:new()       :: ejabberd:dict_t(),
+        |           req_q = queue:new()     :: ejabberd:queue_t()}).
+        |  
+        |  -type eldap() :: #eldap{}.
+        |  -type eldap_config() :: #eldap_config{}.
+        |  -type eldap_search() :: #eldap_search{}.
+        |  -type eldap_entry() :: #eldap_entry{}.
+        |  
+        |  -export_type([filter/0,
+        |                eldap_config/0,
+        |                eldap_search/0,
+        |                eldap_entry/0]).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec start_link(binary()) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(Name) -&gt;
+<font color=red>     0..|      Reg_name = binary_to_atom(&lt;&lt;"eldap_",Name/binary&gt;&gt;,utf8),</font>
+<font color=red>     0..|      gen_fsm:start_link({local, Reg_name}, ?MODULE, [], []).</font>
+        |  
+        |  
+        |  -spec start_link(binary(), [binary()], inet:port_number(), binary(),
+        |                   binary(), tlsopts()) -&gt; any().
+        |  start_link(Name, Hosts, Port, Rootdn, Passwd, Opts) -&gt;
+<font color=red>     0..|      Reg_name = binary_to_atom(&lt;&lt;"eldap_",Name/binary&gt;&gt;,utf8),</font>
+<font color=red>     0..|      gen_fsm:start_link({local, Reg_name}, ?MODULE,</font>
+        |                         [Hosts, Port, Rootdn, Passwd, Opts], []).
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Get status of connection.
+        |  %%% --------------------------------------------------------------------
+        |  -spec get_status(handle()) -&gt; any().
+        |  get_status(Handle) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_all_state_event(Handle1, get_status).</font>
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Shutdown connection (and process) asynchronous.
+        |  %%% --------------------------------------------------------------------
+        |  -spec close(handle()) -&gt; any().
+        |  close(Handle) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:send_all_state_event(Handle1, close).</font>
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Add an entry. The entry field MUST NOT exist for the AddRequest
+        |  %%% to succeed. The parent of the entry MUST exist.
+        |  %%% Example:
+        |  %%%
+        |  %%%  add(Handle,
+        |  %%%         "cn=Bill Valentine, ou=people, o=Bluetail AB, dc=bluetail, dc=com",
+        |  %%%         [{"objectclass", ["person"]},
+        |  %%%          {"cn", ["Bill Valentine"]},
+        |  %%%          {"sn", ["Valentine"]},
+        |  %%%          {"telephoneNumber", ["545 555 00"]}]
+        |  %%%     )
+        |  %%% --------------------------------------------------------------------
+        |  -spec add(Handle :: atom() | binary() | pid(),
+        |            Entry :: string(),
+        |            Attributes :: proplists:proplist()) -&gt; any().
+        |  add(Handle, Entry, Attributes) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_event(Handle1,</font>
+        |                              {add, Entry, add_attrs(Attributes)}, ?CALL_TIMEOUT).
+        |  
+        |  
+        |  %%% Do sanity check !
+        |  add_attrs(Attrs) -&gt;
+<font color=red>     0..|      F = fun ({Type, Vals}) -&gt;</font>
+<font color=red>     0..|                  {'AddRequest_attributes', Type, Vals}</font>
+        |          end,
+<font color=red>     0..|      case catch lists:map(F, Attrs) of</font>
+<font color=red>     0..|        {'EXIT', _} -&gt; throw({error, attribute_values});</font>
+<font color=red>     0..|        Else -&gt; Else</font>
+        |      end.
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Delete an entry. The entry consists of the DN of
+        |  %%% the entry to be deleted.
+        |  %%% Example:
+        |  %%%
+        |  %%%  delete(Handle,
+        |  %%%         "cn=Bill Valentine, ou=people, o=Bluetail AB, dc=bluetail, dc=com"
+        |  %%%        )
+        |  %%% --------------------------------------------------------------------
+        |  -spec delete(atom() | binary() | pid(), string()) -&gt; any().
+        |  delete(Handle, Entry) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_event(Handle1, {delete, Entry},</font>
+        |                              ?CALL_TIMEOUT).
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Modify an entry. Given an entry a number of modification
+        |  %%% operations can be performed as one atomic operation.
+        |  %%% Example:
+        |  %%%
+        |  %%%  modify(Handle,
+        |  %%%         "cn=Torbjorn Tornkvist, ou=people, o=Bluetail AB, dc=bluetail, dc=com",
+        |  %%%         [replace("telephoneNumber", ["555 555 00"]),
+        |  %%%          add("description", ["LDAP hacker"])]
+        |  %%%        )
+        |  %%% --------------------------------------------------------------------
+        |  -spec modify(handle(), any(), [add | delete | replace]) -&gt; any().
+        |  modify(Handle, Object, Mods) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_event(Handle1, {modify, Object, Mods},</font>
+        |                              ?CALL_TIMEOUT).
+        |  
+        |  %%% @doc Modification operations.
+        |  %%% Example: replace("telephoneNumber", ["555 555 00"])
+        |  -spec mod_add(string(), proplists:proplist()
+        |               ) -&gt; #'ModifyRequest_modification_SEQOF'{}.
+        |  mod_add(Type, Values) -&gt;
+<font color=red>     0..|      m(add, Type, Values).</font>
+        |  
+        |  
+        |  -spec mod_delete(string(), proplists:proplist()
+        |                  ) -&gt; #'ModifyRequest_modification_SEQOF'{}.
+        |  mod_delete(Type, Values) -&gt;
+<font color=red>     0..|      m(delete, Type, Values).</font>
+        |  
+        |  
+        |  -spec mod_replace(string(), proplists:proplist()
+        |                   ) -&gt; #'ModifyRequest_modification_SEQOF'{}.
+        |  mod_replace(Type, Values) -&gt;
+<font color=red>     0..|      m(replace, Type, Values).</font>
+        |  
+        |  
+        |  -spec m('add' | 'delete' | 'replace',_,_) -&gt; #'ModifyRequest_modification_SEQOF'{}.
+        |  m(Operation, Type, Values) -&gt;
+<font color=red>     0..|      #'ModifyRequest_modification_SEQOF'{operation =</font>
+        |                                              Operation,
+        |                                          modification =
+        |                                              #'AttributeTypeAndValues'{type =
+        |                                                                            Type,
+        |                                                                        vals =
+        |                                                                            Values}}.
+        |  
+        |  %% @doc Modify an entry. Given an entry a number of modification
+        |  %% operations can be performed as one atomic operation.
+        |  %% Example: modify_dn(Handle,
+        |  %%         "cn=Bill Valentine, ou=people, o=Bluetail AB, dc=bluetail, dc=com",
+        |  %%         "cn=Ben Emerson", true, "")
+        |  -spec modify_dn(Handle :: atom() | binary() | pid(),
+        |                 Entry :: string(),
+        |                 NewRDN :: string(),
+        |                 DelOldRDN :: boolean(),
+        |                 NewSup :: string()) -&gt; any().
+        |  modify_dn(Handle, Entry, NewRDN, DelOldRDN, NewSup) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_event(Handle1,</font>
+        |                              {modify_dn, Entry, NewRDN, bool_p(DelOldRDN),
+        |                               optional(NewSup)},
+        |                              ?CALL_TIMEOUT).
+        |  
+        |  
+        |  -spec modify_passwd(handle(), binary(), binary()) -&gt; any().
+        |  modify_passwd(Handle, DN, Passwd) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_event(Handle1,</font>
+        |                              {modify_passwd, DN, Passwd}, ?CALL_TIMEOUT).
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Bind.
+        |  %%% Example:
+        |  %%%
+        |  %%%  bind(Handle,
+        |  %%%    "cn=Bill Valentine, ou=people, o=Bluetail AB, dc=bluetail, dc=com",
+        |  %%%    "secret")
+        |  %%% --------------------------------------------------------------------
+        |  
+        |  -spec bind(handle(), binary(), binary()) -&gt; any().
+        |  bind(Handle, RootDN, Passwd) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_event(Handle1, {bind, RootDN, Passwd},</font>
+        |                              ?CALL_TIMEOUT).
+        |  
+        |  %%% Sanity checks !
+        |  
+<font color=red>     0..|  bool_p(Bool) when Bool == true; Bool == false -&gt; Bool.</font>
+        |  
+<font color=red>     0..|  optional([]) -&gt; asn1_NOVALUE;</font>
+<font color=red>     0..|  optional(Value) -&gt; Value.</font>
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Synchronous search of the Directory returning a
+        |  %%% requested set of attributes.
+        |  %%%
+        |  %%%  Example:
+        |  %%%
+        |  %%%     Filter = eldap:substrings("sn", [{any,"o"}]),
+        |  %%%     eldap:search(S, [{base, "dc=bluetail, dc=com"},
+        |  %%%                      {filter, Filter},
+        |  %%%                      {attributes,["cn"]}])),
+        |  %%%
+        |  %%% Returned result:  {ok, #eldap_search_result{}}
+        |  %%%
+        |  %%% Example:
+        |  %%%
+        |  %%%  {ok,{eldap_search_result,
+        |  %%%        [{eldap_entry,
+        |  %%%           "cn=Magnus Froberg, dc=bluetail, dc=com",
+        |  %%%           [{"cn",["Magnus Froberg"]}]},
+        |  %%%         {eldap_entry,
+        |  %%%           "cn=Torbjorn Tornkvist, dc=bluetail, dc=com",
+        |  %%%           [{"cn",["Torbjorn Tornkvist"]}]}],
+        |  %%%        []}}
+        |  %%%
+        |  %%% --------------------------------------------------------------------
+        |  -type search_args() :: [{base, binary()} |
+        |                          {filter, filter()} |
+        |                          {scope, scope()} |
+        |                          {attributes, [binary()]} |
+        |                          {types_only, boolean()} |
+        |                          {timeout, non_neg_integer()} |
+        |                          {limit, non_neg_integer()} |
+        |                          {deref_aliases, never | searching | finding | always}].
+        |  -spec search(handle(), eldap_search() | search_args()) -&gt; any().
+        |  search(Handle, A) when is_record(A, eldap_search) -&gt;
+<font color=red>     0..|      call_search(Handle, A);</font>
+        |  search(Handle, L) when is_list(L) -&gt;
+<font color=red>     0..|      case catch parse_search_args(L) of</font>
+<font color=red>     0..|        {error, Emsg} -&gt; {error, Emsg};</font>
+<font color=red>     0..|        {'EXIT', Emsg} -&gt; {error, Emsg};</font>
+        |        A when is_record(A, eldap_search) -&gt;
+<font color=red>     0..|            call_search(Handle, A)</font>
+        |      end.
+        |  
+        |  
+        |  call_search(Handle, A) -&gt;
+<font color=red>     0..|      Handle1 = get_handle(Handle),</font>
+<font color=red>     0..|      gen_fsm:sync_send_event(Handle1, {search, A},</font>
+        |                              ?CALL_TIMEOUT).
+        |  
+        |  
+        |  -spec parse_search_args(search_args()) -&gt; eldap_search().
+        |  parse_search_args(Args) -&gt;
+<font color=red>     0..|      parse_search_args(Args,</font>
+        |                        #eldap_search{scope = wholeSubtree}).
+        |  
+        |  
+        |  parse_search_args([{base, Base} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T, A#eldap_search{base = Base});</font>
+        |  parse_search_args([{filter, Filter} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T, A#eldap_search{filter = Filter});</font>
+        |  parse_search_args([{scope, Scope} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T, A#eldap_search{scope = Scope});</font>
+        |  parse_search_args([{attributes, Attrs} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T,</font>
+        |                        A#eldap_search{attributes = Attrs});
+        |  parse_search_args([{types_only, TypesOnly} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T,</font>
+        |                        A#eldap_search{types_only = TypesOnly});
+        |  parse_search_args([{timeout, Timeout} | T], A)
+        |      when is_integer(Timeout) -&gt;
+<font color=red>     0..|      parse_search_args(T, A#eldap_search{timeout = Timeout});</font>
+        |  parse_search_args([{limit, Limit} | T], A)
+        |      when is_integer(Limit) -&gt;
+<font color=red>     0..|      parse_search_args(T, A#eldap_search{limit = Limit});</font>
+        |  parse_search_args([{deref_aliases, never} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T,</font>
+        |                        A#eldap_search{deref_aliases = neverDerefAliases});
+        |  parse_search_args([{deref_aliases, searching} | T],
+        |                    A) -&gt;
+<font color=red>     0..|      parse_search_args(T,</font>
+        |                        A#eldap_search{deref_aliases = derefInSearching});
+        |  parse_search_args([{deref_aliases, finding} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T,</font>
+        |                        A#eldap_search{deref_aliases = derefFindingBaseObj});
+        |  parse_search_args([{deref_aliases, always} | T], A) -&gt;
+<font color=red>     0..|      parse_search_args(T,</font>
+        |                        A#eldap_search{deref_aliases = derefAlways});
+        |  parse_search_args([H | _], _) -&gt;
+<font color=red>     0..|      throw({error, {unknown_arg, H}});</font>
+<font color=red>     0..|  parse_search_args([], A) -&gt; A.</font>
+        |  
+        |  
+<font color=red>     0..|  baseObject() -&gt; baseObject.</font>
+        |  
+        |  
+<font color=red>     0..|  singleLevel() -&gt; singleLevel.</font>
+        |  
+        |  %%%
+        |  %%% The Scope parameter
+        |  %%%
+<font color=red>     0..|  wholeSubtree() -&gt; wholeSubtree.</font>
+        |  
+        |  %%%
+        |  %%% Boolean filter operations
+        |  %%%
+        |  -type filter() :: 'and'() | 'or'() | 'not'() | equalityMatch() |
+        |                    greaterOrEqual() | lessOrEqual() | approxMatch() |
+        |                    present() | substrings() | extensibleMatch().
+        |  
+        |  %%%
+        |  %%% The following Filter parameters consist of an attribute
+        |  %%% and an attribute value. Example: F("uid","tobbe")
+        |  %%%
+        |  -type 'and'() :: {'and', [filter()]}.
+        |  -spec 'and'([filter()]) -&gt; 'and'().
+        |  
+        |  'and'(ListOfFilters) when is_list(ListOfFilters) -&gt;
+<font color=red>     0..|      {'and', ListOfFilters}.</font>
+        |  
+        |  -type 'or'() :: {'or', [filter()]}.
+        |  -spec 'or'([filter()]) -&gt; 'or'().
+        |  
+        |  'or'(ListOfFilters) when is_list(ListOfFilters) -&gt;
+<font color=red>     0..|      {'or', ListOfFilters}.</font>
+        |  
+        |  -type 'not'() :: {'not', filter()}.
+        |  -spec 'not'(filter()) -&gt; 'not'().
+        |  
+<font color=red>     0..|  'not'(Filter) when is_tuple(Filter) -&gt; {'not', Filter}.</font>
+        |  
+        |  -type equalityMatch() :: {equalityMatch, 'AttributeValueAssertion'()}.
+        |  -spec equalityMatch(binary(), binary()) -&gt; equalityMatch().
+        |  
+        |  equalityMatch(Desc, Value) -&gt;
+<font color=red>     0..|      {equalityMatch, av_assert(Desc, Value)}.</font>
+        |  
+        |  -type greaterOrEqual() :: {greaterOrEqual, 'AttributeValueAssertion'()}.
+        |  -spec greaterOrEqual(binary(), binary()) -&gt; greaterOrEqual().
+        |  
+        |  greaterOrEqual(Desc, Value) -&gt;
+<font color=red>     0..|      {greaterOrEqual, av_assert(Desc, Value)}.</font>
+        |  
+        |  -type lessOrEqual() :: {lessOrEqual, 'AttributeValueAssertion'()}.
+        |  -spec lessOrEqual(binary(), binary()) -&gt; lessOrEqual().
+        |  
+        |  lessOrEqual(Desc, Value) -&gt;
+<font color=red>     0..|      {lessOrEqual, av_assert(Desc, Value)}.</font>
+        |  
+        |  -type approxMatch() :: {approxMatch, 'AttributeValueAssertion'()}.
+        |  -spec approxMatch(binary(), binary()) -&gt; approxMatch().
+        |  
+        |  approxMatch(Desc, Value) -&gt;
+<font color=red>     0..|      {approxMatch, av_assert(Desc, Value)}.</font>
+        |  
+        |  -type 'AttributeValueAssertion'() ::
+        |          #'AttributeValueAssertion'{attributeDesc :: binary(),
+        |                                     assertionValue :: binary()}.
+        |  
+        |  -spec av_assert(binary(), binary()) -&gt; 'AttributeValueAssertion'().
+        |  
+        |  av_assert(Desc, Value) -&gt;
+<font color=red>     0..|      #'AttributeValueAssertion'{attributeDesc = Desc,</font>
+        |                                 assertionValue = Value}.
+        |  
+        |  %%%
+        |  %%% Filter to check for the presence of an attribute
+        |  %%%
+        |  -type present() :: {present, binary()}.
+        |  -spec present(binary()) -&gt; present().
+        |  
+        |  %%%
+        |  %%% A substring filter seem to be based on a pattern:
+        |  %%%
+        |  %%%   InitValue*AnyValue*FinalValue
+        |  %%%
+        |  %%% where all three parts seem to be optional (at least when
+        |  %%% talking with an OpenLDAP server). Thus, the arguments
+        |  %%% to substrings/2 looks like this:
+        |  %%%
+        |  %%% Type   ::= string( &lt;attribute&gt; )
+        |  %%% SubStr ::= listof( {initial,Value} | {any,Value}, {final,Value})
+        |  %%%
+        |  %%% Example: substrings("sn",[{initial,"To"},{any,"kv"},{final,"st"}])
+        |  %%% will match entries containing:  'sn: Tornkvist'
+        |  %%%
+        |  present(Attribute) -&gt;
+<font color=red>     0..|      {present, Attribute}.</font>
+        |  
+        |  %%%
+        |  %%% extensibleMatch filter.
+        |  %%% FIXME: Describe the purpose of this filter.
+        |  %%%
+        |  %%% Value   ::= string( &lt;attribute&gt; )
+        |  %%% Opts    ::= listof( {matchingRule, Str} | {type, Str} | {dnAttributes, true} )
+        |  %%%
+        |  %%% Example: extensibleMatch("Fred", [{matchingRule, "1.2.3.4.5"}, {type, "cn"}]).
+        |  %%%
+        |  -type substr() :: [{initial | any | final, binary()}].
+        |  -type 'SubstringFilter'() ::
+        |          #'SubstringFilter'{type :: binary(),
+        |                             substrings :: substr()}.
+        |  
+        |  -type substrings() :: {substrings, 'SubstringFilter'()}.
+        |  -spec substrings(binary(), substr()) -&gt; substrings().
+        |  
+        |  substrings(Type, SubStr) -&gt;
+<font color=red>     0..|      {substrings,</font>
+        |       #'SubstringFilter'{type = Type, substrings = SubStr}}.
+        |  
+        |  -type match_opts() :: [{matchingRule | type, binary()} |
+        |                         {dnAttributes, boolean()}].
+        |  
+        |  -type 'MatchingRuleAssertion'() ::
+        |          #'MatchingRuleAssertion'{matchValue :: binary(),
+        |                                   type :: asn1_NOVALUE | binary(),
+        |                                   matchingRule :: asn1_NOVALUE | binary(),
+        |                                   dnAttributes :: asn1_DEFAULT | true}.
+        |  
+        |  -type extensibleMatch() :: {extensibleMatch, 'MatchingRuleAssertion'()}.
+        |  -spec extensibleMatch(binary(), match_opts()) -&gt; extensibleMatch().
+        |  
+        |  extensibleMatch(Value, Opts) -&gt;
+<font color=red>     0..|      MRA = #'MatchingRuleAssertion'{matchValue = Value},</font>
+<font color=red>     0..|      {extensibleMatch, extensibleMatch_opts(Opts, MRA)}.</font>
+        |  
+        |  extensibleMatch_opts([{matchingRule, Rule} | Opts], MRA) -&gt;
+<font color=red>     0..|      extensibleMatch_opts(Opts,</font>
+        |                           MRA#'MatchingRuleAssertion'{matchingRule = Rule});
+        |  extensibleMatch_opts([{type, Desc} | Opts], MRA) -&gt;
+<font color=red>     0..|      extensibleMatch_opts(Opts,</font>
+        |                           MRA#'MatchingRuleAssertion'{type = Desc});
+        |  extensibleMatch_opts([{dnAttributes, true} | Opts],
+        |                       MRA) -&gt;
+<font color=red>     0..|      extensibleMatch_opts(Opts,</font>
+        |                           MRA#'MatchingRuleAssertion'{dnAttributes = true});
+        |  extensibleMatch_opts([_ | Opts], MRA) -&gt;
+<font color=red>     0..|      extensibleMatch_opts(Opts, MRA);</font>
+<font color=red>     0..|  extensibleMatch_opts([], MRA) -&gt; MRA.</font>
+        |  
+<font color=red>     0..|  get_handle(Pid) when is_pid(Pid) -&gt; Pid;</font>
+<font color=red>     0..|  get_handle(Atom) when is_atom(Atom) -&gt; Atom;</font>
+        |  get_handle(Name) when is_binary(Name) -&gt;
+<font color=red>     0..|      binary_to_atom(&lt;&lt;"eldap_",Name/binary&gt;&gt;,utf8).</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Callback functions from gen_fsm
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: init/1
+        |  %% Returns: {ok, StateName, StateData}          |
+        |  %%          {ok, StateName, StateData, Timeout} |
+        |  %%          ignore                              |
+        |  %%          {stop, StopReason}
+        |  %% I use the trick of setting a timeout of 0 to pass control into the
+        |  %% process.
+        |  %%----------------------------------------------------------------------
+        |  init([Hosts, Port, Rootdn, Passwd, Opts]) -&gt;
+<font color=red>     0..|      Encrypt = case eldap_utils:get_mod_opt(encrypt, Opts,</font>
+<font color=red>     0..|                                     fun(tls) -&gt; tls;</font>
+<font color=red>     0..|                                        (starttls) -&gt; starttls;</font>
+<font color=red>     0..|                                        (none) -&gt; none</font>
+        |                                     end) of
+<font color=red>     0..|                    tls -&gt; tls;</font>
+<font color=red>     0..|                    _ -&gt; none</font>
+        |                end,
+<font color=red>     0..|      PortTemp = case Port of</font>
+        |                   undefined -&gt;
+<font color=red>     0..|                       case Encrypt of</font>
+<font color=red>     0..|                         tls -&gt; ?LDAPS_PORT;</font>
+<font color=red>     0..|                         _ -&gt; ?LDAP_PORT</font>
+        |                       end;
+<font color=red>     0..|                   PT -&gt; PT</font>
+        |                 end,
+<font color=red>     0..|      CacertOpts = case eldap_utils:get_mod_opt(</font>
+        |                          tls_cacertfile, Opts,
+        |                          fun(S) when is_binary(S) -&gt;
+<font color=red>     0..|                                  binary_to_list(S);</font>
+        |                             (undefined) -&gt;
+<font color=red>     0..|                                  undefined</font>
+        |                          end) of
+        |                       undefined -&gt;
+<font color=red>     0..|                           [];</font>
+        |                       Path -&gt;
+<font color=red>     0..|                           [{cacertfile, Path}]</font>
+        |                   end,
+<font color=red>     0..|      DepthOpts = case eldap_utils:get_mod_opt(</font>
+        |                         tls_depth, Opts,
+        |                         fun(I) when is_integer(I), I&gt;=0 -&gt;
+<font color=red>     0..|                                 I;</font>
+        |                            (undefined) -&gt;
+<font color=red>     0..|                                 undefined</font>
+        |                         end) of
+        |                      undefined -&gt;
+<font color=red>     0..|                          [];</font>
+        |                      Depth -&gt;
+<font color=red>     0..|                          [{depth, Depth}]</font>
+        |                  end,
+<font color=red>     0..|      Verify = eldap_utils:get_mod_opt(tls_verify, Opts,</font>
+<font color=red>     0..|                               fun(hard) -&gt; hard;</font>
+<font color=red>     0..|                                  (soft) -&gt; soft;</font>
+<font color=red>     0..|                                  (false) -&gt; false</font>
+        |                               end, false),
+<font color=red>     0..|      TLSOpts = if (Verify == hard orelse Verify == soft)</font>
+        |                     andalso CacertOpts == [] -&gt;
+<font color=red>     0..|                       ?WARNING_MSG("TLS verification is enabled but no CA "</font>
+        |                                    "certfiles configured, so verification "
+        |                                    "is disabled.",
+        |                                    []),
+<font color=red>     0..|                       [];</font>
+        |                   Verify == soft -&gt;
+<font color=red>     0..|                       [{verify, 1}] ++ CacertOpts ++ DepthOpts;</font>
+        |                   Verify == hard -&gt;
+<font color=red>     0..|                       [{verify, 2}] ++ CacertOpts ++ DepthOpts;</font>
+<font color=red>     0..|                   true -&gt; []</font>
+        |                end,
+<font color=red>     0..|      {ok, connecting,</font>
+        |       #eldap{hosts = Hosts, port = PortTemp, rootdn = Rootdn,
+        |              passwd = Passwd, tls = Encrypt, tls_options = TLSOpts,
+        |              id = 0, dict = dict:new(), req_q = queue:new()},
+        |       0}.
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: StateName/2
+        |  %% Called when gen_fsm:send_event/2,3 is invoked (async)
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  connecting(timeout, S) -&gt;
+<font color=red>     0..|      {ok, NextState, NewS} = connect_bind(S),</font>
+<font color=red>     0..|      {next_state, NextState, NewS}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: StateName/3
+        |  %% Called when gen_fsm:sync_send_event/2,3 is invoked.
+        |  %% Returns: {next_state, NextStateName, NextStateData}            |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout}   |
+        |  %%          {reply, Reply, NextStateName, NextStateData}          |
+        |  %%          {reply, Reply, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}                          |
+        |  %%          {stop, Reason, Reply, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  connecting(Event, From, S) -&gt;
+<font color=red>     0..|      Q = queue:in({Event, From}, S#eldap.req_q),</font>
+<font color=red>     0..|      {next_state, connecting, S#eldap{req_q = Q}}.</font>
+        |  
+        |  wait_bind_response(Event, From, S) -&gt;
+<font color=red>     0..|      Q = queue:in({Event, From}, S#eldap.req_q),</font>
+<font color=red>     0..|      {next_state, wait_bind_response, S#eldap{req_q = Q}}.</font>
+        |  
+        |  active_bind(Event, From, S) -&gt;
+<font color=red>     0..|      Q = queue:in({Event, From}, S#eldap.req_q),</font>
+<font color=red>     0..|      {next_state, active_bind, S#eldap{req_q = Q}}.</font>
+        |  
+        |  active(Event, From, S) -&gt;
+<font color=red>     0..|      process_command(S, Event, From).</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_event/3
+        |  %% Called when gen_fsm:send_all_state_event/2 is invoked.
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  handle_event(close, _StateName, S) -&gt;
+<font color=red>     0..|      catch (S#eldap.sockmod):close(S#eldap.fd),</font>
+<font color=red>     0..|      {stop, normal, S};</font>
+        |  handle_event(_Event, StateName, S) -&gt;
+<font color=red>     0..|      {next_state, StateName, S}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_sync_event/4
+        |  %% Called when gen_fsm:sync_send_all_state_event/2,3 is invoked
+        |  %% Returns: {next_state, NextStateName, NextStateData}            |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout}   |
+        |  %%          {reply, Reply, NextStateName, NextStateData}          |
+        |  %%          {reply, Reply, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}                          |
+        |  %%          {stop, Reason, Reply, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  handle_sync_event(_Event, _From, StateName, S) -&gt;
+<font color=red>     0..|      {reply, {StateName, S}, StateName, S}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_info/3
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  
+        |  %%
+        |  %% Packets arriving in various states
+        |  %%
+        |  handle_info({Tag, _Socket, Data}, connecting, S)
+        |      when Tag == tcp; Tag == ssl -&gt;
+<font color=red>     0..|      ?DEBUG("tcp packet received when disconnected!~n~p",</font>
+        |             [Data]),
+<font color=red>     0..|      {next_state, connecting, S};</font>
+        |  handle_info({Tag, _Socket, Data}, wait_bind_response, S)
+        |      when Tag == tcp; Tag == ssl -&gt;
+<font color=red>     0..|      cancel_timer(S#eldap.bind_timer),</font>
+<font color=red>     0..|      case catch recvd_wait_bind_response(Data, S) of</font>
+<font color=red>     0..|        bound -&gt; dequeue_commands(S);</font>
+        |        {fail_bind, Reason} -&gt;
+<font color=red>     0..|            report_bind_failure(S#eldap.host, S#eldap.port, Reason),</font>
+<font color=red>     0..|            {next_state, connecting,</font>
+        |             close_and_retry(S, ?GRACEFUL_RETRY_TIMEOUT)};
+        |        {'EXIT', Reason} -&gt;
+<font color=red>     0..|            report_bind_failure(S#eldap.host, S#eldap.port, Reason),</font>
+<font color=red>     0..|            {next_state, connecting, close_and_retry(S)};</font>
+        |        {error, Reason} -&gt;
+<font color=red>     0..|            report_bind_failure(S#eldap.host, S#eldap.port, Reason),</font>
+<font color=red>     0..|            {next_state, connecting, close_and_retry(S)}</font>
+        |      end;
+        |  handle_info({Tag, _Socket, Data}, StateName, S)
+        |      when (StateName == active orelse
+        |              StateName == active_bind)
+        |             andalso (Tag == tcp orelse Tag == ssl) -&gt;
+<font color=red>     0..|      case catch recvd_packet(Data, S) of</font>
+        |        {response, Response, RequestType} -&gt;
+<font color=red>     0..|            NewS = case Response of</font>
+<font color=red>     0..|                     {reply, Reply, To, S1} -&gt; gen_fsm:reply(To, Reply), S1;</font>
+<font color=red>     0..|                     {ok, S1} -&gt; S1</font>
+        |                   end,
+<font color=red>     0..|            if StateName == active_bind andalso</font>
+        |                 RequestType == bindRequest
+        |                 orelse StateName == active -&gt;
+<font color=red>     0..|                   dequeue_commands(NewS);</font>
+<font color=red>     0..|               true -&gt; {next_state, StateName, NewS}</font>
+        |            end;
+<font color=red>     0..|        _ -&gt; {next_state, StateName, S}</font>
+        |      end;
+        |  handle_info({Tag, _Socket}, Fsm_state, S)
+        |      when Tag == tcp_closed; Tag == ssl_closed -&gt;
+<font color=red>     0..|      ?WARNING_MSG("LDAP server closed the connection: ~s:~p~nIn "</font>
+        |                   "State: ~p",
+        |                   [S#eldap.host, S#eldap.port, Fsm_state]),
+<font color=red>     0..|      {next_state, connecting, close_and_retry(S)};</font>
+        |  handle_info({Tag, _Socket, Reason}, Fsm_state, S)
+        |      when Tag == tcp_error; Tag == ssl_error -&gt;
+<font color=red>     0..|      ?DEBUG("eldap received tcp_error: ~p~nIn State: ~p",</font>
+        |             [Reason, Fsm_state]),
+<font color=red>     0..|      {next_state, connecting, close_and_retry(S)};</font>
+        |  %%
+        |  %% Timers
+        |  %%
+        |  handle_info({timeout, Timer, {cmd_timeout, Id}},
+        |              StateName, S) -&gt;
+<font color=red>     0..|      case cmd_timeout(Timer, Id, S) of</font>
+        |        {reply, To, Reason, NewS} -&gt;
+<font color=red>     0..|            gen_fsm:reply(To, Reason),</font>
+<font color=red>     0..|            {next_state, StateName, NewS};</font>
+<font color=red>     0..|        {error, _Reason} -&gt; {next_state, StateName, S}</font>
+        |      end;
+        |  handle_info({timeout, retry_connect}, connecting, S) -&gt;
+<font color=red>     0..|      {ok, NextState, NewS} = connect_bind(S),</font>
+<font color=red>     0..|      {next_state, NextState, NewS};</font>
+        |  handle_info({timeout, _Timer, bind_timeout},
+        |              wait_bind_response, S) -&gt;
+<font color=red>     0..|      {next_state, connecting, close_and_retry(S)};</font>
+        |  %%
+        |  %% Make sure we don't fill the message queue with rubbish
+        |  %%
+        |  handle_info(Info, StateName, S) -&gt;
+<font color=red>     0..|      ?DEBUG("eldap. Unexpected Info: ~p~nIn state: "</font>
+        |             "~p~n when StateData is: ~p",
+        |             [Info, StateName, S]),
+<font color=red>     0..|      {next_state, StateName, S}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: terminate/3
+        |  %% Purpose: Shutdown the fsm
+        |  %% Returns: any
+        |  %%----------------------------------------------------------------------
+<font color=red>     0..|  terminate(_Reason, _StateName, _StatData) -&gt; ok.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: code_change/4
+        |  %% Purpose: Convert process state when code is changed
+        |  %% Returns: {ok, NewState, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  code_change(_OldVsn, StateName, S, _Extra) -&gt;
+<font color=red>     0..|      {ok, StateName, S}.</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%%----------------------------------------------------------------------
+        |  -spec dequeue_commands(eldap()) -&gt; fsm_return().
+        |  dequeue_commands(S) -&gt;
+<font color=red>     0..|      case queue:out(S#eldap.req_q) of</font>
+        |        {{value, {Event, From}}, Q} -&gt;
+<font color=red>     0..|            case process_command(S#eldap{req_q = Q}, Event, From) of</font>
+<font color=red>     0..|              {_, active, NewS} -&gt; dequeue_commands(NewS);</font>
+<font color=red>     0..|              Res -&gt; Res</font>
+        |            end;
+<font color=red>     0..|        {empty, _} -&gt; {next_state, active, S}</font>
+        |      end.
+        |  
+        |  
+        |  -spec process_command(S :: eldap(), Event :: eldap_cmd(), From :: any()) -&gt; fsm_return().
+        |  process_command(S, Event, From) -&gt;
+<font color=red>     0..|      case send_command(Event, From, S) of</font>
+        |        {ok, NewS} -&gt;
+<font color=red>     0..|            case Event of</font>
+<font color=red>     0..|              {bind, _, _} -&gt; {next_state, active_bind, NewS};</font>
+<font color=red>     0..|              _ -&gt; {next_state, active, NewS}</font>
+        |            end;
+        |        {error, _Reason} -&gt;
+<font color=red>     0..|            Q = queue:in_r({Event, From}, S#eldap.req_q),</font>
+<font color=red>     0..|            NewS = close_and_retry(S#eldap{req_q = Q}),</font>
+<font color=red>     0..|            {next_state, connecting, NewS}</font>
+        |      end.
+        |  
+        |  
+        |  -spec send_command(eldap_cmd(), From :: any(), eldap()) -&gt; any().
+        |  send_command(Command, From, S) -&gt;
+<font color=red>     0..|      Id = bump_id(S),</font>
+<font color=red>     0..|      {Name, Request} = gen_req(Command),</font>
+<font color=red>     0..|      Message = #'LDAPMessage'{messageID = Id,</font>
+        |                               protocolOp = {Name, Request}},
+<font color=red>     0..|      ?DEBUG("~p~n", [{Name, Request}]),</font>
+<font color=red>     0..|      {ok, Bytes} = 'ELDAPv3':encode('LDAPMessage', Message),</font>
+<font color=red>     0..|      case (S#eldap.sockmod):send(S#eldap.fd, Bytes) of</font>
+        |        ok -&gt;
+<font color=red>     0..|            Timer = erlang:start_timer(?CMD_TIMEOUT, self(),</font>
+        |                                       {cmd_timeout, Id}),
+<font color=red>     0..|            New_dict = dict:store(Id,</font>
+        |                                  [{Timer, Command, From, Name}], S#eldap.dict),
+<font color=red>     0..|            {ok, S#eldap{id = Id, dict = New_dict}};</font>
+<font color=red>     0..|        Error -&gt; Error</font>
+        |      end.
+        |  
+        |  
+        |  -spec gen_req(eldap_cmd()) -&gt; eldap_request().
+        |  gen_req({search, A}) -&gt;
+<font color=red>     0..|      {searchRequest,</font>
+        |       #'SearchRequest'{baseObject = A#eldap_search.base,
+        |                        scope = A#eldap_search.scope,
+        |                        derefAliases = A#eldap_search.deref_aliases,
+        |                        sizeLimit = A#eldap_search.limit,
+        |                        timeLimit = A#eldap_search.timeout,
+        |                        typesOnly = A#eldap_search.types_only,
+        |                        filter = A#eldap_search.filter,
+        |                        attributes = A#eldap_search.attributes}};
+        |  gen_req({add, Entry, Attrs}) -&gt;
+<font color=red>     0..|      {addRequest,</font>
+        |       #'AddRequest'{entry = Entry, attributes = Attrs}};
+<font color=red>     0..|  gen_req({delete, Entry}) -&gt; {delRequest, Entry};</font>
+        |  gen_req({modify, Obj, Mod}) -&gt;
+<font color=red>     0..|      {modifyRequest,</font>
+        |       #'ModifyRequest'{object = Obj, modification = Mod}};
+        |  gen_req({modify_dn, Entry, NewRDN, DelOldRDN,
+        |           NewSup}) -&gt;
+<font color=red>     0..|      {modDNRequest,</font>
+        |       #'ModifyDNRequest'{entry = Entry, newrdn = NewRDN,
+        |                          deleteoldrdn = DelOldRDN, newSuperior = NewSup}};
+        |  gen_req({modify_passwd, DN, Passwd}) -&gt;
+<font color=red>     0..|      {ok, ReqVal} = 'ELDAPv3':encode(</font>
+        |  				 'PasswdModifyRequestValue',
+        |  				 #'PasswdModifyRequestValue'{userIdentity = DN,
+        |  							     newPasswd =
+        |  								 Passwd}),
+<font color=red>     0..|      {extendedReq,</font>
+        |       #'ExtendedRequest'{requestName = ?passwdModifyOID,
+        |                          requestValue = iolist_to_binary(ReqVal)}};
+        |  gen_req({bind, RootDN, Passwd}) -&gt;
+<font color=red>     0..|      {bindRequest,</font>
+        |       #'BindRequest'{version = ?LDAP_VERSION, name = RootDN,
+        |                      authentication = {simple, Passwd}}}.
+        |  
+        |  %%-----------------------------------------------------------------------
+        |  %% recvd_packet
+        |  %% Deals with incoming packets in the active state
+        |  %% Will return one of:
+        |  %%  {ok, NewS} - Don't reply to client yet as this is part of a search
+        |  %%               result and we haven't got all the answers yet.
+        |  %%  {reply, Result, From, NewS} - Reply with result to client From
+        |  %%  {error, Reason}
+        |  %%  {'EXIT', Reason} - Broke
+        |  %%-----------------------------------------------------------------------
+        |  recvd_packet(Pkt, S) -&gt;
+<font color=red>     0..|      case 'ELDAPv3':decode('LDAPMessage', Pkt) of</font>
+        |        {ok, Msg} -&gt;
+<font color=red>     0..|            Op = Msg#'LDAPMessage'.protocolOp,</font>
+<font color=red>     0..|            ?DEBUG("~p", [Op]),</font>
+<font color=red>     0..|            Dict = S#eldap.dict,</font>
+<font color=red>     0..|            Id = Msg#'LDAPMessage'.messageID,</font>
+<font color=red>     0..|            {Timer, From, Name, Result_so_far} = get_op_rec(Id,</font>
+        |                                                            Dict),
+<font color=red>     0..|            Answer = case {Name, Op} of</font>
+        |                       {searchRequest, {searchResEntry, R}}
+        |                           when is_record(R, 'SearchResultEntry') -&gt;
+<font color=red>     0..|                           New_dict = dict:append(Id, R, Dict),</font>
+<font color=red>     0..|                           {ok, S#eldap{dict = New_dict}};</font>
+        |                       {searchRequest, {searchResDone, Result}} -&gt;
+<font color=red>     0..|                           Reason = Result#'LDAPResult'.resultCode,</font>
+<font color=red>     0..|                           if Reason == success; Reason == sizeLimitExceeded -&gt;</font>
+<font color=red>     0..|                                  {Res, Ref} = polish(Result_so_far),</font>
+<font color=red>     0..|                                  New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                                  cancel_timer(Timer),</font>
+<font color=red>     0..|                                  {reply,</font>
+        |                                   #eldap_search_result{entries = Res,
+        |                                                        referrals = Ref},
+        |                                   From, S#eldap{dict = New_dict}};
+        |                              true -&gt;
+<font color=red>     0..|                                  New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                                  cancel_timer(Timer),</font>
+<font color=red>     0..|                                  {reply, {error, Reason}, From,</font>
+        |                                   S#eldap{dict = New_dict}}
+        |                           end;
+        |                       {searchRequest, {searchResRef, R}} -&gt;
+<font color=red>     0..|                           New_dict = dict:append(Id, R, Dict),</font>
+<font color=red>     0..|                           {ok, S#eldap{dict = New_dict}};</font>
+        |                       {addRequest, {addResponse, Result}} -&gt;
+<font color=red>     0..|                           New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                           cancel_timer(Timer),</font>
+<font color=red>     0..|                           Reply = check_reply(Result, From),</font>
+<font color=red>     0..|                           {reply, Reply, From, S#eldap{dict = New_dict}};</font>
+        |                       {delRequest, {delResponse, Result}} -&gt;
+<font color=red>     0..|                           New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                           cancel_timer(Timer),</font>
+<font color=red>     0..|                           Reply = check_reply(Result, From),</font>
+<font color=red>     0..|                           {reply, Reply, From, S#eldap{dict = New_dict}};</font>
+        |                       {modifyRequest, {modifyResponse, Result}} -&gt;
+<font color=red>     0..|                           New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                           cancel_timer(Timer),</font>
+<font color=red>     0..|                           Reply = check_reply(Result, From),</font>
+<font color=red>     0..|                           {reply, Reply, From, S#eldap{dict = New_dict}};</font>
+        |                       {modDNRequest, {modDNResponse, Result}} -&gt;
+<font color=red>     0..|                           New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                           cancel_timer(Timer),</font>
+<font color=red>     0..|                           Reply = check_reply(Result, From),</font>
+<font color=red>     0..|                           {reply, Reply, From, S#eldap{dict = New_dict}};</font>
+        |                       {bindRequest, {bindResponse, Result}} -&gt;
+<font color=red>     0..|                           New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                           cancel_timer(Timer),</font>
+<font color=red>     0..|                           Reply = check_bind_reply(Result, From),</font>
+<font color=red>     0..|                           {reply, Reply, From, S#eldap{dict = New_dict}};</font>
+        |                       {extendedReq, {extendedResp, Result}} -&gt;
+<font color=red>     0..|                           New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                           cancel_timer(Timer),</font>
+<font color=red>     0..|                           Reply = check_extended_reply(Result, From),</font>
+<font color=red>     0..|                           {reply, Reply, From, S#eldap{dict = New_dict}};</font>
+        |                       {OtherName, OtherResult} -&gt;
+<font color=red>     0..|                           New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                           cancel_timer(Timer),</font>
+<font color=red>     0..|                           {reply,</font>
+        |                            {error, {invalid_result, OtherName, OtherResult}},
+        |                            From, S#eldap{dict = New_dict}}
+        |                     end,
+<font color=red>     0..|            {response, Answer, Name};</font>
+<font color=red>     0..|        Error -&gt; Error</font>
+        |      end.
+        |  
+        |  
+        |  check_reply(#'LDAPResult'{resultCode = success},
+        |              _From) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  check_reply(#'LDAPResult'{resultCode = Reason},
+        |              _From) -&gt;
+<font color=red>     0..|      {error, Reason};</font>
+<font color=red>     0..|  check_reply(Other, _From) -&gt; {error, Other}.</font>
+        |  
+        |  
+        |  check_bind_reply(#'BindResponse'{resultCode = success},
+        |                   _From) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  check_bind_reply(#'BindResponse'{resultCode = Reason},
+        |                   _From) -&gt;
+<font color=red>     0..|      {error, Reason};</font>
+<font color=red>     0..|  check_bind_reply(Other, _From) -&gt; {error, Other}.</font>
+        |  
+        |  
+        |  %% @doc TODO: process reply depending on requestName:
+        |  %% this requires BER-decoding of #'ExtendedResponse'.response
+        |  -spec check_extended_reply(_,_) -&gt; 'ok' | {'error',_}.
+        |  check_extended_reply(#'ExtendedResponse'{resultCode = success}, _From) -&gt;
+<font color=red>     0..|    ok;</font>
+        |  check_extended_reply(#'ExtendedResponse'{resultCode = Reason}, _From) -&gt;
+<font color=red>     0..|    {error, Reason};</font>
+        |  check_extended_reply(Other, _From) -&gt;
+<font color=red>     0..|    {error, Other}.</font>
+        |  
+        |  
+        |  -spec get_op_rec(_, dict:dict(non_neg_integer(), [tuple()])) -&gt; {_,_,_,_}.
+        |  get_op_rec(Id, Dict) -&gt;
+<font color=red>     0..|      case dict:find(Id, Dict) of</font>
+        |        {ok, [{Timer, _Command, From, Name} | Res]} -&gt;
+<font color=red>     0..|            {Timer, From, Name, Res};</font>
+<font color=red>     0..|        error -&gt; throw({error, unkown_id})</font>
+        |      end.
+        |  
+        |  %%-----------------------------------------------------------------------
+        |  %% recvd_wait_bind_response packet
+        |  %% Deals with incoming packets in the wait_bind_response state
+        |  %% Will return one of:
+        |  %%  bound - Success - move to active state
+        |  %%  {fail_bind, Reason} - Failed
+        |  %%  {error, Reason}
+        |  %%  {'EXIT', Reason} - Broken packet
+        |  %%-----------------------------------------------------------------------
+        |  -spec recvd_wait_bind_response(binary(), eldap()) -&gt; 'bound' | {'fail_bind',_}.
+        |  recvd_wait_bind_response(Pkt, S) -&gt;
+<font color=red>     0..|      case 'ELDAPv3':decode('LDAPMessage', Pkt) of</font>
+        |        {ok, Msg} -&gt;
+<font color=red>     0..|            ?DEBUG("~p", [Msg]),</font>
+<font color=red>     0..|            check_id(S#eldap.id, Msg#'LDAPMessage'.messageID),</font>
+<font color=red>     0..|            case Msg#'LDAPMessage'.protocolOp of</font>
+        |              {bindResponse, Result} -&gt;
+<font color=red>     0..|                  case Result#'BindResponse'.resultCode of</font>
+<font color=red>     0..|                    success -&gt; bound;</font>
+<font color=red>     0..|                    Error -&gt; {fail_bind, Error}</font>
+        |                  end
+        |            end;
+<font color=red>     0..|        Else -&gt; {fail_bind, Else}</font>
+        |      end.
+        |  
+        |  
+        |  -spec check_id(non_neg_integer(),non_neg_integer()) -&gt; 'ok' | none().
+<font color=red>     0..|  check_id(Id, Id) -&gt; ok;</font>
+<font color=red>     0..|  check_id(_, _) -&gt; throw({error, wrong_bind_id}).</font>
+        |  
+        |  %%-----------------------------------------------------------------------
+        |  %% General Helpers
+        |  %%-----------------------------------------------------------------------
+        |  
+        |  -spec cancel_timer(reference()) -&gt; 'ok'.
+        |  cancel_timer(Timer) -&gt;
+<font color=red>     0..|      erlang:cancel_timer(Timer),</font>
+<font color=red>     0..|      receive {timeout, Timer, _} -&gt; ok after 0 -&gt; ok end.</font>
+        |  
+        |  
+        |  -spec close_and_retry(eldap(), Timeout :: non_neg_integer()) -&gt; eldap().
+        |  close_and_retry(S, Timeout) -&gt;
+<font color=red>     0..|      catch (S#eldap.sockmod):close(S#eldap.fd),</font>
+<font color=red>     0..|      Queue = dict:fold(fun (_Id,</font>
+        |                             [{Timer, Command, From, _Name} | _], Q) -&gt;
+<font color=red>     0..|                                cancel_timer(Timer),</font>
+<font color=red>     0..|                                queue:in_r({Command, From}, Q);</font>
+<font color=red>     0..|                            (_, _, Q) -&gt; Q</font>
+        |                        end,
+        |                        S#eldap.req_q, S#eldap.dict),
+<font color=red>     0..|      erlang:send_after(Timeout, self(),</font>
+        |                        {timeout, retry_connect}),
+<font color=red>     0..|      S#eldap{fd = undefined, req_q = Queue, dict = dict:new()}.</font>
+        |  
+        |  
+        |  -spec close_and_retry(eldap()) -&gt; eldap().
+        |  close_and_retry(S) -&gt;
+<font color=red>     0..|      close_and_retry(S, ?RETRY_TIMEOUT).</font>
+        |  
+        |  
+        |  -spec report_bind_failure('undefined' | binary(), inet:port_number(), any()) -&gt; any().
+        |  report_bind_failure(Host, Port, Reason) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("LDAP bind failed on ~s:~p~nReason: ~p",</font>
+        |                   [Host, Port, Reason]).
+        |  
+        |  %%-----------------------------------------------------------------------
+        |  %% Sort out timed out commands
+        |  %%-----------------------------------------------------------------------
+        |  -spec cmd_timeout(reference(), _, eldap()
+        |                    ) -&gt; {'error','timed_out_cmd_not_in_dict'}
+        |                       | {'reply',
+        |                          any(),
+        |                          {'error','timeout'} | {'timeout', #eldap_search_result{}},
+        |                          eldap()}.
+        |  cmd_timeout(Timer, Id, S) -&gt;
+<font color=red>     0..|      Dict = S#eldap.dict,</font>
+<font color=red>     0..|      case dict:find(Id, Dict) of</font>
+        |        {ok, [{Timer, _Command, From, Name} | Res]} -&gt;
+<font color=red>     0..|            case Name of</font>
+        |              searchRequest -&gt;
+<font color=red>     0..|                  {Res1, Ref1} = polish(Res),</font>
+<font color=red>     0..|                  New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                  {reply, From,</font>
+        |                   {timeout,
+        |                    #eldap_search_result{entries = Res1, referrals = Ref1}},
+        |                   S#eldap{dict = New_dict}};
+        |              _ -&gt;
+<font color=red>     0..|                  New_dict = dict:erase(Id, Dict),</font>
+<font color=red>     0..|                  {reply, From, {error, timeout},</font>
+        |                   S#eldap{dict = New_dict}}
+        |            end;
+<font color=red>     0..|        error -&gt; {error, timed_out_cmd_not_in_dict}</font>
+        |      end.
+        |  
+        |  %%-----------------------------------------------------------------------
+        |  %% Common stuff for results
+        |  %%-----------------------------------------------------------------------
+        |  
+        |  %%% @doc Polish the returned search result
+        |  str_to_bin([L]) when is_list(L) -&gt;
+<font color=red>     0..|      [iolist_to_binary(L)];</font>
+        |  str_to_bin(L) when is_list(L) -&gt;
+<font color=red>     0..|      iolist_to_binary(L);</font>
+        |  str_to_bin(L) -&gt;
+<font color=red>     0..|      L.</font>
+        |  
+        |  
+<font color=red>     0..|  polish(Entries) -&gt; polish(Entries, [], []).</font>
+        |  
+        |  
+        |  -spec polish([any()], Res :: [eldap_entry()], Ref :: [any()]) -&gt; {[{_,_,_}],[any()]}.
+        |  polish([H | T], Res, Ref)
+        |      when is_record(H, 'SearchResultEntry') -&gt;
+<font color=red>     0..|      ObjectName = H#'SearchResultEntry'.objectName,</font>
+<font color=red>     0..|      F = fun ({_, A, V}) -&gt; {str_to_bin(A), str_to_bin(V)} end,</font>
+<font color=red>     0..|      Attrs = lists:map(F, H#'SearchResultEntry'.attributes),</font>
+<font color=red>     0..|      polish(T,</font>
+        |             [#eldap_entry{object_name = iolist_to_binary(ObjectName),
+        |                           attributes = Attrs}
+        |              | Res],
+        |             Ref);
+        |  polish([H | T], Res,
+        |         Ref) -&gt;     % No special treatment of referrals at the moment.
+<font color=red>     0..|      polish(T, Res, [H | Ref]);</font>
+<font color=red>     0..|  polish([], Res, Ref) -&gt; {Res, Ref}.</font>
+        |  
+        |  %%-----------------------------------------------------------------------
+        |  %% Connect to next server in list and attempt to bind to it.
+        |  %%-----------------------------------------------------------------------
+        |  -spec connect_bind(eldap()) -&gt; {'ok','connecting' | 'wait_bind_response',eldap()}.
+        |  connect_bind(S) -&gt;
+<font color=red>     0..|      Host = next_host(S#eldap.host, S#eldap.hosts),</font>
+<font color=red>     0..|      ?INFO_MSG("LDAP connection on ~s:~p",</font>
+        |                [Host, S#eldap.port]),
+<font color=red>     0..|      Opts = if S#eldap.tls == tls -&gt;</font>
+<font color=red>     0..|                    [{packet, asn1}, {active, true}, {keepalive, true},</font>
+        |                     binary
+        |                     | S#eldap.tls_options];
+        |                true -&gt;
+<font color=red>     0..|                    [{packet, asn1}, {active, true}, {keepalive, true},</font>
+        |                     {send_timeout, ?SEND_TIMEOUT}, binary]
+        |             end,
+<font color=red>     0..|      HostS = binary_to_list(Host),</font>
+<font color=red>     0..|      SocketData = case S#eldap.tls of</font>
+        |                     tls -&gt;
+<font color=red>     0..|                         SockMod = ssl, ssl:connect(HostS, S#eldap.port, Opts);</font>
+        |                     %% starttls -&gt; %% TODO: Implement STARTTLS;
+        |                     _ -&gt;
+<font color=red>     0..|                         SockMod = gen_tcp,</font>
+<font color=red>     0..|                         gen_tcp:connect(HostS, S#eldap.port, Opts)</font>
+        |                   end,
+<font color=red>     0..|      case SocketData of</font>
+        |        {ok, Socket} -&gt;
+<font color=red>     0..|            case bind_request(Socket, S#eldap{sockmod = SockMod}) of</font>
+        |              {ok, NewS} -&gt;
+<font color=red>     0..|                  Timer = erlang:start_timer(?BIND_TIMEOUT, self(),</font>
+        |                                             {timeout, bind_timeout}),
+<font color=red>     0..|                  {ok, wait_bind_response,</font>
+        |                   NewS#eldap{fd = Socket, sockmod = SockMod, host = Host,
+        |                              bind_timer = Timer}};
+        |              {error, Reason} -&gt;
+<font color=red>     0..|                  report_bind_failure(Host, S#eldap.port, Reason),</font>
+<font color=red>     0..|                  NewS = close_and_retry(S),</font>
+<font color=red>     0..|                  {ok, connecting, NewS#eldap{host = Host}}</font>
+        |            end;
+        |        {error, Reason} -&gt;
+<font color=red>     0..|            ?ERROR_MSG("LDAP connection failed:~n** Server: "</font>
+        |                       "~s:~p~n** Reason: ~p~n** Socket options: ~p",
+        |                       [Host, S#eldap.port, Reason, Opts]),
+<font color=red>     0..|            NewS = close_and_retry(S),</font>
+<font color=red>     0..|            {ok, connecting, NewS#eldap{host = Host}}</font>
+        |      end.
+        |  
+        |  
+        |  -spec bind_request(port() | {'sslsocket',_,_}, eldap()) -&gt; any().
+        |  bind_request(Socket, S) -&gt;
+<font color=red>     0..|      Id = bump_id(S),</font>
+<font color=red>     0..|      Req = #'BindRequest'{version = S#eldap.version,</font>
+        |                           name = S#eldap.rootdn,
+        |                           authentication = {simple, S#eldap.passwd}},
+<font color=red>     0..|      Message = #'LDAPMessage'{messageID = Id,</font>
+        |                               protocolOp = {bindRequest, Req}},
+<font color=red>     0..|      ?DEBUG("Bind Request Message:~p~n", [Message]),</font>
+<font color=red>     0..|      {ok, Bytes} = 'ELDAPv3':encode('LDAPMessage', Message),</font>
+<font color=red>     0..|      case (S#eldap.sockmod):send(Socket, Bytes) of</font>
+<font color=red>     0..|        ok -&gt; {ok, S#eldap{id = Id}};</font>
+<font color=red>     0..|        Error -&gt; Error</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Given last tried Server, find next one to try
+        |  -spec next_host('undefined' | binary(),[binary()]) -&gt; binary().
+        |  next_host(undefined, [H | _]) -&gt;
+<font color=red>     0..|      H;                    % First time, take first</font>
+        |  next_host(Host,
+        |            Hosts) -&gt;                       % Find next in turn
+<font color=red>     0..|      next_host(Host, Hosts, Hosts).</font>
+        |  
+        |  %%% --------------------------------------------------------------------
+        |  %%% Verify the input data
+        |  %%% --------------------------------------------------------------------
+        |  %%% --------------------------------------------------------------------
+        |  %%% Get and Validate the initial configuration
+        |  %%% --------------------------------------------------------------------
+        |  %% get_atom(Key, List) -&gt;
+        |  %%     case lists:keysearch(Key, 1, List) of
+        |  %%      {value, {Key, Value}} when is_atom(Value) -&gt;
+        |  %%          Value;
+        |  %%      {value, {Key, _Value}} -&gt;
+        |  %%          throw({error, "Bad Value in Config for " ++ atom_to_list(Key)});
+        |  %%      false -&gt;
+        |  %%          throw({error, "No Entry in Config for " ++ atom_to_list(Key)})
+        |  %%     end.
+        |  %%% --------------------------------------------------------------------
+        |  %%% Other Stuff
+        |  %%% --------------------------------------------------------------------
+        |  
+        |  -spec next_host('undefined' | binary(),[binary()],[binary()]) -&gt; binary().
+        |  next_host(Host, [Host], Hosts) -&gt;
+<font color=red>     0..|      hd(Hosts);    % Wrap back to first</font>
+        |  next_host(Host, [Host | Tail], _Hosts) -&gt;
+<font color=red>     0..|      hd(Tail);       % Take next</font>
+        |  next_host(_Host, [], Hosts) -&gt;
+<font color=red>     0..|      hd(Hosts);       % Never connected before? (shouldn't happen)</font>
+        |  next_host(Host, [_ | T], Hosts) -&gt;
+<font color=red>     0..|      next_host(Host, T, Hosts).</font>
+        |  
+        |  
+        |  -spec bump_id(eldap()) -&gt; non_neg_integer().
+        |  bump_id(#eldap{id = Id})
+        |      when Id &gt; (?MAX_TRANSACTION_ID) -&gt;
+<font color=red>     0..|      ?MIN_TRANSACTION_ID;</font>
+<font color=red>     0..|  bump_id(#eldap{id = Id}) -&gt; Id + 1.</font>
+</pre>
+</body>
+</html>

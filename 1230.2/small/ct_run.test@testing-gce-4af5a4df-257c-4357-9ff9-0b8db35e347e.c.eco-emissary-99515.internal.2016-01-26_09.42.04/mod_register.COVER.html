@@ -1,0 +1,595 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_register.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_register.erl by COVER 2016-01-26 at 09:42:43
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_register.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Inband registration support
+        |  %%% Created :  8 Dec 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_register).
+        |  -author('alexey@process-one.net').
+        |  -xep([{xep, 77}, {version, "2.4"}]).
+        |  -behaviour(gen_mod).
+        |  
+        |  -export([start/2,
+        |           stop/1,
+        |           clean_opts/1,
+        |           stream_feature_register/2,
+        |           unauthenticated_iq_register/4,
+        |           try_register/5,
+        |           process_iq/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_local, Host, ?NS_REGISTER,</font>
+        |                                    ?MODULE, process_iq, IQDisc),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_REGISTER,</font>
+        |                                    ?MODULE, process_iq, IQDisc),
+<font color=red>     0..|      ejabberd_hooks:add(c2s_stream_features, Host,</font>
+        |                         ?MODULE, stream_feature_register, 50),
+<font color=red>     0..|      ejabberd_hooks:add(c2s_unauthenticated_iq, Host,</font>
+        |                         ?MODULE, unauthenticated_iq_register, 50),
+<font color=red>     0..|      mnesia:create_table(mod_register_ip,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {local_content, true},
+        |                           {attributes, [key, value]}]),
+<font color=red>     0..|      mnesia:add_table_copy(mod_register_ip, node(), ram_copies),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(c2s_stream_features, Host,</font>
+        |                            ?MODULE, stream_feature_register, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(c2s_unauthenticated_iq, Host,</font>
+        |                            ?MODULE, unauthenticated_iq_register, 50),
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_REGISTER),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_REGISTER).</font>
+        |  
+        |  clean_opts(Opts) -&gt;
+<font color=red>     0..|      lists:map(fun clean_opt/1, Opts).</font>
+        |  
+        |  clean_opt({registration_watchers, Watchers}) -&gt;
+<font color=red>     0..|      CleanWatchers = lists:map(fun ejabberd_binary:string_to_binary/1, Watchers),</font>
+<font color=red>     0..|      {registration_watchers, CleanWatchers};</font>
+        |  clean_opt(Item) -&gt;
+<font color=red>     0..|      Item.</font>
+        |  
+        |  stream_feature_register(Acc, _Host) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"register"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_FEATURE_IQREGISTER}]} | Acc].
+        |  
+        |  unauthenticated_iq_register(_Acc,
+        |                              Server, #iq{xmlns = ?NS_REGISTER} = IQ, IP) -&gt;
+<font color=red>     0..|      Address = case IP of</font>
+<font color=red>     0..|                    {A, _Port} -&gt; A;</font>
+<font color=red>     0..|                    _ -&gt; undefined</font>
+        |                end,
+<font color=red>     0..|      ResIQ = process_unauthenticated_iq(no_JID,</font>
+        |                                         %% For the above: the client is
+        |                                         %% not registered (no JID), at
+        |                                         %% least not yet, so they can
+        |                                         %% not be authenticated either.
+        |                                         make_host_only_JID(Server),
+        |                                         IQ,
+        |                                         Address),
+<font color=red>     0..|      set_sender(jlib:iq_to_xml(ResIQ), make_host_only_JID(Server));</font>
+        |  unauthenticated_iq_register(Acc, _Server, _IQ, _IP) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %% Clients must register before being able to authenticate.
+        |  process_unauthenticated_iq(From, To, #iq{type = set} = IQ, IPAddr) -&gt;
+<font color=red>     0..|      process_iq_set(From, To, IQ, IPAddr);</font>
+        |  process_unauthenticated_iq(From, To, #iq{type = get} = IQ, IPAddr) -&gt;
+<font color=red>     0..|      process_iq_get(From, To, IQ, IPAddr).</font>
+        |  
+        |  process_iq(From, To, #iq{type = set} = IQ) -&gt;
+<font color=red>     0..|      process_iq_set(From, To, IQ, jid:to_lower(From));</font>
+        |  process_iq(From, To, #iq{type = get} = IQ) -&gt;
+<font color=red>     0..|      process_iq_get(From, To, IQ, jid:to_lower(From)).</font>
+        |  
+        |  process_iq_set(From, To, #iq{sub_el = Child} = IQ, Source) -&gt;
+<font color=red>     0..|      true = is_query_element(Child),</font>
+<font color=red>     0..|      handle_set(IQ, From, To, Source).</font>
+        |  
+        |  handle_set(IQ, ClientJID, ServerJID, Source) -&gt;
+<font color=red>     0..|      #iq{sub_el = Query} = IQ,</font>
+<font color=red>     0..|      case which_child_elements(Query) of</font>
+        |          bad_request -&gt;
+<font color=red>     0..|              error_response(IQ, ?ERR_BAD_REQUEST);</font>
+        |          only_remove_child -&gt;
+<font color=red>     0..|              attempt_cancelation(ClientJID, ServerJID, IQ);</font>
+        |          various_elements_present -&gt;
+<font color=red>     0..|              case has_username_and_password_children(Query) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      Credentials = get_username_and_password_values(Query),</font>
+<font color=red>     0..|                      register_or_change_password(Credentials, ClientJID, ServerJID, IQ, Source);</font>
+        |                  false -&gt;
+<font color=red>     0..|                      error_response(IQ, ?ERR_BAD_REQUEST)</font>
+        |              end
+        |      end.
+        |  
+        |  which_child_elements(#xmlel{children = C} = Q) when length(C) =:= 1 -&gt;
+<font color=red>     0..|          case Q#xmlel.children of</font>
+        |              [#xmlel{name = &lt;&lt;"remove"&gt;&gt;}] -&gt;
+<font color=red>     0..|                  only_remove_child;</font>
+        |              [_] -&gt;
+<font color=red>     0..|                  bad_request</font>
+        |          end;
+        |  which_child_elements(#xmlel{children = C} = Q) when length(C) &gt; 1 -&gt;
+<font color=red>     0..|      case exml_query:subelement(Q, &lt;&lt;"remove"&gt;&gt;) of</font>
+        |          #xmlel{name = &lt;&lt;"remove"&gt;&gt;} -&gt;
+<font color=red>     0..|              bad_request;</font>
+        |          undefined -&gt;
+<font color=red>     0..|              various_elements_present</font>
+        |      end;
+        |  which_child_elements(#xmlel{children = []}) -&gt;
+<font color=red>     0..|      bad_request.</font>
+        |  
+        |  has_username_and_password_children(Q) -&gt;
+        |      (undefined =/= exml_query:path(Q, [{element, &lt;&lt;"username"&gt;&gt;}]))
+<font color=red>     0..|       and</font>
+        |      (undefined =/= exml_query:path(Q, [{element, &lt;&lt;"password"&gt;&gt;}])).
+        |  
+        |  get_username_and_password_values(Q) -&gt;
+<font color=red>     0..|      {exml_query:path(Q, [{element, &lt;&lt;"username"&gt;&gt;}, cdata]),</font>
+        |       exml_query:path(Q, [{element, &lt;&lt;"password"&gt;&gt;}, cdata])}.
+        |  
+        |  register_or_change_password(Credentials, ClientJID, #jid{lserver = ServerDomain}, IQ, IPAddr) -&gt;
+<font color=red>     0..|      {Username, Password} = Credentials,</font>
+<font color=red>     0..|      case inband_registration_and_cancelation_allowed(ServerDomain, ClientJID) of</font>
+        |          true -&gt;
+<font color=red>     0..|              #iq{sub_el = Children, lang = Lang} = IQ,</font>
+<font color=red>     0..|              try_register_or_set_password(Username, ServerDomain, Password, ClientJID, IQ, Children, IPAddr, Lang);</font>
+        |          false -&gt;
+        |              %% This is not described in XEP 0077.
+<font color=red>     0..|              error_response(IQ, ?ERR_FORBIDDEN)</font>
+        |      end.
+        |  
+        |  attempt_cancelation(ClientJID, #jid{lserver = ServerDomain}, #iq{id = ID, sub_el = Child} = IQ) -&gt;
+<font color=red>     0..|      #jid{user = Username, lserver = UserDomain, resource = Resource} = ClientJID,</font>
+<font color=red>     0..|      case inband_registration_and_cancelation_allowed(ServerDomain, ClientJID) of</font>
+        |          true -&gt;
+        |              %% The response must be sent *before* the
+        |              %% XML stream is closed (the call to
+        |              %% `ejabberd_auth:remove_user/2' does
+        |              %% this): as it is, when canceling a
+        |              %% registration, there is no way to deal
+        |              %% with failure.
+<font color=red>     0..|              ResIQ = #iq{type = result, xmlns = ?NS_REGISTER,</font>
+        |                          id = ID,
+        |                          sub_el = [Child]},
+<font color=red>     0..|              ejabberd_router:route(</font>
+        |                jid:make(&lt;&lt;&gt;&gt;, &lt;&lt;&gt;&gt;, &lt;&lt;&gt;&gt;),
+        |                jid:make(Username, UserDomain, Resource),
+        |                jlib:iq_to_xml(ResIQ)),
+<font color=red>     0..|              ejabberd_auth:remove_user(Username, UserDomain),</font>
+<font color=red>     0..|              ignore;</font>
+        |          false -&gt;
+<font color=red>     0..|              error_response(IQ, ?ERR_NOT_ALLOWED)</font>
+        |      end.
+        |  
+        |  inband_registration_and_cancelation_allowed(_, no_JID) -&gt;
+<font color=red>     0..|      true;</font>
+        |  inband_registration_and_cancelation_allowed(Server, JID) -&gt;
+<font color=red>     0..|      Rule = gen_mod:get_module_opt(Server, ?MODULE, access, none),</font>
+<font color=red>     0..|      allow =:= acl:match_rule(Server, Rule, JID).</font>
+        |  
+        |  process_iq_get(From, _To, #iq{lang = Lang, sub_el = Child} = IQ, _Source) -&gt;
+<font color=red>     0..|      true = is_query_element(Child),</font>
+<font color=red>     0..|      {_IsRegistered, UsernameSubels, QuerySubels} =</font>
+        |          case From of
+        |              #jid{user = User, lserver = Server} -&gt;
+<font color=red>     0..|                  case ejabberd_auth:is_user_exists(User, Server) of</font>
+        |                      true -&gt;
+<font color=red>     0..|                          {true, [#xmlcdata{content = User}],</font>
+        |                           [#xmlel{name = &lt;&lt;"registered"&gt;&gt;}]};
+        |                      false -&gt;
+<font color=red>     0..|                          {false, [#xmlcdata{content = User}], []}</font>
+        |                  end;
+        |              _ -&gt;
+<font color=red>     0..|                  {false, [], []}</font>
+        |          end,
+<font color=red>     0..|      TranslatedMsg = translate:translate(</font>
+        |                        Lang, &lt;&lt;"Choose a username and password to register with this server"&gt;&gt;),
+<font color=red>     0..|      IQ#iq{type = result,</font>
+        |            sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                             attrs = [{&lt;&lt;"xmlns"&gt;&gt;, &lt;&lt;"jabber:iq:register"&gt;&gt;}],
+        |                             children = [#xmlel{name = &lt;&lt;"instructions"&gt;&gt;,
+        |                                                children = [#xmlcdata{content = TranslatedMsg}]},
+        |                                         #xmlel{name = &lt;&lt;"username"&gt;&gt;,
+        |                                                children = UsernameSubels},
+        |                                         #xmlel{name = &lt;&lt;"password"&gt;&gt;}
+        |                                         | QuerySubels]}]}.
+        |  
+        |  try_register_or_set_password(User, Server, Password, From, IQ,
+        |                               SubEl, Source, Lang) -&gt;
+<font color=red>     0..|      case From of</font>
+        |          #jid{luser = User, lserver = Server} -&gt;
+<font color=red>     0..|              try_set_password(User, Server, Password, IQ, SubEl, Lang);</font>
+        |          _ -&gt;
+<font color=red>     0..|              case check_timeout(Source) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      case try_register(User, Server, Password,</font>
+        |                                        Source, Lang) of
+        |                          ok -&gt;
+<font color=red>     0..|                              IQ#iq{type = result,</font>
+        |                                    sub_el = [SubEl]};
+        |                          {error, Error} -&gt;
+<font color=red>     0..|                              error_response(IQ, [SubEl, Error])</font>
+        |                      end;
+        |                  false -&gt;
+<font color=red>     0..|                      ErrText = &lt;&lt;"Users are not allowed to register accounts so quickly"&gt;&gt;,</font>
+<font color=red>     0..|                      error_response(IQ, ?ERRT_RESOURCE_CONSTRAINT(Lang, ErrText))</font>
+        |              end
+        |      end.
+        |  
+        |  %% @doc Try to change password and return IQ response
+        |  try_set_password(User, Server, Password, IQ, SubEl, Lang) -&gt;
+<font color=red>     0..|      case is_strong_password(Server, Password) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case ejabberd_auth:set_password(User, Server, Password) of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      IQ#iq{type = result, sub_el = [SubEl]};</font>
+        |                  {error, empty_password} -&gt;
+<font color=red>     0..|                      error_response(IQ, [SubEl, ?ERR_BAD_REQUEST]);</font>
+        |                  {error, not_allowed} -&gt;
+<font color=red>     0..|                      error_response(IQ, [SubEl, ?ERR_NOT_ALLOWED]);</font>
+        |                  {error, invalid_jid} -&gt;
+<font color=red>     0..|                      error_response(IQ, [SubEl, ?ERR_ITEM_NOT_FOUND])</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              ErrText = &lt;&lt;"The password is too weak"&gt;&gt;,</font>
+<font color=red>     0..|              error_response(IQ, [SubEl, ?ERRT_NOT_ACCEPTABLE(Lang, ErrText)])</font>
+        |      end.
+        |  
+        |  try_register(User, Server, Password, SourceRaw, Lang) -&gt;
+<font color=red>     0..|      case jid:is_nodename(User) of</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, ?ERR_BAD_REQUEST};</font>
+        |          _ -&gt;
+<font color=red>     0..|              JID = jid:make(User, Server, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|              Access = gen_mod:get_module_opt(Server, ?MODULE, access, all),</font>
+<font color=red>     0..|              IPAccess = get_ip_access(Server),</font>
+<font color=red>     0..|              case {acl:match_rule(Server, Access, JID),</font>
+        |                    check_ip_access(SourceRaw, IPAccess)} of
+        |                  {deny, _} -&gt;
+<font color=red>     0..|                      {error, ?ERR_FORBIDDEN};</font>
+        |                  {_, deny} -&gt;
+<font color=red>     0..|                      {error, ?ERR_FORBIDDEN};</font>
+        |                  {allow, allow} -&gt;
+<font color=red>     0..|                      case is_strong_password(Server, Password) of</font>
+        |                          true -&gt;
+<font color=red>     0..|                              case ejabberd_auth:try_register(</font>
+        |                                     User, Server, Password) of
+        |                                  ok -&gt;
+<font color=red>     0..|                                      send_welcome_message(JID),</font>
+<font color=red>     0..|                                      send_registration_notifications(JID, SourceRaw),</font>
+<font color=red>     0..|                                      ok;</font>
+        |                                  Error -&gt;
+<font color=red>     0..|                                      case Error of</font>
+        |                                          {error, exists} -&gt;
+<font color=red>     0..|                                              {error, ?ERR_CONFLICT};</font>
+        |                                          {error, invalid_jid} -&gt;
+<font color=red>     0..|                                              {error, ?ERR_JID_MALFORMED};</font>
+        |                                          {error, not_allowed} -&gt;
+<font color=red>     0..|                                              {error, ?ERR_NOT_ALLOWED};</font>
+        |                                          {error, null_password} -&gt;
+<font color=red>     0..|                                              {error, ?ERR_NOT_ACCEPTABLE}</font>
+        |                                      end
+        |                              end;
+        |                          false -&gt;
+<font color=red>     0..|                              ErrText = &lt;&lt;"The password is too weak"&gt;&gt;,</font>
+<font color=red>     0..|                              {error, ?ERRT_NOT_ACCEPTABLE(Lang, ErrText)}</font>
+        |                      end
+        |              end
+        |      end.
+        |  
+        |  send_welcome_message(JID) -&gt;
+<font color=red>     0..|      Host = JID#jid.lserver,</font>
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, welcome_message, {"", ""}) of</font>
+        |          {"", ""} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {Subj, Body} -&gt;
+<font color=red>     0..|              ejabberd_router:route(</font>
+        |                jid:make(&lt;&lt;&gt;&gt;, Host, &lt;&lt;&gt;&gt;),
+        |                JID,
+        |                #xmlel{name = &lt;&lt;"message"&gt;&gt;, attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"normal"&gt;&gt;}],
+        |                       children = [#xmlel{name = &lt;&lt;"subject"&gt;&gt;,
+        |                                          children = [#xmlcdata{content = Subj}]},
+        |                                   #xmlel{name = &lt;&lt;"body"&gt;&gt;,
+        |                                          children = [#xmlcdata{content = Body}]}]});
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  send_registration_notifications(UJID, Source) -&gt;
+<font color=red>     0..|      Host = UJID#jid.lserver,</font>
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, registration_watchers, []) of</font>
+<font color=red>     0..|          [] -&gt; ok;</font>
+        |          JIDs when is_list(JIDs) -&gt;
+<font color=red>     0..|              Body = lists:flatten(</font>
+        |                       io_lib:format(
+        |                         "[~s] The account ~s was registered from IP address ~s "
+        |                         "on node ~w using ~p.",
+        |                         [get_time_string(), jid:to_binary(UJID),
+        |                          ip_to_string(Source), node(), ?MODULE])),
+<font color=red>     0..|              lists:foreach(</font>
+        |                fun(S) -&gt;
+<font color=red>     0..|                        case jid:from_binary(S) of</font>
+<font color=red>     0..|                            error -&gt; ok;</font>
+        |                            JID -&gt;
+<font color=red>     0..|                                ejabberd_router:route(</font>
+        |                                  jid:make(&lt;&lt;&gt;&gt;, Host, &lt;&lt;&gt;&gt;),
+        |                                  JID,
+        |                                  #xmlel{name = &lt;&lt;"message"&gt;&gt;,
+        |                                         attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"chat"&gt;&gt;}],
+        |                                         children = [#xmlel{name = &lt;&lt;"body"&gt;&gt;,
+        |                                                            children = [#xmlcdata{content = Body}]}]})
+        |                        end
+        |                end, JIDs);
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  check_from(no_JID, _Server) -&gt;
+<font color=red>     0..|      allow;</font>
+        |  check_from(JID, Server) -&gt;
+<font color=red>     0..|      Access = gen_mod:get_module_opt(Server, ?MODULE, access_from, none),</font>
+<font color=red>     0..|      acl:match_rule(Server, Access, JID).</font>
+        |  
+        |  check_timeout(undefined) -&gt;
+<font color=red>     0..|      true;</font>
+        |  check_timeout(Source) -&gt;
+<font color=red>     0..|      Timeout = case ejabberd_config:get_local_option(registration_timeout) of</font>
+<font color=red>     0..|                    undefined -&gt;  600;</font>
+<font color=red>     0..|                    TO -&gt; TO</font>
+        |                end,
+<font color=red>     0..|      if</font>
+        |          is_integer(Timeout) -&gt;
+<font color=red>     0..|              {MSec, Sec, _USec} = now(),</font>
+<font color=red>     0..|              Priority = -(MSec * 1000000 + Sec),</font>
+<font color=red>     0..|              CleanPriority = Priority + Timeout,</font>
+<font color=red>     0..|              F = fun() -&gt;</font>
+<font color=red>     0..|                          Treap = case mnesia:read(mod_register_ip, treap,</font>
+        |                                                   write) of
+        |                                      [] -&gt;
+<font color=red>     0..|                                          treap:empty();</font>
+<font color=red>     0..|                                      [{mod_register_ip, treap, T}] -&gt; T</font>
+        |                                  end,
+<font color=red>     0..|                          Treap1 = clean_treap(Treap, CleanPriority),</font>
+<font color=red>     0..|                          case treap:lookup(Source, Treap1) of</font>
+        |                              error -&gt;
+<font color=red>     0..|                                  Treap2 = treap:insert(Source, Priority, [],</font>
+        |                                                        Treap1),
+<font color=red>     0..|                                  mnesia:write({mod_register_ip, treap, Treap2}),</font>
+<font color=red>     0..|                                  true;</font>
+        |                              {ok, _, _} -&gt;
+<font color=red>     0..|                                  mnesia:write({mod_register_ip, treap, Treap1}),</font>
+<font color=red>     0..|                                  false</font>
+        |                          end
+        |                  end,
+        |  
+<font color=red>     0..|              case mnesia:transaction(F) of</font>
+        |                  {atomic, Res} -&gt;
+<font color=red>     0..|                      Res;</font>
+        |                  {aborted, Reason} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("mod_register: timeout check error: ~p~n",</font>
+        |                                 [Reason]),
+<font color=red>     0..|                      true</font>
+        |              end;
+        |          true -&gt;
+<font color=red>     0..|              true</font>
+        |      end.
+        |  
+        |  clean_treap(Treap, CleanPriority) -&gt;
+<font color=red>     0..|      case treap:is_empty(Treap) of</font>
+        |          true -&gt;
+<font color=red>     0..|              Treap;</font>
+        |          false -&gt;
+<font color=red>     0..|              {_Key, Priority, _Value} = treap:get_root(Treap),</font>
+<font color=red>     0..|              if</font>
+        |                  Priority &gt; CleanPriority -&gt;
+<font color=red>     0..|                      clean_treap(treap:delete_root(Treap), CleanPriority);</font>
+        |                  true -&gt;
+<font color=red>     0..|                      Treap</font>
+        |              end
+        |      end.
+        |  
+        |  remove_timeout(undefined) -&gt;
+<font color=red>     0..|      true;</font>
+        |  remove_timeout(Source) -&gt;
+<font color=red>     0..|      Timeout = case ejabberd_config:get_local_option(registration_timeout) of</font>
+<font color=red>     0..|                    undefined -&gt; 600;</font>
+<font color=red>     0..|                    TO -&gt; TO</font>
+        |                end,
+<font color=red>     0..|      if</font>
+        |          is_integer(Timeout) -&gt;
+<font color=red>     0..|              F = fun() -&gt;</font>
+<font color=red>     0..|                          Treap = case mnesia:read(mod_register_ip, treap,</font>
+        |                                                   write) of
+        |                                      [] -&gt;
+<font color=red>     0..|                                          treap:empty();</font>
+<font color=red>     0..|                                      [{mod_register_ip, treap, T}] -&gt; T</font>
+        |                                  end,
+<font color=red>     0..|                          Treap1 = treap:delete(Source, Treap),</font>
+<font color=red>     0..|                          mnesia:write({mod_register_ip, treap, Treap1}),</font>
+<font color=red>     0..|                          ok</font>
+        |                  end,
+<font color=red>     0..|              case mnesia:transaction(F) of</font>
+        |                  {atomic, ok} -&gt;
+<font color=red>     0..|                      ok;</font>
+        |                  {aborted, Reason} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("mod_register: timeout remove error: ~p~n",</font>
+        |                                 [Reason]),
+<font color=red>     0..|                      ok</font>
+        |              end;
+        |          true -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+<font color=red>     0..|  ip_to_string(Source) when is_tuple(Source) -&gt; inet_parse:ntoa(Source);</font>
+<font color=red>     0..|  ip_to_string(undefined) -&gt; "undefined";</font>
+<font color=red>     0..|  ip_to_string(_) -&gt; "unknown".</font>
+        |  
+<font color=red>     0..|  get_time_string() -&gt; write_time(erlang:localtime()).</font>
+        |  %% Function copied from ejabberd_logger_h.erl and customized
+        |  write_time({{Y,Mo,D},{H,Mi,S}}) -&gt;
+<font color=red>     0..|      io_lib:format("~w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w",</font>
+        |                    [Y, Mo, D, H, Mi, S]).
+        |  
+        |  is_strong_password(Server, Password) -&gt;
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      case gen_mod:get_module_opt(LServer, ?MODULE, password_strength, 0) of</font>
+        |          Entropy when is_number(Entropy), Entropy &gt;= 0 -&gt;
+<font color=red>     0..|              if Entropy == 0 -&gt;</font>
+<font color=red>     0..|                      true;</font>
+        |                 true -&gt;
+<font color=red>     0..|                      ejabberd_auth:entropy(Password) &gt;= Entropy</font>
+        |              end;
+        |          Wrong -&gt;
+<font color=red>     0..|              ?WARNING_MSG("Wrong value for password_strength option: ~p",</font>
+        |                           [Wrong]),
+<font color=red>     0..|              true</font>
+        |      end.
+        |  
+        |  %%%
+        |  %%% ip_access management
+        |  %%%
+        |  
+        |  may_remove_resource({_, _, _} = From) -&gt;
+<font color=red>     0..|      jid:to_bare(From);</font>
+        |  may_remove_resource(From) -&gt;
+<font color=red>     0..|      From.</font>
+        |  
+        |  get_ip_access(Host) -&gt;
+<font color=red>     0..|      IPAccess = gen_mod:get_module_opt(Host, ?MODULE, ip_access, []),</font>
+<font color=red>     0..|      lists:flatmap(</font>
+        |        fun({Access, S}) -&gt;
+<font color=red>     0..|                case parse_ip_netmask(S) of</font>
+        |                    {ok, IP, Mask} -&gt;
+<font color=red>     0..|                        [{Access, IP, Mask}];</font>
+        |                    error -&gt;
+<font color=red>     0..|                        ?ERROR_MSG("mod_register: invalid "</font>
+        |                                   "network specification: ~p",
+        |                                   [S]),
+<font color=red>     0..|                        []</font>
+        |                end
+        |        end, IPAccess).
+        |  
+        |  parse_ip_netmask(S) -&gt;
+<font color=red>     0..|      case string:tokens(S, "/") of</font>
+        |          [IPStr] -&gt;
+<font color=red>     0..|              case inet_parse:address(IPStr) of</font>
+        |                  {ok, {_, _, _, _} = IP} -&gt;
+<font color=red>     0..|                      {ok, IP, 32};</font>
+        |                  {ok, {_, _, _, _, _, _, _, _} = IP} -&gt;
+<font color=red>     0..|                      {ok, IP, 128};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      error</font>
+        |              end;
+        |          [IPStr, MaskStr] -&gt;
+<font color=red>     0..|              case catch list_to_integer(MaskStr) of</font>
+        |                  Mask when is_integer(Mask),
+        |                            Mask &gt;= 0 -&gt;
+<font color=red>     0..|                      case inet_parse:address(IPStr) of</font>
+        |                          {ok, {_, _, _, _} = IP} when Mask =&lt; 32 -&gt;
+<font color=red>     0..|                              {ok, IP, Mask};</font>
+        |                          {ok, {_, _, _, _, _, _, _, _} = IP} when Mask =&lt; 128 -&gt;
+<font color=red>     0..|                              {ok, IP, Mask};</font>
+        |                          _ -&gt;
+<font color=red>     0..|                              error</font>
+        |                      end;
+        |                  _ -&gt;
+<font color=red>     0..|                      error</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              error</font>
+        |      end.
+        |  
+        |  check_ip_access(_Source, []) -&gt;
+<font color=red>     0..|      allow;</font>
+        |  check_ip_access({User, Server, Resource}, IPAccess) -&gt;
+<font color=red>     0..|      case ejabberd_sm:get_session_ip(User, Server, Resource) of</font>
+<font color=red>     0..|          {IPAddress, _PortNumber} -&gt; check_ip_access(IPAddress, IPAccess);</font>
+<font color=red>     0..|          _ -&gt; true</font>
+        |      end;
+        |  check_ip_access({_, _, _, _} = IP,
+        |                  [{Access, {_, _, _, _} = Net, Mask} | IPAccess]) -&gt;
+<font color=red>     0..|      IPInt = ip_to_integer(IP),</font>
+<font color=red>     0..|      NetInt = ip_to_integer(Net),</font>
+<font color=red>     0..|      M = bnot ((1 bsl (32 - Mask)) - 1),</font>
+<font color=red>     0..|      if</font>
+        |          IPInt band M =:= NetInt band M -&gt;
+<font color=red>     0..|              Access;</font>
+        |          true -&gt;
+<font color=red>     0..|              check_ip_access(IP, IPAccess)</font>
+        |      end;
+        |  check_ip_access({_, _, _, _, _, _, _, _} = IP,
+        |                  [{Access, {_, _, _, _, _, _, _, _} = Net, Mask} | IPAccess]) -&gt;
+<font color=red>     0..|      IPInt = ip_to_integer(IP),</font>
+<font color=red>     0..|      NetInt = ip_to_integer(Net),</font>
+<font color=red>     0..|      M = bnot ((1 bsl (128 - Mask)) - 1),</font>
+<font color=red>     0..|      if</font>
+        |          IPInt band M =:= NetInt band M -&gt;
+<font color=red>     0..|              Access;</font>
+        |          true -&gt;
+<font color=red>     0..|              check_ip_access(IP, IPAccess)</font>
+        |      end;
+        |  check_ip_access(IP, [_ | IPAccess]) -&gt;
+<font color=red>     0..|      check_ip_access(IP, IPAccess).</font>
+        |  
+        |  ip_to_integer({IP1, IP2, IP3, IP4}) -&gt;
+<font color=red>     0..|      (((((IP1 bsl 8) bor IP2) bsl 8) bor IP3) bsl 8) bor IP4;</font>
+        |  ip_to_integer({IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8}) -&gt;
+        |      (((((((((((((IP1 bsl 16) bor IP2) bsl 16) bor IP3) bsl 16) bor IP4)
+<font color=red>     0..|                 bsl 16) bor IP5) bsl 16) bor IP6) bsl 16) bor IP7) bsl 16) bor IP8.</font>
+        |  
+        |  make_host_only_JID(Name) when is_binary(Name) -&gt;
+<font color=red>     0..|      jid:make(&lt;&lt;&gt;&gt;, Name, &lt;&lt;&gt;&gt;).</font>
+        |  
+        |  set_sender(#xmlel{attrs = A} = Stanza, #jid{} = From) -&gt;
+<font color=red>     0..|      Stanza#xmlel{attrs = [{&lt;&lt;"from"&gt;&gt;, jid:to_binary(From)}|A]}.</font>
+        |  
+        |  is_query_element(#xmlel{name = &lt;&lt;"query"&gt;&gt;}) -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_query_element(_) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  error_response(Request, Reasons) when is_list(Reasons) -&gt;
+<font color=red>     0..|      Request#iq{type = error, sub_el = Reasons};</font>
+        |  error_response(Request, Reason) -&gt;
+<font color=red>     0..|      Request#iq{type = error, sub_el = Reason}.</font>
+</pre>
+</body>
+</html>

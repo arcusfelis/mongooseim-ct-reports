@@ -1,0 +1,278 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_mam_mnesia_dirty_prefs.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_mnesia_dirty_prefs.erl by COVER 2016-01-26 at 09:42:34
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc A backend for storing MAM preferencies using Mnesia.
+        |  %%%
+        |  %%% All preferencies of each user are stored inside a single row.
+        |  %%% All operations are dirty.
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_mam_mnesia_dirty_prefs).
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Exports
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2, stop/1]).
+        |  
+        |  %% MAM hook handlers
+        |  -behaviour(ejabberd_gen_mam_prefs).
+        |  -export([get_behaviour/5,
+        |           get_prefs/4,
+        |           set_prefs/7,
+        |           remove_archive/3]).
+        |  
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -include_lib("ejabberd/include/jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  -record(mam_prefs, {arc_id :: mod_mam:archive_id(),
+        |                      host_user :: {ejabberd:server(), ejabberd:user()},
+        |                      default_mode,
+        |                      always_rules :: list(),
+        |                      never_rules  :: list()
+        |                  }).
+        |  -type mam_prefs() :: #mam_prefs{}.
+        |  -type behaviour() :: 'always' | 'never' | 'roster'.
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %% Starting and stopping functions for users' archives
+        |  
+        |  -spec start(Host :: ejabberd:server(), Opts :: list()) -&gt; any().
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(mam_prefs,</font>
+        |              [{disc_copies, [node()]},
+        |               {attributes, record_info(fields, mam_prefs)}]),
+<font color=red>     0..|      mnesia:add_table_copy(mam_prefs, node(), disc_copies),</font>
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_pm(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_muc(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec stop(Host :: ejabberd:server()) -&gt; any().
+        |  stop(Host) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_pm(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_muc(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam
+        |  
+        |  -spec start_pm(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start_pm(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop_pm(ejabberd:server()) -&gt; 'ok'.
+        |  stop_pm(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam_muc_muc
+        |  
+        |  -spec start_muc(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start_muc(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop_muc(ejabberd:server()) -&gt; 'ok'.
+        |  stop_muc(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Internal functions and callbacks
+        |  
+        |  -spec get_behaviour(Default :: behaviour(), Host :: ejabberd:server(),
+        |      ArcID :: mod_mam:archive_id(), LocJID :: ejabberd:jid(),
+        |      RemJID :: ejabberd:jid()) -&gt; any().
+        |  get_behaviour(DefaultBehaviour, _Host,
+        |                ArcID,
+        |                LocJID=#jid{},
+        |                RemJID=#jid{}) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(mam_prefs, ArcID) of</font>
+<font color=red>     0..|          [] -&gt; DefaultBehaviour;</font>
+<font color=red>     0..|          [User] -&gt; get_behaviour(User, LocJID, RemJID)</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_behaviour(mam_prefs(), LocJID :: ejabberd:jid(),
+        |                      RemJID :: ejabberd:jid()) -&gt; behaviour().
+        |  get_behaviour(#mam_prefs{default_mode = always, never_rules=NeverJIDs}, LocJID, RemJID) -&gt;
+<font color=red>     0..|      IsNever = match_jid(LocJID, RemJID, NeverJIDs),</font>
+<font color=red>     0..|      case IsNever of</font>
+<font color=red>     0..|          true -&gt; never;</font>
+<font color=red>     0..|          false -&gt; always</font>
+        |      end;
+        |  get_behaviour(#mam_prefs{default_mode = never, always_rules=AlwaysJIDs}, LocJID, RemJID) -&gt;
+<font color=red>     0..|      IsAlways = match_jid(LocJID, RemJID, AlwaysJIDs),</font>
+<font color=red>     0..|      case IsAlways of</font>
+<font color=red>     0..|          true -&gt; always;</font>
+<font color=red>     0..|          false -&gt; never</font>
+        |      end;
+        |  get_behaviour(#mam_prefs{default_mode = roster,
+        |          never_rules=NeverJIDs, always_rules=AlwaysJIDs}, LocJID, RemJID) -&gt;
+<font color=red>     0..|      IsNever = match_jid(LocJID, RemJID, NeverJIDs),</font>
+<font color=red>     0..|      case IsNever of</font>
+<font color=red>     0..|          true -&gt; never;</font>
+        |          false -&gt;
+<font color=red>     0..|              IsAlways = match_jid(LocJID, RemJID, AlwaysJIDs),</font>
+<font color=red>     0..|              case IsAlways of</font>
+<font color=red>     0..|                  true -&gt; always;</font>
+<font color=red>     0..|                  false -&gt; roster</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec set_prefs(Result :: any(), Host :: ejabberd:server(),
+        |                  ArcID :: mod_mam:archive_id(), ArcJID :: ejabberd:jid(),
+        |                  DefaultMode :: mod_mam:archive_behaviour(),
+        |                  AlwaysJIDs :: [ejabberd:literal_jid()],
+        |                  NeverJIDs :: [ejabberd:literal_jid()]) -&gt; any().
+        |  set_prefs(Result, _Host, ArcID, ArcJID, DefaultMode, AlwaysJIDs, NeverJIDs) -&gt;
+<font color=red>     0..|      SU = su_key(ArcJID),</font>
+<font color=red>     0..|      NewARules = lists:usort(rules(ArcJID, AlwaysJIDs)),</font>
+<font color=red>     0..|      NewNRules = lists:usort(rules(ArcJID, NeverJIDs)),</font>
+<font color=red>     0..|      User = #mam_prefs{</font>
+        |          arc_id = ArcID,
+        |          host_user = SU,
+        |          default_mode = DefaultMode,
+        |          always_rules = NewARules,
+        |          never_rules = NewNRules
+        |      },
+<font color=red>     0..|      mnesia:sync_dirty(fun() -&gt;</font>
+<font color=red>     0..|              mnesia:write(User)</font>
+        |          end),
+<font color=red>     0..|      Result.</font>
+        |  
+        |  
+        |  -spec get_prefs(mod_mam:preference(), _Host :: ejabberd:server(),
+        |                  _ArcId :: mod_mam:archive_id(), ArcJID :: ejabberd:jid()
+        |                  ) -&gt; mod_mam:preference().
+        |  get_prefs({GlobalDefaultMode, _, _}, _Host, _ArcID, ArcJID) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(mam_prefs, su_key(ArcJID)) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              {GlobalDefaultMode, [], []};</font>
+        |          [#mam_prefs{default_mode=DefaultMode,
+        |                      always_rules=ARules, never_rules=NRules}] -&gt;
+<font color=red>     0..|              AlwaysJIDs = jids(ArcJID, ARules),</font>
+<font color=red>     0..|              NeverJIDs = jids(ArcJID, NRules),</font>
+<font color=red>     0..|              {DefaultMode, AlwaysJIDs, NeverJIDs}</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_archive(ejabberd:server(), mod_mam:archive_id(), ejabberd:jid()) -&gt; any().
+        |  remove_archive(_Host, ArcID, _ArcJID) -&gt;
+<font color=red>     0..|      mnesia:sync_dirty(fun() -&gt;</font>
+<font color=red>     0..|              mnesia:delete(mam_prefs, ArcID, write)</font>
+        |          end).
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Helpers
+        |  
+        |  -spec su_key(ejabberd:jid()) -&gt; ejabberd:simple_bare_jid().
+        |  su_key(#jid{lserver=LocLServer, luser=LocLUser}) -&gt;
+<font color=red>     0..|      {LocLServer, LocLUser}.</font>
+        |  
+        |  
+        |  -spec jids(ejabberd:jid(),
+        |      [ejabberd:literal_jid() | ejabberd:simple_bare_jid() | ejabberd:simple_jid()]
+        |      ) -&gt; [ejabberd:literal_jid()].
+        |  jids(ArcJID, Rules) -&gt;
+<font color=red>     0..|      [jid:to_binary(rule_to_jid(ArcJID, Rule)) || Rule &lt;- Rules].</font>
+        |  
+        |  
+        |  -spec rule_to_jid(ejabberd:jid(),
+        |      ejabberd:luser() | ejabberd:simple_bare_jid() | ejabberd:simple_jid()
+        |      ) -&gt; ejabberd:simple_jid().
+        |  rule_to_jid(#jid{lserver=LServer}, RemLUser) when is_binary(RemLUser) -&gt;
+<font color=red>     0..|      {RemLUser, LServer, &lt;&lt;&gt;&gt;};</font>
+        |  rule_to_jid(_ArcJID, {RemLServer, RemLUser, RemLResource}) -&gt;
+<font color=red>     0..|      {RemLUser, RemLServer, RemLResource};</font>
+        |  rule_to_jid(_ArcJID, {RemLServer, RemLUser}) -&gt;
+<font color=red>     0..|      {RemLUser, RemLServer, &lt;&lt;&gt;&gt;}.</font>
+        |  
+        |  
+        |  -spec rules(ejabberd:jid(), [ejabberd:literal_jid()]) -&gt;
+        |      [ejabberd:literal_jid() | ejabberd:simple_bare_jid() | ejabberd:simple_jid()].
+        |  rules(ArcJID, BinJIDs) -&gt;
+<font color=red>     0..|      [rule(ArcJID, jid:from_binary(BinJID)) || BinJID &lt;- BinJIDs].</font>
+        |  
+        |  
+        |  -spec rule(ejabberd:jid(), ejabberd:jid()) -&gt;
+        |      ejabberd:literal_jid() | ejabberd:simple_bare_jid() | ejabberd:simple_jid().
+        |  rule(#jid{lserver=LServer}, #jid{lserver=LServer, luser=RemLUser, lresource = &lt;&lt;&gt;&gt;}) -&gt;
+<font color=red>     0..|      RemLUser;</font>
+        |  rule(_ArcJID, #jid{lserver=RemLServer, luser=RemLUser, lresource = &lt;&lt;&gt;&gt;}) -&gt;
+<font color=red>     0..|      {RemLServer, RemLUser};</font>
+        |  rule(_ArcJID, #jid{lserver=RemLServer, luser=RemLUser, lresource=RemLResource}) -&gt;
+<font color=red>     0..|      {RemLServer, RemLUser, RemLResource}.</font>
+        |  
+        |  
+        |  -spec is_bare_jid(ejabberd:jid()) -&gt; boolean().
+<font color=red>     0..|  is_bare_jid(#jid{lresource = &lt;&lt;&gt;&gt;}) -&gt; true;</font>
+<font color=red>     0..|  is_bare_jid(_)                      -&gt; false.</font>
+        |  
+        |  
+        |  -spec match_jid(ejabberd:jid(), ejabberd:jid(), [any()]) -&gt; boolean().
+        |  match_jid(ArcJID, JID, JIDs) -&gt;
+<font color=red>     0..|      case is_bare_jid(JID) of</font>
+        |      true -&gt;
+<font color=red>     0..|          ordsets:is_element(rule(ArcJID, JID), JIDs);</font>
+        |      false -&gt;
+<font color=red>     0..|          BareJID = jid:to_bare(JID),</font>
+<font color=red>     0..|          ordsets:is_element(rule(ArcJID, BareJID), JIDs)</font>
+        |              orelse
+<font color=red>     0..|          ordsets:is_element(rule(ArcJID, JID), JIDs)</font>
+        |      end.
+</pre>
+</body>
+</html>

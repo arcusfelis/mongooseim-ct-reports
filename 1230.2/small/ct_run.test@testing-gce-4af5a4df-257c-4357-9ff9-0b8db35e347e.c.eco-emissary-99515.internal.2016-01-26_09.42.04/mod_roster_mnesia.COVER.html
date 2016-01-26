@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-4af5a4df-257c-4357-9ff9-0b8db35e347e.c.eco-emissary-99515.internal.2016-01-26_09.42.04/mod_roster_mnesia.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_roster_mnesia.erl by COVER 2016-01-26 at 09:42:33
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_roster_mnesia.erl
+        |  %%% Author  : Michał Piotrowski &lt;michal.piotrowski@erlang-solutions.com&gt;
+        |  %%% Purpose : mod_roster mnesia backend
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2014   ProcessOne
+        |  %%% MongooseIM, Copyright (C) 2015      Erlang Solutions Ltd.
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  -module(mod_roster_mnesia).
+        |  
+        |  -include("mod_roster.hrl").
+        |  -include("jlib.hrl").
+        |  -behaviour(mod_roster).
+        |  
+        |  %% API
+        |  -export([init/2,
+        |           transaction/2,
+        |           read_roster_version/2,
+        |           write_roster_version/4,
+        |           get_roster/2,
+        |           get_roster_by_jid_t/3,
+        |           get_subscription_lists/3,
+        |           roster_subscribe_t/4,
+        |           get_roster_by_jid_with_groups_t/3,
+        |           remove_user/2,
+        |           update_roster_t/4,
+        |           del_roster_t/3,
+        |           read_subscription_and_groups/3]).
+        |  
+        |  -export([raw_to_record/2]).
+        |  
+        |  -spec init(ejabberd:server(), list()) -&gt; ok.
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(roster,</font>
+        |                          [{disc_copies, [node()]},
+        |                           {attributes, record_info(fields, roster)}]),
+<font color=red>     0..|      mnesia:create_table(roster_version,</font>
+        |                          [{disc_copies, [node()]},
+        |                           {attributes, record_info(fields, roster_version)}]),
+<font color=red>     0..|      mnesia:add_table_index(roster, us),</font>
+<font color=red>     0..|      mnesia:add_table_index(roster_version, us),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec transaction(LServer :: ejabberd:lserver(), F :: fun()) -&gt;
+        |      {aborted, Reason :: any()} | {atomic, Result :: any()}.
+        |  transaction(_LServer, F) -&gt;
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  -spec read_roster_version(ejabberd:luser(), ejabberd:lserver()) -&gt; binary() | error.
+        |  read_roster_version(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      case mnesia:dirty_read(roster_version, US) of</font>
+<font color=red>     0..|          [#roster_version{version = V}] -&gt; V;</font>
+<font color=red>     0..|          [] -&gt; error</font>
+        |      end.
+        |  
+        |  write_roster_version(LUser, LServer, InTransaction, Ver) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      if InTransaction -&gt;</font>
+<font color=red>     0..|             mnesia:write(#roster_version{us = US, version = Ver});</font>
+        |         true -&gt;
+<font color=red>     0..|             mnesia:dirty_write(#roster_version{us = US,</font>
+        |                                                version = Ver})
+        |      end.
+        |  
+        |  get_roster(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      case catch mnesia:dirty_index_read(roster, US,</font>
+        |                                         #roster.us)
+        |      of
+<font color=red>     0..|          Items  when is_list(Items)-&gt; Items;</font>
+<font color=red>     0..|          _ -&gt; []</font>
+        |      end.
+        |  
+        |  get_roster_by_jid_t(LUser, LServer, LJID) -&gt;
+<font color=red>     0..|      case mnesia:read({roster, {LUser, LServer, LJID}}) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              #roster{usj = {LUser, LServer, LJID},</font>
+        |                      us = {LUser, LServer}, jid = LJID};
+        |          [I] -&gt;
+<font color=red>     0..|              I#roster{jid = LJID, name = &lt;&lt;""&gt;&gt;, groups = [],</font>
+        |                       xs = []}
+        |      end.
+        |  
+        |  get_subscription_lists(_, LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      case mnesia:dirty_index_read(roster, US, #roster.us) of</font>
+<font color=red>     0..|          Items when is_list(Items) -&gt; Items;</font>
+<font color=red>     0..|          _ -&gt; []</font>
+        |      end.
+        |  
+        |  roster_subscribe_t(_LUser, _LServer, _LJID, Item) -&gt;
+<font color=red>     0..|      mnesia:write(Item).</font>
+        |  
+        |  get_roster_by_jid_with_groups_t(LUser, LServer, LJID) -&gt;
+<font color=red>     0..|      case mnesia:read({roster, {LUser, LServer, LJID}}) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              #roster{usj = {LUser, LServer, LJID},</font>
+        |                      us = {LUser, LServer}, jid = LJID};
+<font color=red>     0..|          [I] -&gt; I</font>
+        |      end.
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun () -&gt;</font>
+<font color=red>     0..|                  lists:foreach(fun (R) -&gt; mnesia:delete_object(R) end,</font>
+        |                                mnesia:index_read(roster, US, #roster.us))
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  update_roster_t(_LUser, _LServer, _LJID, Item) -&gt;
+<font color=red>     0..|      mnesia:write(Item).</font>
+        |  
+        |  del_roster_t(LUser, LServer, LJID) -&gt;
+<font color=red>     0..|      mnesia:delete({roster, {LUser, LServer, LJID}}).</font>
+        |  
+        |  
+        |  read_subscription_and_groups(LUser, LServer, LJID) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(roster,</font>
+        |                                   {LUser, LServer, LJID})
+        |      of
+        |          [#roster{subscription = Subscription,
+        |                   groups = Groups}] -&gt;
+<font color=red>     0..|              {Subscription, Groups};</font>
+<font color=red>     0..|          _ -&gt; error</font>
+        |      end.
+        |  
+<font color=red>     0..|  raw_to_record(_, Item) -&gt; Item.</font>
+        |  
+</pre>
+</body>
+</html>
