@@ -1,0 +1,167 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_mam_odbc_user.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_odbc_user.erl by COVER 2016-01-26 at 09:49:17
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc Assigns archive integer identifiers (multihost version).
+        |  %%%
+        |  %%% This module supports several hosts.
+        |  %%%
+        |  %%% Archive id is assigned based on user_name and host.
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_mam_odbc_user).
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2, stop/1]).
+        |  
+        |  %% ejabberd handlers
+        |  -export([archive_id/3,
+        |           remove_archive/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %% Starting and stopping functions for users' archives
+        |  
+        |  -spec start(ejabberd:server(),_) -&gt; 'ok'.
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_pm(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_muc(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec stop(ejabberd:server()) -&gt; 'ok'.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_pm(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_muc(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam
+        |  
+        |  -spec start_pm(ejabberd:server(),_) -&gt; 'ok'.
+        |  start_pm(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_archive_id, Host, ?MODULE, archive_id, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop_pm(ejabberd:server()) -&gt; 'ok'.
+        |  stop_pm(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_archive_id, Host, ?MODULE, archive_id, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam_muc
+        |  
+        |  -spec start_muc(ejabberd:server(),_) -&gt; 'ok'.
+        |  start_muc(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_archive_id, Host, ?MODULE, archive_id, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop_muc(ejabberd:server()) -&gt; 'ok'.
+        |  stop_muc(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_archive_id, Host, ?MODULE, archive_id, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  -spec archive_id(undefined | mod_mam:archive_id(), ejabberd:server(),
+        |                   ejabberd:jid()) -&gt; mod_mam:archive_id().
+        |  archive_id(undefined, Host, _ArcJID=#jid{lserver = Server, luser = UserName}) -&gt;
+<font color=red>     0..|      query_archive_id(Host, Server, UserName);</font>
+        |  archive_id(ArcID, _Host, _ArcJID) -&gt;
+<font color=red>     0..|      ArcID.</font>
+        |  
+        |  -spec remove_archive(Host :: ejabberd:server(),
+        |      ArchiveID :: mod_mam:archive_id(), ArchiveJID :: ejabberd:jid()) -&gt; 'ok'.
+        |  remove_archive(Host, _ArcID, _ArcJID=#jid{lserver = Server, luser = UserName}) -&gt;
+<font color=red>     0..|      SUserName = ejabberd_odbc:escape(UserName),</font>
+<font color=red>     0..|      SServer   = ejabberd_odbc:escape(Server),</font>
+<font color=red>     0..|      {updated, _} =</font>
+        |      ejabberd_odbc:sql_query(
+        |        Host,
+        |        ["DELETE FROM mam_server_user "
+        |         "WHERE server = '", SServer, "' AND user_name = '", SUserName, "'"]),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%====================================================================
+        |  %% Internal functions
+        |  %%====================================================================
+        |  
+        |  -spec query_archive_id(ejabberd:server(), ejabberd:lserver(), ejabberd:user()) -&gt; integer().
+        |  query_archive_id(Host, Server, UserName) -&gt;
+<font color=red>     0..|      SServer   = ejabberd_odbc:escape(Server),</font>
+<font color=red>     0..|      SUserName = ejabberd_odbc:escape(UserName),</font>
+<font color=red>     0..|      DbType = ejabberd_odbc_type:get(),</font>
+<font color=red>     0..|      Result = do_query_archive_id(DbType, Host, SServer, SUserName),</font>
+        |  
+<font color=red>     0..|      case Result of</font>
+        |          {selected, [&lt;&lt;"id"&gt;&gt;], [{IdBin}]} when is_binary(IdBin) -&gt;
+<font color=red>     0..|              binary_to_integer(IdBin);</font>
+        |          {selected, [&lt;&lt;"id"&gt;&gt;], [{IdBin}]}-&gt;
+<font color=red>     0..|              IdBin;</font>
+        |          {selected, [&lt;&lt;"id"&gt;&gt;], []} -&gt;
+        |              %% The user is not found
+<font color=red>     0..|              create_user_archive(Host, Server, UserName),</font>
+<font color=red>     0..|              query_archive_id(Host, Server, UserName)</font>
+        |      end.
+        |      
+        |  -spec create_user_archive(ejabberd:server(), ejabberd:lserver(), ejabberd:user()) -&gt; 'ok'.
+        |  create_user_archive(Host, Server, UserName) -&gt;
+<font color=red>     0..|      SServer   = ejabberd_odbc:escape(Server),</font>
+<font color=red>     0..|      SUserName = ejabberd_odbc:escape(UserName),</font>
+<font color=red>     0..|      {updated, 1} =</font>
+        |      ejabberd_odbc:sql_query(
+        |        Host,
+        |        ["INSERT INTO mam_server_user "
+        |         "(server, user_name) VALUES ('", SServer, "', '", SUserName, "')"]),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  do_query_archive_id(mssql, Host, SServer, SUserName) -&gt;
+<font color=red>     0..|      odbc_queries_mssql:query_archive_id(Host, SServer, SUserName);</font>
+        |  do_query_archive_id(_, Host, SServer, SUserName) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |        Host,
+        |        ["SELECT id "
+        |         "FROM mam_server_user "
+        |         "WHERE server = '", SServer, "' AND user_name = '", SUserName, "' "
+        |         "LIMIT 1"]).
+</pre>
+</body>
+</html>

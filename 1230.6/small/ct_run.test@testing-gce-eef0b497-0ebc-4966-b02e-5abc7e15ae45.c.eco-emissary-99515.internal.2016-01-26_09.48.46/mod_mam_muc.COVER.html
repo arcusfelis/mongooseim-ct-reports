@@ -1,0 +1,740 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_mam_muc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_muc.erl by COVER 2016-01-26 at 09:49:33
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc XEP-0313: Message Archive Management
+        |  %%%
+        |  %%% The module uses several backend modules:
+        |  %%%
+        |  %%% &lt;ul&gt;
+        |  %%% &lt;li&gt;Preference manager ({@link mod_mam_muc_odbc_prefs});&lt;/li&gt;
+        |  %%% &lt;li&gt;Writer ({@link mod_mam_muc_odbc_arch} or {@link mod_mam_muc_odbc_async_pool_writer});&lt;/li&gt;
+        |  %%% &lt;li&gt;Archive manager ({@link mod_mam_muc_odbc_arch});&lt;/li&gt;
+        |  %%% &lt;li&gt;User's ID generator ({@link mod_mam_muc_user}).&lt;/li&gt;
+        |  %%% &lt;/ul&gt;
+        |  %%%
+        |  %%% Preferencies can be also stored in Mnesia ({@link mod_mam_mnesia_prefs}).
+        |  %%% This module handles MUC archives.
+        |  %%%
+        |  %%% This module should be started for each host.
+        |  %%% Message archivation is not shaped here (use standard support for this).
+        |  %%% MAM's IQs are shaped inside {@link shaper_srv}.
+        |  %%%
+        |  %%% Message identifiers (or UIDs in the spec) are generated based on:
+        |  %%%
+        |  %%% &lt;ul&gt;
+        |  %%% &lt;li&gt;date (using `now()');&lt;/li&gt;
+        |  %%% &lt;li&gt;node number (using {@link ejabberd_node_id}).&lt;/li&gt;
+        |  %%% &lt;/ul&gt;
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_mam_muc).
+        |  -xep([{xep, 313}, {version, "0.2"}]).
+        |  -xep([{xep, 45}, {version, "1.25"}]).
+        |  %% ----------------------------------------------------------------------
+        |  %% Exports
+        |  
+        |  %% Client API
+        |  -export([delete_archive/2,
+        |           archive_size/2,
+        |           archive_id/2]).
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2, stop/1]).
+        |  
+        |  %% ejabberd room handlers
+        |  -export([filter_room_packet/4,
+        |           archive_room_packet/4,
+        |           room_process_mam_iq/3,
+        |           forget_room/2]).
+        |  
+        |  %% private
+        |  -export([archive_message/8]).
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Imports
+        |  
+        |  -import(mod_mam_utils,
+        |          [maybe_microseconds/1,
+        |           microseconds_to_now/1]).
+        |  
+        |  %% UID
+        |  -import(mod_mam_utils,
+        |          [generate_message_id/0,
+        |           decode_compact_uuid/1]).
+        |  
+        |  %% XML
+        |  -import(mod_mam_utils,
+        |          [replace_archived_elem/3,
+        |           get_one_of_path/2,
+        |           is_complete_message/3,
+        |           wrap_message/5,
+        |           result_set/4,
+        |           result_query/1,
+        |           result_prefs/3,
+        |           parse_prefs/1,
+        |           borders_decode/1,
+        |           decode_optimizations/1]).
+        |  
+        |  %% Other
+        |  -import(mod_mam_utils,
+        |          [maybe_integer/2,
+        |           is_function_exist/3,
+        |           mess_id_to_external_binary/1]).
+        |  
+        |  %% ejabberd
+        |  -import(mod_mam_utils,
+        |          [send_message/3]).
+        |  
+        |  
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -include_lib("ejabberd/include/jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Datetime types
+        |  %% Microseconds from 01.01.1970
+        |  
+        |  -type unix_timestamp() :: mod_mam:unix_timestamp().
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Other types
+        |  -type action() :: 'mam_get_prefs'
+        |                  | 'mam_lookup_messages'
+        |                  | 'mam_purge_multiple_messages'
+        |                  | 'mam_purge_single_message'
+        |                  | 'mam_set_prefs'.
+        |  -type packet() :: any().
+        |  -type row_batch() :: {TotalCount :: non_neg_integer(),
+        |                        Offset :: non_neg_integer(),
+        |                        MessageRows :: [row()]}.
+        |  -type row() :: {mod_mam:message_id(), ejabberd:jid(), jlib:xmlel()}.
+        |  
+        |  -export_type([row/0, row_batch/0]).
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Constants
+        |  
+<font color=red>     0..|  default_result_limit() -&gt; 50.</font>
+        |  
+<font color=red>     0..|  max_result_limit() -&gt; 50.</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% API
+        |  
+        |  -spec delete_archive(ejabberd:server(), ejabberd:user()) -&gt; 'ok'.
+        |  delete_archive(Server, User)
+        |      when is_binary(Server), is_binary(User) -&gt;
+<font color=red>     0..|      ?DEBUG("Remove user ~p from ~p.", [User, Server]),</font>
+<font color=red>     0..|      ArcJID = jid:make(User, Server, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, ArcJID),</font>
+<font color=red>     0..|      remove_archive(Host, ArcID, ArcJID),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec archive_size(ejabberd:server(), ejabberd:user()) -&gt; integer().
+        |  archive_size(Server, User)
+        |      when is_binary(Server), is_binary(User) -&gt;
+<font color=red>     0..|      ArcJID = jid:make(User, Server, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, ArcJID),</font>
+<font color=red>     0..|      archive_size(Host, ArcID, ArcJID).</font>
+        |  
+        |  
+        |  -spec archive_id(ejabberd:server(), ejabberd:user()) -&gt; integer().
+        |  archive_id(Server, User)
+        |      when is_binary(Server), is_binary(User) -&gt;
+<font color=red>     0..|      ArcJID = jid:make(User, Server, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      archive_id_int(Host, ArcJID).</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %% Starting and stopping functions for MUC archives
+        |  
+        |  -spec start(Host :: ejabberd:server(), Opts :: list()) -&gt; any().
+        |  start(ServerHost, Opts) -&gt;
+        |      %% MUC host.
+<font color=red>     0..|      Host = gen_mod:get_opt_host(ServerHost, Opts, &lt;&lt;"conference.@HOST@"&gt;&gt;),</font>
+<font color=red>     0..|      start_host_mapping(Host, ServerHost),</font>
+<font color=red>     0..|      ?DEBUG("mod_mam_muc starting", []),</font>
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, parallel), %% Type</font>
+<font color=red>     0..|      mod_disco:register_feature(Host, ?NS_MAM),</font>
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(mod_muc_iq, Host, ?NS_MAM,</font>
+        |                                    ?MODULE, room_process_mam_iq, IQDisc),
+<font color=red>     0..|      ejabberd_hooks:add(filter_room_packet, Host, ?MODULE,</font>
+        |                         filter_room_packet, 90),
+<font color=red>     0..|      ejabberd_hooks:add(forget_room, Host, ?MODULE, forget_room, 90),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec stop(Host :: ejabberd:server()) -&gt; any().
+        |  stop(ServerHost) -&gt;
+        |      %% MUC host.
+<font color=red>     0..|      Host = gen_mod:get_module_opt_host(</font>
+        |          ServerHost, ?MODULE, &lt;&lt;"conference.@HOST@"&gt;&gt;),
+<font color=red>     0..|      ?DEBUG("mod_mam stopping", []),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(filter_room_packet, Host, ?MODULE, filter_room_packet, 90),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(forget_room, Host, ?MODULE, forget_room, 90),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(mod_muc_iq, Host, ?NS_MAM),</font>
+<font color=red>     0..|      mod_disco:unregister_feature(Host, ?NS_MAM),</font>
+<font color=red>     0..|      stop_host_mapping(Host, ServerHost),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Host to ServerHost mapping
+        |  
+        |  -record(mam_host, {host :: ejabberd:server(),
+        |                     server_host :: ejabberd:server()}).
+        |  
+        |  -spec start_host_mapping(ejabberd:server(), ejabberd:server()) -&gt; any().
+        |  start_host_mapping(Host, ServerHost) -&gt;
+<font color=red>     0..|      mnesia:create_table(mam_host,</font>
+        |              [{ram_copies, [node()]},
+        |               {type, set},
+        |               {attributes, record_info(fields, mam_host)}]),
+<font color=red>     0..|      mnesia:add_table_copy(mam_host, node(), ram_copies),</font>
+<font color=red>     0..|      mnesia:dirty_write(#mam_host{host = Host, server_host = ServerHost}).</font>
+        |  
+        |  
+        |  -spec stop_host_mapping(ejabberd:server(), ejabberd:server()) -&gt; any().
+        |  stop_host_mapping(Host, ServerHost) -&gt;
+<font color=red>     0..|      mnesia:dirty_delete_object(</font>
+        |          #mam_host{host = Host, server_host = ServerHost}).
+        |  
+        |  
+        |  -spec server_host(ejabberd:jid()) -&gt; ejabberd:server().
+        |  server_host(#jid{lserver=Host}) -&gt;
+<font color=red>     0..|      server_host_1(Host, mnesia:dirty_read(mam_host, Host)).</font>
+        |  
+        |  server_host_1(_Host, [#mam_host{ server_host = ServerHost }]) -&gt;
+<font color=red>     0..|      ServerHost.</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% hooks and handlers for MUC
+        |  
+        |  %% @doc Handle public MUC-message.
+        |  -spec filter_room_packet(Packet :: packet(), FromNick :: ejabberd:user(),
+        |          FromJID :: ejabberd:jid(), RoomJID :: ejabberd:jid()) -&gt; packet().
+        |  filter_room_packet(Packet, FromNick,
+        |                     FromJID=#jid{},
+        |                     RoomJID=#jid{}) -&gt;
+<font color=red>     0..|      ?DEBUG("Incoming room packet.", []),</font>
+<font color=red>     0..|      IsComplete = is_complete_message(?MODULE, incoming, Packet),</font>
+<font color=red>     0..|      case IsComplete of</font>
+<font color=red>     0..|          true -&gt; archive_room_packet(Packet, FromNick, FromJID, RoomJID);</font>
+<font color=red>     0..|          false -&gt; Packet</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Archive without validation.
+        |  -spec archive_room_packet(Packet :: packet(), FromNick :: ejabberd:user(),
+        |          FromJID :: ejabberd:jid(), RoomJID :: ejabberd:jid()) -&gt; packet().
+        |  archive_room_packet(Packet, FromNick,
+        |                      _FromJID=#jid{},
+        |                      RoomJID=#jid{}) -&gt;
+<font color=red>     0..|      Host = server_host(RoomJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, RoomJID),</font>
+        |      %% Occupant JID &lt;room@service/nick&gt;
+<font color=red>     0..|      SrcJID = jid:replace_resource(RoomJID, FromNick),</font>
+<font color=red>     0..|      IsInteresting =</font>
+        |      case get_behaviour(Host, ArcID, RoomJID, SrcJID, always) of
+<font color=red>     0..|          always -&gt; true;</font>
+<font color=red>     0..|          never  -&gt; false;</font>
+<font color=red>     0..|          roster -&gt; true</font>
+        |      end,
+<font color=red>     0..|      case IsInteresting of</font>
+        |          true -&gt;
+<font color=red>     0..|              MessID = generate_message_id(),</font>
+<font color=red>     0..|              Result = archive_message(Host, MessID, ArcID,</font>
+        |                                       RoomJID, SrcJID, SrcJID, incoming, Packet),
+<font color=red>     0..|              case Result of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      BareRoomJID = jid:to_binary(RoomJID),</font>
+<font color=red>     0..|                      replace_archived_elem(BareRoomJID,</font>
+        |                                            mess_id_to_external_binary(MessID),
+        |                                            Packet);
+<font color=red>     0..|                  {error, _} -&gt; Packet</font>
+        |              end;
+<font color=red>     0..|          false -&gt; Packet</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc `To' is an account or server entity hosting the archive.
+        |  %% Servers that archive messages on behalf of local users SHOULD expose archives
+        |  %% to the user on their bare JID (i.e. `From.luser'),
+        |  %% while a MUC service might allow MAM queries to be sent to the room's bare JID
+        |  %% (i.e `To.luser').
+        |  -spec room_process_mam_iq(From :: ejabberd:jid(), To :: ejabberd:jid(),
+        |                            IQ :: ejabberd:iq()) -&gt; ejabberd:iq() | 'ignore'.
+        |  room_process_mam_iq(From=#jid{lserver=Host}, To, IQ) -&gt;
+<font color=red>     0..|      Action = iq_action(IQ),</font>
+<font color=red>     0..|      case is_action_allowed(Action, From, To) of</font>
+        |          true  -&gt;
+<font color=red>     0..|              case wait_shaper(Host, Action, From) of</font>
+        |                  ok -&gt;
+<font color=red>     0..|                      handle_error_iq(Host, To, Action,</font>
+        |                          handle_mam_iq(Action, From, To, IQ));
+        |                  {error, max_delay_reached} -&gt;
+<font color=red>     0..|                      ejabberd_hooks:run(mam_muc_drop_iq, Host,</font>
+        |                          [Host, To, IQ, Action, max_delay_reached]),
+<font color=red>     0..|                      return_max_delay_reached_error_iq(IQ)</font>
+        |              end;
+<font color=red>     0..|          false -&gt; return_action_not_allowed_error_iq(IQ)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc This hook is called from `mod_muc:forget_room(Host, Name)'.
+        |  -spec forget_room(ejabberd:lserver(), binary()) -&gt; 'ok'.
+        |  forget_room(LServer, RoomName) -&gt;
+<font color=red>     0..|      delete_archive(LServer, RoomName).</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Internal functions
+        |  
+        |  -spec is_action_allowed(atom(), ejabberd:jid(), ejabberd:jid()) -&gt; boolean().
+        |  is_action_allowed(Action, From, To=#jid{lserver=Host}) -&gt;
+<font color=red>     0..|      case acl:match_rule(Host, Action, From) of</font>
+<font color=red>     0..|          allow   -&gt; true;</font>
+<font color=red>     0..|          deny    -&gt; false;</font>
+<font color=red>     0..|          default -&gt; is_action_allowed_by_default(Action, From, To)</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_action_allowed_by_default(Action :: action(), From :: ejabberd:jid(),
+        |                                     To :: ejabberd:jid()) -&gt; boolean().
+        |  is_action_allowed_by_default(Action, From, To) -&gt;
+<font color=red>     0..|      is_room_action_allowed_by_default(Action, From, To).</font>
+        |  
+        |  
+        |  -spec is_room_action_allowed_by_default(Action :: action(),
+        |                      From :: ejabberd:jid(), To :: ejabberd:jid()) -&gt; boolean().
+        |  is_room_action_allowed_by_default(Action, From, To) -&gt;
+<font color=red>     0..|      case action_type(Action) of</font>
+<font color=red>     0..|          set -&gt; is_room_owner(From, To);</font>
+<font color=red>     0..|          get -&gt; true</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_room_owner(From :: ejabberd:jid(), To :: ejabberd:jid()) -&gt; boolean().
+        |  is_room_owner(From, To) -&gt;
+<font color=red>     0..|      case mod_muc_room:is_room_owner(To, From) of</font>
+<font color=red>     0..|          {error, _} -&gt; false;</font>
+<font color=red>     0..|          {ok, IsOwner} -&gt; IsOwner</font>
+        |      end.
+        |  
+        |  
+        |  -spec action_type(action()) -&gt; 'get' | 'set'.
+<font color=red>     0..|  action_type(mam_get_prefs)                  -&gt; get;</font>
+<font color=red>     0..|  action_type(mam_set_prefs)                  -&gt; set;</font>
+<font color=red>     0..|  action_type(mam_lookup_messages)            -&gt; get;</font>
+<font color=red>     0..|  action_type(mam_purge_single_message)       -&gt; set;</font>
+<font color=red>     0..|  action_type(mam_purge_multiple_messages)    -&gt; set.</font>
+        |  
+        |  
+        |  -spec action_to_shaper_name(action()) -&gt; atom().
+        |  action_to_shaper_name(Action) -&gt;
+<font color=red>     0..|      list_to_atom(atom_to_list(Action) ++ "_shaper").</font>
+        |  
+        |  
+        |  -spec action_to_global_shaper_name(action()) -&gt; atom().
+<font color=red>     0..|  action_to_global_shaper_name(Action) -&gt; list_to_atom(atom_to_list(Action) ++ "_global_shaper").</font>
+        |  
+        |  
+        |  -spec handle_mam_iq('mam_get_prefs', From :: ejabberd:jid(), ejabberd:jid(),
+        |                      ejabberd:iq()) -&gt;
+        |      ejabberd:iq() | {error, any(), ejabberd:iq()}.
+        |  handle_mam_iq(Action, From, To, IQ) -&gt;
+<font color=red>     0..|      case Action of</font>
+        |          mam_get_prefs -&gt;
+<font color=red>     0..|              handle_get_prefs(To, IQ);</font>
+        |          mam_set_prefs -&gt;
+<font color=red>     0..|              handle_set_prefs(To, IQ);</font>
+        |          mam_lookup_messages -&gt;
+<font color=red>     0..|              handle_lookup_messages(From, To, IQ);</font>
+        |          mam_purge_single_message -&gt;
+<font color=red>     0..|              handle_purge_single_message(To, IQ);</font>
+        |          mam_purge_multiple_messages -&gt;
+<font color=red>     0..|              handle_purge_multiple_messages(To, IQ)</font>
+        |      end.
+        |  
+        |  
+        |  -spec iq_action(ejabberd:iq()) -&gt; action().
+        |  iq_action(#iq{type = Action, sub_el = SubEl = #xmlel{name = Category}}) -&gt;
+<font color=red>     0..|      case {Action, Category} of</font>
+<font color=red>     0..|          {set, &lt;&lt;"prefs"&gt;&gt;} -&gt; mam_set_prefs;</font>
+<font color=red>     0..|          {get, &lt;&lt;"prefs"&gt;&gt;} -&gt; mam_get_prefs;</font>
+<font color=red>     0..|          {get, &lt;&lt;"query"&gt;&gt;} -&gt; mam_lookup_messages;</font>
+        |          {set, &lt;&lt;"purge"&gt;&gt;} -&gt;
+<font color=red>     0..|              case xml:get_tag_attr_s(&lt;&lt;"id"&gt;&gt;, SubEl) of</font>
+<font color=red>     0..|                  &lt;&lt;&gt;&gt; -&gt; mam_purge_multiple_messages;</font>
+<font color=red>     0..|                  _    -&gt; mam_purge_single_message</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec handle_set_prefs(ejabberd:jid(), ejabberd:iq()) -&gt;
+        |      ejabberd:iq() | {error, any(), ejabberd:iq()}.
+        |  handle_set_prefs(ArcJID=#jid{},
+        |                   IQ=#iq{sub_el = PrefsEl}) -&gt;
+<font color=red>     0..|      {DefaultMode, AlwaysJIDs, NeverJIDs} = parse_prefs(PrefsEl),</font>
+<font color=red>     0..|      ?DEBUG("Parsed data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNeverJIDS ~p~n",</font>
+        |                [DefaultMode, AlwaysJIDs, NeverJIDs]),
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, ArcJID),</font>
+<font color=red>     0..|      Res = set_prefs(Host, ArcID, ArcJID, DefaultMode, AlwaysJIDs, NeverJIDs),</font>
+<font color=red>     0..|      handle_set_prefs_result(Res, DefaultMode, AlwaysJIDs, NeverJIDs, IQ).</font>
+        |  
+        |  handle_set_prefs_result(ok, DefaultMode, AlwaysJIDs, NeverJIDs, IQ) -&gt;
+<font color=red>     0..|      ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NeverJIDs),</font>
+<font color=red>     0..|      IQ#iq{type = result, sub_el = [ResultPrefsEl]};</font>
+        |  handle_set_prefs_result({error, Reason},
+        |                          _DefaultMode, _AlwaysJIDs, _NeverJIDs, IQ) -&gt;
+<font color=red>     0..|      return_error_iq(IQ, Reason).</font>
+        |  
+        |  
+        |  -spec handle_get_prefs(ejabberd:jid(), ejabberd:iq()) -&gt;
+        |      ejabberd:iq() | {error, any(), ejabberd:iq()}.
+        |  handle_get_prefs(ArcJID=#jid{}, IQ=#iq{}) -&gt;
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, ArcJID),</font>
+<font color=red>     0..|      Res = get_prefs(Host, ArcID, ArcJID, always),</font>
+<font color=red>     0..|      handle_get_prefs_result(Res, IQ).</font>
+        |  
+        |  handle_get_prefs_result({DefaultMode, AlwaysJIDs, NeverJIDs}, IQ) -&gt;
+<font color=red>     0..|      ?DEBUG("Extracted data~n\tDefaultMode ~p~n\tAlwaysJIDs ~p~n\tNeverJIDS ~p~n",</font>
+        |                [DefaultMode, AlwaysJIDs, NeverJIDs]),
+<font color=red>     0..|      ResultPrefsEl = result_prefs(DefaultMode, AlwaysJIDs, NeverJIDs),</font>
+<font color=red>     0..|      IQ#iq{type = result, sub_el = [ResultPrefsEl]};</font>
+        |  handle_get_prefs_result({error, Reason}, IQ) -&gt;
+<font color=red>     0..|      return_error_iq(IQ, Reason).</font>
+        |  
+        |  
+        |  -spec handle_lookup_messages(From :: ejabberd:jid(), ArcJID :: ejabberd:jid(),
+        |          IQ :: ejabberd:iq()) -&gt; ejabberd:iq() | {error, any(), ejabberd:iq()}.
+        |  handle_lookup_messages(
+        |          From=#jid{},
+        |          ArcJID=#jid{},
+        |          IQ=#iq{sub_el = QueryEl}) -&gt;
+<font color=red>     0..|      Now = mod_mam_utils:now_to_microseconds(now()),</font>
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, ArcJID),</font>
+<font color=red>     0..|      QueryID = xml:get_tag_attr_s(&lt;&lt;"queryid"&gt;&gt;, QueryEl),</font>
+        |      %% Filtering by date.
+        |      %% Start :: integer() | undefined
+<font color=red>     0..|      Start = elem_to_start_microseconds(QueryEl),</font>
+<font color=red>     0..|      End   = elem_to_end_microseconds(QueryEl),</font>
+        |      %% Filtering by contact.
+<font color=red>     0..|      With  = elem_to_with_jid(QueryEl),</font>
+<font color=red>     0..|      RSM   = fix_rsm(jlib:rsm_decode(QueryEl)),</font>
+<font color=red>     0..|      Borders = borders_decode(QueryEl),</font>
+<font color=red>     0..|      Limit = elem_to_limit(QueryEl),</font>
+<font color=red>     0..|      PageSize = min(max_result_limit(),</font>
+        |                     maybe_integer(Limit, default_result_limit())),
+<font color=red>     0..|      LimitPassed = Limit =/= &lt;&lt;&gt;&gt;,</font>
+<font color=red>     0..|      IsSimple = decode_optimizations(QueryEl),</font>
+<font color=red>     0..|      case lookup_messages(Host, ArcID, ArcJID, RSM, Borders,</font>
+        |                           Start, End, Now, With,
+        |                           PageSize, LimitPassed, max_result_limit(), IsSimple) of
+        |      {error, 'policy-violation'} -&gt;
+<font color=red>     0..|          ?DEBUG("Policy violation by ~p.", [jid:to_binary(From)]),</font>
+<font color=red>     0..|          ErrorEl = jlib:stanza_errort(&lt;&lt;""&gt;&gt;, &lt;&lt;"modify"&gt;&gt;, &lt;&lt;"policy-violation"&gt;&gt;,</font>
+        |                                   &lt;&lt;"en"&gt;&gt;, &lt;&lt;"Too many results"&gt;&gt;),
+<font color=red>     0..|          IQ#iq{type = error, sub_el = [ErrorEl]};</font>
+        |      {error, Reason} -&gt;
+<font color=red>     0..|          return_error_iq(IQ, Reason);</font>
+        |      {ok, {TotalCount, Offset, MessageRows}} -&gt;
+<font color=red>     0..|          {FirstMessID, LastMessID} =</font>
+        |              case MessageRows of
+<font color=red>     0..|                  []    -&gt; {undefined, undefined};</font>
+<font color=red>     0..|                  [_|_] -&gt; {message_row_to_ext_id(hd(MessageRows)),</font>
+        |                            message_row_to_ext_id(lists:last(MessageRows))}
+        |              end,
+<font color=red>     0..|          [send_message(ArcJID, From, message_row_to_xml(M, QueryID))</font>
+<font color=red>     0..|           || M &lt;- MessageRows],</font>
+<font color=red>     0..|          ResultSetEl = result_set(FirstMessID, LastMessID, Offset, TotalCount),</font>
+<font color=red>     0..|          ResultQueryEl = result_query(ResultSetEl),</font>
+        |          %% On receiving the query, the server pushes to the client a series of
+        |          %% messages from the archive that match the client's given criteria,
+        |          %% and finally returns the &lt;iq/&gt; result.
+<font color=red>     0..|          IQ#iq{type = result, sub_el = [ResultQueryEl]}</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Purging multiple messages.
+        |  -spec handle_purge_multiple_messages(ejabberd:jid(), ejabberd:iq()) -&gt;
+        |      ejabberd:iq() | {error, any(), ejabberd:iq()}.
+        |  handle_purge_multiple_messages(ArcJID=#jid{},
+        |                                 IQ=#iq{sub_el = PurgeEl}) -&gt;
+<font color=red>     0..|      Now = mod_mam_utils:now_to_microseconds(now()),</font>
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, ArcJID),</font>
+        |      %% Filtering by date.
+        |      %% Start :: integer() | undefined
+<font color=red>     0..|      Start = elem_to_start_microseconds(PurgeEl),</font>
+<font color=red>     0..|      End   = elem_to_end_microseconds(PurgeEl),</font>
+        |      %% Set borders.
+<font color=red>     0..|      Borders = borders_decode(PurgeEl),</font>
+        |      %% Filtering by contact.
+<font color=red>     0..|      With  = elem_to_with_jid(PurgeEl),</font>
+<font color=red>     0..|      Res = purge_multiple_messages(Host, ArcID, ArcJID, Borders,</font>
+        |                                    Start, End, Now, With),
+<font color=red>     0..|      return_purge_multiple_message_iq(IQ, Res).</font>
+        |  
+        |  
+        |  -spec handle_purge_single_message(ejabberd:jid(), ejabberd:iq()) -&gt;
+        |      ejabberd:iq() | {error, any(), ejabberd:iq()}.
+        |  handle_purge_single_message(ArcJID=#jid{},
+        |                              IQ=#iq{sub_el = PurgeEl}) -&gt;
+<font color=red>     0..|      Now = mod_mam_utils:now_to_microseconds(now()),</font>
+<font color=red>     0..|      Host = server_host(ArcJID),</font>
+<font color=red>     0..|      ArcID = archive_id_int(Host, ArcJID),</font>
+<font color=red>     0..|      BExtMessID = xml:get_tag_attr_s(&lt;&lt;"id"&gt;&gt;, PurgeEl),</font>
+<font color=red>     0..|      MessID = mod_mam_utils:external_binary_to_mess_id(BExtMessID),</font>
+<font color=red>     0..|      PurgingResult = purge_single_message(Host, MessID, ArcID, ArcJID, Now),</font>
+<font color=red>     0..|      return_purge_single_message_iq(IQ, PurgingResult).</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Backend wrappers
+        |  
+        |  -spec archive_id_int(ejabberd:server(), ejabberd:jid()) -&gt; integer() | undefined.
+        |  archive_id_int(Host, ArcJID=#jid{}) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_archive_id, Host, undefined, [Host, ArcJID]).</font>
+        |  
+        |  
+        |  -spec archive_size(ejabberd:server(), mod_mam:archive_id(), ejabberd:jid())
+        |              -&gt; integer().
+        |  archive_size(Host, ArcID, ArcJID=#jid{}) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_archive_size, Host, 0, [Host, ArcID, ArcJID]).</font>
+        |  
+        |  
+        |  -spec get_behaviour(ejabberd:server(), mod_mam:archive_id(),
+        |          LocJID :: ejabberd:jid(), RemJID :: ejabberd:jid(),
+        |          DefaultBehaviour :: 'always') -&gt; any().
+        |  get_behaviour(Host, ArcID,
+        |                LocJID=#jid{},
+        |                RemJID=#jid{}, DefaultBehaviour) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_get_behaviour, Host, DefaultBehaviour,</font>
+        |          [Host, ArcID, LocJID, RemJID]).
+        |  
+        |  
+        |  -spec set_prefs(Host :: ejabberd:server(), ArcID :: mod_mam:archive_id(),
+        |          ArcJID :: ejabberd:jid(), DefaultMode :: mod_mam:archive_behaviour(),
+        |          AlwaysJIDs :: [ejabberd:literal_jid()],
+        |          NeverJIDs :: [ejabberd:literal_jid()]) -&gt; any().
+        |  set_prefs(Host, ArcID, ArcJID, DefaultMode, AlwaysJIDs, NeverJIDs) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_set_prefs, Host, ok,</font>
+        |          [Host, ArcID, ArcJID, DefaultMode, AlwaysJIDs, NeverJIDs]).
+        |  
+        |  
+        |  %% @doc Load settings from the database.
+        |  -spec get_prefs(Host :: ejabberd:server(), ArcID :: mod_mam:archive_id(),
+        |          ArcJID :: ejabberd:jid(), GlobalDefaultMode :: mod_mam:archive_behaviour())
+        |              -&gt; mod_mam:preference() | {error, Reason :: term()}.
+        |  get_prefs(Host, ArcID, ArcJID, GlobalDefaultMode) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_get_prefs, Host,</font>
+        |          {GlobalDefaultMode, [], []},
+        |          [Host, ArcID, ArcJID]).
+        |  
+        |  -spec remove_archive(ejabberd:server(), mod_mam:archive_id() | undefined,
+        |                       ejabberd:jid()) -&gt; 'ok'.
+        |  remove_archive(Host, ArcID, ArcJID=#jid{}) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run(mam_muc_remove_archive, Host, [Host, ArcID, ArcJID]),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% See description in mod_mam.
+        |  -spec lookup_messages(Host :: ejabberd:server(),
+        |                        ArchiveID :: mod_mam:archive_id(),
+        |                        ArchiveJID :: ejabberd:jid(),
+        |                        RSM :: jlib:rsm_in()  | undefined,
+        |                        Borders :: mod_mam:borders()  | undefined,
+        |                        Start :: mod_mam:unix_timestamp()  | undefined,
+        |                        End :: mod_mam:unix_timestamp()  | undefined,
+        |                        Now :: mod_mam:unix_timestamp(),
+        |                        WithJID :: ejabberd:jid()  | undefined,
+        |                        PageSize :: non_neg_integer(), LimitPassed :: boolean(),
+        |                        MaxResultLimit :: non_neg_integer(),
+        |                        IsSimple :: boolean()  | opt_count) -&gt;
+        |                           {ok, mod_mam:lookup_result()}
+        |                            | {error, 'policy-violation'}
+        |                            | {error, Reason :: term()}.%Result :: any(),
+        |  lookup_messages(Host, ArcID, ArcJID, RSM, Borders, Start, End, Now,
+        |                  WithJID, PageSize, LimitPassed, MaxResultLimit, IsSimple) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_lookup_messages, Host, {ok, {0, 0, []}},</font>
+        |          [Host, ArcID, ArcJID, RSM, Borders,
+        |           Start, End, Now, WithJID,
+        |           PageSize, LimitPassed, MaxResultLimit, IsSimple]).
+        |  
+        |  
+        |  -spec archive_message(ejabberd:server(), MessId :: mod_mam:message_id(),
+        |          ArcId :: mod_mam:archive_id(), LocJID :: ejabberd:jid(),
+        |          RemJID :: ejabberd:jid(), SrcJID :: ejabberd:jid(), Dir :: 'incoming',
+        |          packet()) -&gt; any().
+        |  archive_message(Host, MessID, ArcID, LocJID, RemJID, SrcJID, Dir, Packet) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_archive_message, Host, ok,</font>
+        |          [Host, MessID, ArcID, LocJID, RemJID, SrcJID, Dir, Packet]).
+        |  
+        |  
+        |  -spec purge_single_message(Host :: ejabberd:server(),
+        |                             MessID :: mod_mam:message_id(),
+        |                             ArcID :: mod_mam:archive_id(),
+        |                             ArcJID :: ejabberd:jid(),
+        |                             Now :: unix_timestamp()) -&gt;
+        |                                ok  | {error, 'not-found'}
+        |                                 | {error, Reason :: term()}.
+        |  purge_single_message(Host, MessID, ArcID, ArcJID, Now) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_purge_single_message, Host, ok,</font>
+        |          [Host, MessID, ArcID, ArcJID, Now]).
+        |  
+        |  
+        |  -spec purge_multiple_messages(Host :: ejabberd:server(),
+        |          ArcID :: mod_mam:archive_id(), ArcJID :: ejabberd:jid(),
+        |          Borders :: mod_mam:borders() | undefined,
+        |          Start :: unix_timestamp() | undefined,
+        |          End :: unix_timestamp() | undefined,
+        |          Now :: unix_timestamp(), WithJID :: ejabberd:jid() | undefined) -&gt;
+        |              ok | {error, Reason :: term()}.
+        |  purge_multiple_messages(Host, ArcID, ArcJID, Borders,
+        |                          Start, End, Now, WithJID) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(mam_muc_purge_multiple_messages, Host, ok,</font>
+        |          [Host, ArcID, ArcJID, Borders, Start, End, Now, WithJID]).
+        |  
+        |  
+        |  -spec wait_shaper(ejabberd:server(), action(), ejabberd:jid())
+        |                                          -&gt; 'ok' | {'error','max_delay_reached'}.
+        |  wait_shaper(Host, Action, From) -&gt;
+<font color=red>     0..|      case shaper_srv:wait(Host, action_to_shaper_name(Action), From, 1) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              shaper_srv:wait(Host, action_to_global_shaper_name(Action), global, 1);</font>
+        |          Err -&gt;
+<font color=red>     0..|              Err</font>
+        |      end.
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Helpers
+        |  
+        |  -spec message_row_to_xml(row(), binary() | undefined) -&gt; jlib:xmlel().
+        |  message_row_to_xml({MessID,SrcJID,Packet}, QueryID) -&gt;
+<font color=red>     0..|      {Microseconds, _NodeMessID} = decode_compact_uuid(MessID),</font>
+<font color=red>     0..|      DateTime = calendar:now_to_universal_time(microseconds_to_now(Microseconds)),</font>
+<font color=red>     0..|      BExtMessID = mess_id_to_external_binary(MessID),</font>
+<font color=red>     0..|      wrap_message(Packet, QueryID, BExtMessID, DateTime, SrcJID).</font>
+        |  
+        |  
+        |  -spec message_row_to_ext_id(row()) -&gt; binary().
+        |  message_row_to_ext_id({MessID,_,_}) -&gt;
+<font color=red>     0..|      mess_id_to_external_binary(MessID).</font>
+        |  
+        |  
+        |  -spec maybe_jid(ejabberd:literal_jid()) -&gt; 'error' | 'undefined' | ejabberd:jid().
+        |  maybe_jid(&lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  maybe_jid(JID) when is_binary(JID) -&gt;
+<font color=red>     0..|      jid:from_binary(JID).</font>
+        |  
+        |  
+        |  %% @doc Convert id into internal format.
+        |  -spec fix_rsm('none' | jlib:rsm_in()) -&gt; 'undefined' | jlib:rsm_in().
+        |  fix_rsm(none) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  fix_rsm(RSM=#rsm_in{id = undefined}) -&gt;
+<font color=red>     0..|      RSM;</font>
+        |  fix_rsm(RSM=#rsm_in{id = &lt;&lt;&gt;&gt;}) -&gt;
+<font color=red>     0..|      RSM#rsm_in{id = undefined};</font>
+        |  fix_rsm(RSM=#rsm_in{id = BExtMessID}) when is_binary(BExtMessID) -&gt;
+<font color=red>     0..|      MessID = mod_mam_utils:external_binary_to_mess_id(BExtMessID),</font>
+<font color=red>     0..|      RSM#rsm_in{id = MessID}.</font>
+        |  
+        |  
+        |  -spec elem_to_start_microseconds(jlib:xmlel()) -&gt; 'undefined' | non_neg_integer().
+        |  elem_to_start_microseconds(El) -&gt;
+<font color=red>     0..|      maybe_microseconds(xml:get_path_s(El, [{elem, &lt;&lt;"start"&gt;&gt;}, cdata])).</font>
+        |  
+        |  
+        |  -spec elem_to_end_microseconds(jlib:xmlel()) -&gt; 'undefined' | non_neg_integer().
+        |  elem_to_end_microseconds(El) -&gt;
+<font color=red>     0..|      maybe_microseconds(xml:get_path_s(El, [{elem, &lt;&lt;"end"&gt;&gt;}, cdata])).</font>
+        |  
+        |  
+        |  -spec elem_to_with_jid(jlib:xmlel()) -&gt; 'error' | 'undefined' | ejabberd:jid().
+        |  elem_to_with_jid(El) -&gt;
+<font color=red>     0..|      maybe_jid(xml:get_path_s(El, [{elem, &lt;&lt;"with"&gt;&gt;}, cdata])).</font>
+        |  
+        |  
+        |  %% @doc This element's name is "limit". But it must be "max" according XEP-0313.
+        |  -spec elem_to_limit(jlib:xmlel()) -&gt; any().
+        |  elem_to_limit(QueryEl) -&gt;
+<font color=red>     0..|      get_one_of_path(QueryEl, [</font>
+        |          [{elem, &lt;&lt;"set"&gt;&gt;}, {elem, &lt;&lt;"max"&gt;&gt;}, cdata],
+        |          [{elem, &lt;&lt;"set"&gt;&gt;}, {elem, &lt;&lt;"limit"&gt;&gt;}, cdata]
+        |      ]).
+        |  
+        |  handle_error_iq(Host, To, Action, {error, Reason, IQ}) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run(mam_muc_drop_iq, Host,</font>
+        |          [Host, To, IQ, Action, Reason]),
+<font color=red>     0..|      IQ;</font>
+        |  handle_error_iq(_Host, _To, _Action, IQ) -&gt;
+<font color=red>     0..|      IQ.</font>
+        |  
+        |  return_error_iq(IQ, timeout) -&gt;
+<font color=red>     0..|      {error, timeout, IQ#iq{type = error, sub_el = [?ERR_SERVICE_UNAVAILABLE]}};</font>
+        |  return_error_iq(IQ, Reason) -&gt;
+<font color=red>     0..|      {error, Reason, IQ#iq{type = error, sub_el = [?ERR_INTERNAL_SERVER_ERROR]}}.</font>
+        |  
+        |  -spec return_action_not_allowed_error_iq(ejabberd:iq()) -&gt; ejabberd:iq().
+        |  return_action_not_allowed_error_iq(IQ) -&gt;
+<font color=red>     0..|      ErrorEl = jlib:stanza_errort(&lt;&lt;""&gt;&gt;, &lt;&lt;"cancel"&gt;&gt;, &lt;&lt;"not-allowed"&gt;&gt;,</font>
+        |           &lt;&lt;"en"&gt;&gt;, &lt;&lt;"The action is not allowed."&gt;&gt;),
+<font color=red>     0..|      IQ#iq{type = error, sub_el = [ErrorEl]}.</font>
+        |  
+        |  return_purge_multiple_message_iq(IQ, ok) -&gt;
+<font color=red>     0..|      return_purge_success(IQ);</font>
+        |  return_purge_multiple_message_iq(IQ, {error, Reason}) -&gt;
+<font color=red>     0..|      return_error_iq(IQ, Reason).</font>
+        |  
+        |  -spec return_purge_success(ejabberd:iq()) -&gt; ejabberd:iq().
+        |  return_purge_success(IQ) -&gt;
+<font color=red>     0..|      IQ#iq{type = result, sub_el = []}.</font>
+        |  
+        |  -spec return_purge_not_found_error_iq(ejabberd:iq()) -&gt; ejabberd:iq().
+        |  return_purge_not_found_error_iq(IQ) -&gt;
+        |      %% Message not found.
+<font color=red>     0..|      ErrorEl = jlib:stanza_errort(&lt;&lt;""&gt;&gt;, &lt;&lt;"cancel"&gt;&gt;, &lt;&lt;"item-not-found"&gt;&gt;,</font>
+        |           &lt;&lt;"en"&gt;&gt;, &lt;&lt;"The provided UID did not match any message stored in archive."&gt;&gt;),
+<font color=red>     0..|      IQ#iq{type = error, sub_el = [ErrorEl]}.</font>
+        |  
+        |  
+        |  -spec return_max_delay_reached_error_iq(ejabberd:iq()) -&gt; ejabberd:iq().
+        |  return_max_delay_reached_error_iq(IQ) -&gt;
+        |      %% Message not found.
+<font color=red>     0..|      ErrorEl = ?ERRT_RESOURCE_CONSTRAINT(</font>
+        |          &lt;&lt;"en"&gt;&gt;, &lt;&lt;"The action is cancelled because of flooding."&gt;&gt;),
+<font color=red>     0..|      IQ#iq{type = error, sub_el = [ErrorEl]}.</font>
+        |  
+        |  
+        |  -spec return_purge_single_message_iq(ejabberd:iq(),
+        |                                       ok  | {error, 'not-found'}
+        |                                        | {error, Reason :: term()}) -&gt;
+        |                                          ejabberd:iq()
+        |                                           | {error, any(), ejabberd:iq()}.
+        |  return_purge_single_message_iq(IQ, ok) -&gt;
+<font color=red>     0..|      return_purge_success(IQ);</font>
+        |  return_purge_single_message_iq(IQ, {error, 'not-found'}) -&gt;
+<font color=red>     0..|      return_purge_not_found_error_iq(IQ);</font>
+        |  return_purge_single_message_iq(IQ, {error, Reason}) -&gt;
+<font color=red>     0..|      return_error_iq(IQ, Reason).</font>
+        |  
+</pre>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_admin_extra_srg.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_srg.erl by COVER 2016-01-26 at 09:49:15
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_srg.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_srg).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([
+        |      commands/0,
+        |  
+        |      srg_create/5,
+        |      srg_delete/2,
+        |      srg_list/1,
+        |      srg_get_info/2,
+        |      srg_get_members/2,
+        |      srg_user_add/4,
+        |      srg_user_del/4
+        |      ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  -include("mod_roster.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = srg_create, tags = [shared_roster_group],
+        |                             desc = "Create a Shared Roster Group",
+        |                             longdesc = "If you want to specify several group "
+        |                             "identifiers in the Display argument,\n"
+        |                             "put  \\ \" around the argument and\nseparate the "
+        |                             "identifiers with \\ \\ n\n"
+        |                             "For example:\n"
+        |                             "  mongooseimctl srg_create group3 localhost "
+        |                             "name desc \\\"group1\\\\ngroup2\\\"",
+        |                             module = ?MODULE, function = srg_create,
+        |                             args = [{group, binary}, {host, binary},
+        |                                     {name, binary}, {description, binary}, {display, binary}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = srg_delete, tags = [shared_roster_group],
+        |                             desc = "Delete a Shared Roster Group",
+        |                             module = ?MODULE, function = srg_delete,
+        |                             args = [{group, binary}, {host, binary}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = srg_list, tags = [shared_roster_group],
+        |                             desc = "List the Shared Roster Groups in Host",
+        |                             module = ?MODULE, function = srg_list,
+        |                             args = [{host, binary}],
+        |                             result = {groups, {list, {id, string}}}},
+        |          #ejabberd_commands{name = srg_get_info, tags = [shared_roster_group],
+        |                             desc = "Get info of a Shared Roster Group",
+        |                             module = ?MODULE, function = srg_get_info,
+        |                             args = [{group, binary}, {host, binary}],
+        |                             result = {informations, {list, {information, {tuple, [{key, string}, {value, string}]}}}}},
+        |          #ejabberd_commands{name = srg_get_members, tags = [shared_roster_group],
+        |                             desc = "Get members of a Shared Roster Group",
+        |                             module = ?MODULE, function = srg_get_members,
+        |                             args = [{group, binary}, {host, binary}],
+        |                             result = {members, {list, {member, string}}}},
+        |          #ejabberd_commands{name = srg_user_add, tags = [shared_roster_group],
+        |                             desc = "Add the JID user@host to the Shared Roster Group",
+        |                             module = ?MODULE, function = srg_user_add,
+        |                             args = [{user, binary}, {host, binary}, {group, binary}, {grouphost, binary}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = srg_user_del, tags = [shared_roster_group],
+        |                             desc = "Delete this JID user@host from the Shared Roster Group",
+        |                             module = ?MODULE, function = srg_user_del,
+        |                             args = [{user, binary}, {host, binary}, {group, binary}, {grouphost, binary}],
+        |                             result = {res, rescode}}
+        |          ].
+        |  
+        |  %%%
+        |  %%% Shared Roster Groups
+        |  %%%
+        |  
+        |  -type group() :: binary().
+        |  -spec srg_create(group(), ejabberd:server(), ejabberd:user(),
+        |                   Description :: binary(), Display :: binary() | []) -&gt; 'ok'.
+        |  srg_create(Group, Host, Name, Description, Display) -&gt;
+<font color=red>     0..|      DisplayList = case Display of</font>
+<font color=red>     0..|          [] -&gt; [];</font>
+<font color=red>     0..|          _ -&gt; binary:split(Display, &lt;&lt;"\\\\n"&gt;&gt;)</font>
+        |      end,
+<font color=red>     0..|      Opts = [{name, Name},</font>
+        |              {displayed_groups, DisplayList},
+        |              {description, Description}],
+<font color=red>     0..|      {atomic, ok} = mod_shared_roster:create_group(Host, Group, Opts),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec srg_delete(group(), ejabberd:server()) -&gt; 'ok'.
+        |  srg_delete(Group, Host) -&gt;
+<font color=red>     0..|      {atomic, ok} = mod_shared_roster:delete_group(Host, Group),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec srg_list(ejabberd:server()) -&gt; [group()].
+        |  srg_list(Host) -&gt;
+<font color=red>     0..|      lists:sort(mod_shared_roster:list_groups(Host)).</font>
+        |  
+        |  
+        |  -spec srg_get_info(group(), ejabberd:server()) -&gt; [{string(), string()}].
+        |  srg_get_info(Group, Host) -&gt;
+<font color=red>     0..|      Opts = mod_shared_roster:get_group_opts(Host,Group),</font>
+<font color=red>     0..|      [{io_lib:format("~p", [Title]),</font>
+<font color=red>     0..|        io_lib:format("~p", [Value])} || {Title, Value} &lt;- Opts].</font>
+        |  
+        |  
+        |  -spec srg_get_members(group(), ejabberd:server()) -&gt; [binary()].
+        |  srg_get_members(Group, Host) -&gt;
+<font color=red>     0..|      Members = mod_shared_roster:get_group_explicit_users(Host,Group),</font>
+<font color=red>     0..|      [jid:to_binary(jid:make(MUser, MServer, &lt;&lt;""&gt;&gt;))</font>
+<font color=red>     0..|       || {MUser, MServer} &lt;- Members].</font>
+        |  
+        |  
+        |  -spec srg_user_add(ejabberd:user(), ejabberd:server(),
+        |                     group(), GroupHost :: ejabberd:server()) -&gt; 'ok'.
+        |  srg_user_add(User, Host, Group, GroupHost) -&gt;
+<font color=red>     0..|      {atomic, ok} = mod_shared_roster:add_user_to_group(GroupHost, {User, Host}, Group),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec srg_user_del(ejabberd:user(), ejabberd:server(),
+        |                     group(), GroupHost :: ejabberd:server()) -&gt; 'ok'.
+        |  srg_user_del(User, Host, Group, GroupHost) -&gt;
+<font color=red>     0..|      {atomic, ok} = mod_shared_roster:remove_user_from_group(GroupHost, {User, Host}, Group),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+</pre>
+</body>
+</html>

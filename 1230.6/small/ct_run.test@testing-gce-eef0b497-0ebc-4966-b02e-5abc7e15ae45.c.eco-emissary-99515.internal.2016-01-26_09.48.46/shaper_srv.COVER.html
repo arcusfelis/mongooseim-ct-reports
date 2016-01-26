@@ -1,0 +1,238 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/shaper_srv.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/shaper_srv.erl by COVER 2016-01-26 at 09:49:22
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc Shared shapers.
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(shaper_srv).
+        |  -behaviour(gen_server).
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -define(SERVER, ?MODULE).
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% API Function Exports
+        |  %% ------------------------------------------------------------------
+        |  
+        |  -export([start_link/1,
+        |           child_specs/0,
+        |           wait/4]).
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Record definitions
+        |  %% ------------------------------------------------------------------
+        |  
+        |  -record(state, {
+        |          %% Maximum ammount of milliseconds to wait
+        |          max_delay :: non_neg_integer(),
+        |          %% How many seconds to store each shaper
+        |          ttl :: non_neg_integer(),
+        |          shapers :: ejabberd:dict_t(),
+        |          a_times :: ejabberd:dict_t()
+        |      }).
+        |  -type state() :: #state{}.
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% gen_server Function Exports
+        |  %% ------------------------------------------------------------------
+        |  
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% API Function Definitions
+        |  %% ------------------------------------------------------------------
+        |  
+        |  -spec child_specs() -&gt; [supervisor:child_spec()].
+        |  child_specs() -&gt;
+<font color=red>     0..|      [child_spec(ProcName) ||  ProcName &lt;- worker_names(&lt;&lt;&gt;&gt;)].</font>
+        |  
+        |  
+        |  -spec child_spec(atom()) -&gt; supervisor:child_spec().
+        |  child_spec(ProcName) -&gt;
+<font color=red>     0..|      {ProcName,</font>
+        |       {?MODULE, start_link, [ProcName]},
+        |       permanent,
+        |       5000,
+        |       worker,
+        |       [?MODULE]}.
+        |  
+        |  
+        |  -spec start_link(atom()) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(ProcName) -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ProcName}, ?MODULE, [], []).</font>
+        |  
+        |  
+        |  -spec worker_prefix() -&gt; string().
+        |  worker_prefix() -&gt;
+<font color=red>     0..|      "ejabberd_shaper_".</font>
+        |  
+        |  worker_count(_Host) -&gt;
+<font color=red>     0..|      10.</font>
+        |  
+        |  
+        |  -spec worker_names(ejabberd:server()) -&gt; [atom()].
+        |  worker_names(Host) -&gt;
+<font color=red>     0..|      [worker_name(Host, N) || N &lt;- lists:seq(0, worker_count(Host) - 1)].</font>
+        |  
+        |  
+        |  -spec worker_name(ejabberd:server(), integer()) -&gt; atom().
+        |  worker_name(_Host, N) -&gt;
+<font color=red>     0..|      list_to_atom(worker_prefix() ++ integer_to_list(N)).</font>
+        |  
+        |  
+        |  -spec select_worker(ejabberd:server(), _) -&gt; atom().
+        |  select_worker(Host, Tag) -&gt;
+<font color=red>     0..|      N = worker_number(Host, Tag),</font>
+<font color=red>     0..|      worker_name(Host, N).</font>
+        |  
+        |  
+        |  -spec worker_number(ejabberd:server(),_) -&gt; non_neg_integer().
+        |  worker_number(Host, Tag) -&gt;
+<font color=red>     0..|      erlang:phash2(Tag, worker_count(Host)).</font>
+        |  
+        |  
+        |  %% @doc Shapes the caller from executing the action.
+        |  -spec wait(_Host :: ejabberd:server(), _Action :: atom(),
+        |             _FromJID :: ejabberd:jid() | global, _Size :: integer()
+        |             ) -&gt; ok | {error, max_delay_reached}.
+        |  wait(Host, Action, FromJID, Size) -&gt;
+<font color=red>     0..|      gen_server:call(select_worker(Host, FromJID), {wait, Host, Action, FromJID, Size}).</font>
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% gen_server Function Definitions
+        |  %% ------------------------------------------------------------------
+        |  
+        |  init(Args) -&gt;
+<font color=red>     0..|      State = init_dicts(#state{</font>
+        |          max_delay = proplists:get_value(max_delay, Args, 3000),
+        |          ttl = proplists:get_value(ttl, Args, 120)
+        |      }),
+<font color=red>     0..|      GCInt = proplists:get_value(gc_interval, Args, 30),</font>
+<font color=red>     0..|      timer:send_interval(timer:seconds(GCInt), delete_old_shapers),</font>
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  handle_call({wait, Host, Action, FromJID, Size},
+        |              From, State=#state{max_delay=MaxDelayMs}) -&gt;
+<font color=red>     0..|      Key = new_key(Host, Action, FromJID),</font>
+<font color=red>     0..|      Shaper = find_or_create_shaper(Key, State),</font>
+<font color=red>     0..|      State1 = update_access_time(Key, now(), State),</font>
+<font color=red>     0..|      case shaper:update(Shaper, Size) of</font>
+        |          {UpdatedShaper, 0} -&gt;
+<font color=red>     0..|              {reply, ok, save_shaper(Key, UpdatedShaper, State1)};</font>
+        |          {UpdatedShaper, DelayMs} when DelayMs &lt; MaxDelayMs -&gt;
+<font color=red>     0..|              reply_after(DelayMs, From, ok),</font>
+<font color=red>     0..|              {noreply, save_shaper(Key, UpdatedShaper, State1)};</font>
+        |          {_, _} -&gt;
+<font color=red>     0..|              {reply, {error, max_delay_reached}, State1}</font>
+        |      end.
+        |  
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  handle_info(delete_old_shapers, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Deleted old shapers", []),</font>
+<font color=red>     0..|      {noreply, delete_old_shapers(State)};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Internal Function Definitions
+        |  %% ------------------------------------------------------------------
+        |  
+        |  -type key() :: {global | ejabberd:server(), atom(), ejabberd:jid()}.
+        |  -spec new_key(ejabberd:server() | global, atom(), ejabberd:jid()) -&gt; key().
+        |  new_key(Host, Action, FromJID) -&gt;
+<font color=red>     0..|      {Host, Action, FromJID}.</font>
+        |  
+        |  
+        |  -spec find_or_create_shaper(key(), state()) -&gt; shaper:shaper().
+        |  find_or_create_shaper(Key, #state{shapers=Shapers}) -&gt;
+<font color=red>     0..|      case dict:find(Key, Shapers) of</font>
+<font color=red>     0..|          {ok, Shaper} -&gt; Shaper;</font>
+<font color=red>     0..|          error -&gt; create_shaper(Key)</font>
+        |      end.
+        |  
+        |  
+        |  -spec update_access_time(key(), _, state()) -&gt; state().
+        |  update_access_time(Key, Now, State=#state{a_times=Times}) -&gt;
+<font color=red>     0..|      State#state{a_times=dict:store(Key, Now, Times)}.</font>
+        |  
+        |  
+        |  -spec save_shaper(key(), shaper:shaper(), state()) -&gt; state().
+        |  save_shaper(Key, Shaper, State=#state{shapers=Shapers}) -&gt;
+<font color=red>     0..|      State#state{shapers=dict:store(Key, Shaper, Shapers)}.</font>
+        |  
+        |  
+        |  -spec init_dicts(state()) -&gt; state().
+        |  init_dicts(State) -&gt;
+<font color=red>     0..|      State#state{shapers=dict:new(), a_times=dict:new()}.</font>
+        |  
+        |  
+        |  -spec delete_old_shapers(state()) -&gt; state().
+        |  delete_old_shapers(State=#state{shapers=Shapers, a_times=Times, ttl=TTL}) -&gt;
+<font color=red>     0..|      Min = subtract_seconds(now(), TTL),</font>
+        |      %% Copy recently modified shapers
+<font color=red>     0..|      dict:fold(fun</font>
+<font color=red>     0..|          (_, ATime, Acc) when ATime &lt; Min -&gt; Acc; %% skip too old</font>
+        |          (Key, ATime, Acc) -&gt;
+<font color=red>     0..|              Shaper = dict:fetch(Key, Shapers),</font>
+<font color=red>     0..|              update_access_time(Key, ATime, save_shaper(Key, Shaper, Acc))</font>
+        |          end, init_dicts(State), Times).
+        |  
+        |  
+        |  -spec create_shaper(key()) -&gt; 'none' | {'maxrate',_,0,non_neg_integer()}.
+        |  create_shaper(Key) -&gt;
+<font color=red>     0..|      shaper:new(request_shaper_name(Key)).</font>
+        |  
+        |  
+        |  -spec request_shaper_name(key()) -&gt; 'allow' | 'none'.
+        |  request_shaper_name({Host, Action, FromJID}) -&gt;
+<font color=red>     0..|      get_shaper_name(Host, Action, FromJID, default_shaper()).</font>
+        |  
+        |  
+        |  default_shaper() -&gt;
+<font color=red>     0..|      none.</font>
+        |  
+        |  
+        |  -spec get_shaper_name('global' | ejabberd:server(),
+        |                        Action :: atom(),
+        |                        ejabberd:jid(),
+        |                        Default :: 'none') -&gt; 'allow' | 'none'.
+        |  get_shaper_name(Host, Action, FromJID, Default) -&gt;
+<font color=red>     0..|      case acl:match_rule(Host, Action, FromJID) of</font>
+<font color=red>     0..|          deny -&gt; Default;</font>
+<font color=red>     0..|          Value -&gt; Value</font>
+        |      end.
+        |  
+        |  %% @doc It is a small hack
+        |  %% This function calls this in more efficient way:
+        |  %% timer:apply_after(DelayMs, gen_server, reply, [From, Reply]).
+        |  -spec reply_after(pos_integer(),{atom() | pid(),_},'ok') -&gt; reference().
+        |  reply_after(DelayMs, {Pid, Tag}, Reply) -&gt;
+<font color=red>     0..|      erlang:send_after(DelayMs, Pid, {Tag, Reply}).</font>
+        |  
+        |  
+        |  -spec subtract_seconds(erlang:timestamp(), non_neg_integer()) -&gt; erlang:timestamp().
+        |  subtract_seconds({MegaSecs, Secs, MicroSecs}, SubSecs) -&gt;
+<font color=red>     0..|      {MegaSecs - (SubSecs div 1000000), Secs - (SubSecs rem 1000000), MicroSecs}.</font>
+        |  
+</pre>
+</body>
+</html>

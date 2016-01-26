@@ -1,0 +1,82 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Test revproxy_SUITE:qs_match result</title>
+<meta http-equiv="cache-control" content="no-cache">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<link rel="stylesheet" href="../../ct_default.css" type="text/css">
+<script type="text/javascript" src="../../jquery-latest.js"></script>
+<script type="text/javascript" src="../../jquery.tablesorter.min.js"></script>
+</head>
+<body>
+
+<a name="top"></a><pre>
+=== Test case: <a href="revproxy_suite.src.html#qs_match-1">revproxy_SUITE:qs_match/1</a> (click for source code)
+
+=== Config value:
+
+    [{rules,[{[<<"com">>,<<"domain">>],
+              [<<"abc">>],
+              '_',
+              {upstream,uri,<<"http://">>,[<<"localhost:8080">>],[]}},
+             {[<<"com">>,<<"domain">>],
+              '_',<<"GET">>,
+              {upstream,host,<<"http://">>,[<<"localhost:1234">>],[]}},
+             {[<<"com">>,<<"domain">>,<<"static">>],
+              '_',<<"GET">>,
+              {upstream,uri,<<"http://">>,[<<"localhost:9999">>],[]}},
+             {[<<"com">>,host],
+              [<<"path">>,path,<<>>],
+              '_',
+              {upstream,uri,<<"http://">>,
+                        [<<"localhost:6543">>],
+                        [<<"detailed_path">>,host,path]}},
+             {[<<"com">>,placeholder],
+              '_',<<"GET">>,
+              {upstream,uri,<<"http://">>,
+                        [<<"localhost:5678">>],
+                        [placeholder]}},
+             {[<<"com">>,<<"domain">>,whatever],
+              [],'_',
+              {upstream,uri,<<"http://">>,
+                        [<<"localhost:8888">>],
+                        [whatever,<<>>]}}]},
+     {watchdog,<0.450.0>},
+     {meck_pid,<0.426.0>},
+     {tc_logfile,"/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.48.55/revproxy_suite.qs_match.html"},
+     {tc_group_properties,[{name,match_routes},sequence]},
+     {tc_group_path,[]},
+     {data_dir,"/home/travis/build/esl/MongooseIM/apps/ejabberd/test/revproxy_SUITE_data/"},
+     {priv_dir,"/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.48.55/log_private/"}]
+
+=== Current directory is "/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46"
+
+=== Started at 2016-01-26 09:48:55
+
+<br />
+<a name="end"></a>
+
+
+=== Ended at 2016-01-26 09:48:55
+=== successfully completed test case
+=== returned value = {match,{upstream,uri,<<"http://">>,
+                                      [<<"localhost:5678">>],
+                                      [placeholder]},
+                            [<<"a">>,<<"b">>,<<"c">>,
+                             <<"login.htm?ts=1231231232222&st=223232&page=32&ap=123442&whatever=somewordshere">>],
+                            '_',
+                            [{placeholder,<<"dummydomain">>}]}
+</pre>
+<center>
+<br /><hr /><p>
+<a href="../../../all_runs.html">Test run history
+</a>  |  <a href="../../../index.html">Top level test index
+</a>
+</p>
+<div class="copyright">Copyright &copy; 2016 <a href="http://www.erlang.org">Open Telecom Platform</a><br />
+Updated: <!date>Tue Jan 26 2016 09:48:55<!/date><br />
+</div>
+</center>
+</body>
+</html>

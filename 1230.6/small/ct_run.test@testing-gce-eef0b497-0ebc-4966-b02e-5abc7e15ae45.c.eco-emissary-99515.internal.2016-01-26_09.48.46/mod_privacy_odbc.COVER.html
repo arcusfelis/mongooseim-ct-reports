@@ -1,0 +1,366 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_privacy_odbc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_privacy_odbc.erl by COVER 2016-01-26 at 09:49:22
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% Copyright notice from original mod_privacy
+        |  %%%
+        |  %%% File    : mod_privacy.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : jabber:iq:privacy support
+        |  %%% Created : 21 Jul 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_privacy_odbc).
+        |  -author('alexey@process-one.net').
+        |  -author('arcusfelis@gmail.com').
+        |  -behaviour(mod_privacy).
+        |  
+        |  -export([init/2,
+        |           get_default_list/2,
+        |           get_list_names/2,
+        |           get_privacy_list/3,
+        |           forget_default_list/2,
+        |           set_default_list/3,
+        |           remove_privacy_list/3,
+        |           replace_privacy_list/4,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_privacy.hrl").
+        |  
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  get_default_list(LUser, LServer) -&gt;
+<font color=red>     0..|      case get_default_list_name(LUser, LServer) of</font>
+        |          none -&gt;
+<font color=red>     0..|              {error, not_found};</font>
+        |          Default -&gt;
+<font color=red>     0..|              case get_privacy_list(LUser, LServer, Default) of</font>
+        |                  {ok, List} -&gt;
+<font color=red>     0..|                      {ok, {Default, List}};</font>
+        |                  {error, Reason} -&gt;
+<font color=red>     0..|                      {error, Reason}</font>
+        |              end
+        |      end.
+        |  
+        |  get_list_names(LUser, LServer) -&gt;
+<font color=red>     0..|      Default = get_default_list_name(LUser, LServer),</font>
+<font color=red>     0..|      Names = get_list_names_only(LUser, LServer),</font>
+<font color=red>     0..|      {ok, {Default, Names}}.</font>
+        |  
+        |  get_default_list_name(LUser, LServer) -&gt;
+<font color=red>     0..|      case catch sql_get_default_privacy_list(LUser, LServer) of</font>
+        |          {selected, [&lt;&lt;"name"&gt;&gt;], []} -&gt;
+<font color=red>     0..|              none;</font>
+        |          {selected, [&lt;&lt;"name"&gt;&gt;], [{DefName}]} -&gt;
+<font color=red>     0..|              DefName;</font>
+        |          _ -&gt;
+<font color=red>     0..|              none</font>
+        |      end.
+        |  
+        |  get_list_names_only(LUser, LServer) -&gt;
+<font color=red>     0..|      case catch sql_get_privacy_list_names(LUser, LServer) of</font>
+        |      {selected, [&lt;&lt;"name"&gt;&gt;], Names} -&gt;
+<font color=red>     0..|          [Name || {Name} &lt;- Names];</font>
+        |      _ -&gt;
+<font color=red>     0..|          []</font>
+        |      end.
+        |  
+        |  
+        |  get_privacy_list(LUser, LServer, Name) -&gt;
+<font color=red>     0..|      case catch sql_get_privacy_list_id(LUser, LServer, Name) of</font>
+        |          {selected, [&lt;&lt;"id"&gt;&gt;], []} -&gt;
+<font color=red>     0..|              {error, not_found};</font>
+        |          {selected, [&lt;&lt;"id"&gt;&gt;], [{ID}]} -&gt;
+<font color=red>     0..|              case catch sql_get_privacy_list_data_by_id(ID, LServer) of</font>
+        |                  {selected, [&lt;&lt;"t"&gt;&gt;, &lt;&lt;"value"&gt;&gt;, &lt;&lt;"action"&gt;&gt;,
+        |                          &lt;&lt;"ord"&gt;&gt;, &lt;&lt;"match_all"&gt;&gt;,
+        |                          &lt;&lt;"match_iq"&gt;&gt;, &lt;&lt;"match_message"&gt;&gt;,
+        |                          &lt;&lt;"match_presence_in"&gt;&gt;, &lt;&lt;"match_presence_out"&gt;&gt;],
+        |                   RItems} -&gt;
+<font color=red>     0..|                      Items = lists:map(fun raw_to_item/1, RItems),</font>
+<font color=red>     0..|                      {ok, Items};</font>
+        |                  Other -&gt;
+<font color=red>     0..|                      {error, Other}</font>
+        |              end;
+        |          Other2 -&gt;
+<font color=red>     0..|              {error, Other2}</font>
+        |      end.
+        |  
+        |  %% @doc Set no default list for user.
+        |  forget_default_list(LUser, LServer) -&gt;
+<font color=red>     0..|      case catch sql_unset_default_privacy_list(LUser, LServer) of</font>
+        |      {'EXIT', Reason} -&gt;
+<font color=red>     0..|          {error, Reason};</font>
+        |      {error, Reason} -&gt;
+<font color=red>     0..|          {error, Reason};</font>
+        |      _ -&gt;
+<font color=red>     0..|          ok</font>
+        |      end.
+        |  
+        |  set_default_list(LUser, LServer, Name) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|          case sql_get_privacy_list_names_t(LUser) of</font>
+        |              {selected, [&lt;&lt;"name"&gt;&gt;], []} -&gt;
+<font color=red>     0..|                  {error, not_found};</font>
+        |              {selected, [&lt;&lt;"name"&gt;&gt;], Names} -&gt;
+<font color=red>     0..|                  case lists:member({Name}, Names) of</font>
+        |                      true -&gt;
+<font color=red>     0..|                          sql_set_default_privacy_list(LUser, Name),</font>
+<font color=red>     0..|                          ok;</font>
+        |                      false -&gt;
+<font color=red>     0..|                          {error, not_found}</font>
+        |                  end
+        |          end
+        |          end,
+<font color=red>     0..|      case odbc_queries:sql_transaction(LServer, F) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {atomic, {error, Reason}} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  remove_privacy_list(LUser, LServer, Name) -&gt;
+<font color=red>     0..|       F = fun() -&gt;</font>
+<font color=red>     0..|              case sql_get_default_privacy_list_t(LUser) of</font>
+        |                  {selected, [&lt;&lt;"name"&gt;&gt;], []} -&gt;
+<font color=red>     0..|                      sql_remove_privacy_list(LUser, Name),</font>
+<font color=red>     0..|                      ok;</font>
+        |                  {selected, [&lt;&lt;"name"&gt;&gt;], [{Default}]} -&gt;
+<font color=red>     0..|                      if</font>
+        |                          Name == Default -&gt;
+<font color=red>     0..|                              {error, conflict};</font>
+        |                          true -&gt;
+<font color=red>     0..|                              sql_remove_privacy_list(LUser, Name),</font>
+<font color=red>     0..|                              ok</font>
+        |                      end
+        |              end
+        |          end,
+<font color=red>     0..|      case odbc_queries:sql_transaction(LServer, F) of</font>
+        |          {atomic, {error, _} = Error} -&gt;
+<font color=red>     0..|              Error;</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  replace_privacy_list(LUser, LServer, Name, List) -&gt;
+<font color=red>     0..|      RItems = lists:map(fun item_to_raw/1, List),</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|          ID = case sql_get_privacy_list_id_t(LUser, Name) of</font>
+        |              {selected, [&lt;&lt;"id"&gt;&gt;], []} -&gt;
+<font color=red>     0..|                  sql_add_privacy_list(LUser, Name),</font>
+<font color=red>     0..|                  {selected, [&lt;&lt;"id"&gt;&gt;], [{I}]} =</font>
+        |                  sql_get_privacy_list_id_t(LUser, Name),
+<font color=red>     0..|                  I;</font>
+        |              {selected, [&lt;&lt;"id"&gt;&gt;], [{I}]} -&gt;
+<font color=red>     0..|                  I</font>
+        |              end,
+<font color=red>     0..|          sql_set_privacy_list(ID, RItems),</font>
+<font color=red>     0..|          ok</font>
+        |      end,
+<font color=red>     0..|      case odbc_queries:sql_transaction(LServer, F) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      sql_del_privacy_lists(LUser, LServer).</font>
+        |  
+        |  
+        |  raw_to_item({BType, BValue, BAction, BOrder, BMatchAll, BMatchIQ,
+        |           BMatchMessage, BMatchPresenceIn, BMatchPresenceOut}) -&gt;
+<font color=red>     0..|      {Type, Value} =</font>
+        |      case BType of
+        |          &lt;&lt;"n"&gt;&gt; -&gt;
+<font color=red>     0..|          {none, none};</font>
+        |          &lt;&lt;"j"&gt;&gt; -&gt;
+<font color=red>     0..|          case jid:from_binary(BValue) of</font>
+        |              #jid{} = JID -&gt;
+<font color=red>     0..|              {jid, jid:to_lower(JID)}</font>
+        |          end;
+        |          &lt;&lt;"g"&gt;&gt; -&gt;
+<font color=red>     0..|          {group, BValue};</font>
+        |          &lt;&lt;"s"&gt;&gt; -&gt;
+<font color=red>     0..|          case BValue of</font>
+        |              &lt;&lt;"none"&gt;&gt; -&gt;
+<font color=red>     0..|              {subscription, none};</font>
+        |              &lt;&lt;"both"&gt;&gt; -&gt;
+<font color=red>     0..|              {subscription, both};</font>
+        |              &lt;&lt;"from"&gt;&gt; -&gt;
+<font color=red>     0..|              {subscription, from};</font>
+        |              &lt;&lt;"to"&gt;&gt; -&gt;
+<font color=red>     0..|              {subscription, to}</font>
+        |          end
+        |      end,
+<font color=red>     0..|      Action =</font>
+        |      case BAction of
+<font color=red>     0..|          &lt;&lt;"a"&gt;&gt; -&gt; allow;</font>
+<font color=red>     0..|          &lt;&lt;"d"&gt;&gt; -&gt; deny</font>
+        |      end,
+<font color=red>     0..|      Order = binary_to_integer(BOrder),</font>
+<font color=red>     0..|      MatchAll = ejabberd_odbc:to_bool(BMatchAll),</font>
+<font color=red>     0..|      MatchIQ = ejabberd_odbc:to_bool(BMatchIQ),</font>
+<font color=red>     0..|      MatchMessage = ejabberd_odbc:to_bool(BMatchMessage),</font>
+<font color=red>     0..|      MatchPresenceIn = ejabberd_odbc:to_bool(BMatchPresenceIn),</font>
+<font color=red>     0..|      MatchPresenceOut =  ejabberd_odbc:to_bool(BMatchPresenceOut),</font>
+<font color=red>     0..|      #listitem{type = Type,</font>
+        |            value = Value,
+        |            action = Action,
+        |            order = Order,
+        |            match_all = MatchAll,
+        |            match_iq = MatchIQ,
+        |            match_message = MatchMessage,
+        |            match_presence_in = MatchPresenceIn,
+        |            match_presence_out = MatchPresenceOut
+        |           }.
+        |  
+        |  item_to_raw(#listitem{type = Type,
+        |                value = Value,
+        |                action = Action,
+        |                order = Order,
+        |                match_all = MatchAll,
+        |                match_iq = MatchIQ,
+        |                match_message = MatchMessage,
+        |                match_presence_in = MatchPresenceIn,
+        |                match_presence_out = MatchPresenceOut
+        |               }) -&gt;
+<font color=red>     0..|      {BType, BValue} =</font>
+        |      case Type of
+        |          none -&gt;
+<font color=red>     0..|          {&lt;&lt;"n"&gt;&gt;, &lt;&lt;""&gt;&gt;};</font>
+        |          jid -&gt;
+<font color=red>     0..|          {&lt;&lt;"j"&gt;&gt;, ejabberd_odbc:escape(jid:to_binary(Value))};</font>
+        |          group -&gt;
+<font color=red>     0..|          {&lt;&lt;"g"&gt;&gt;, ejabberd_odbc:escape(Value)};</font>
+        |          subscription -&gt;
+<font color=red>     0..|          case Value of</font>
+        |              none -&gt;
+<font color=red>     0..|              {&lt;&lt;"s"&gt;&gt;, &lt;&lt;"none"&gt;&gt;};</font>
+        |              both -&gt;
+<font color=red>     0..|              {&lt;&lt;"s"&gt;&gt;, &lt;&lt;"both"&gt;&gt;};</font>
+        |              from -&gt;
+<font color=red>     0..|              {&lt;&lt;"s"&gt;&gt;, &lt;&lt;"from"&gt;&gt;};</font>
+        |              to -&gt;
+<font color=red>     0..|              {&lt;&lt;"s"&gt;&gt;, &lt;&lt;"to"&gt;&gt;}</font>
+        |          end
+        |      end,
+<font color=red>     0..|      BAction =</font>
+        |      case Action of
+<font color=red>     0..|          allow -&gt; &lt;&lt;"a"&gt;&gt;;</font>
+<font color=red>     0..|          deny -&gt; &lt;&lt;"d"&gt;&gt;</font>
+        |      end,
+<font color=red>     0..|      BOrder = integer_to_binary(Order),</font>
+<font color=red>     0..|      BMatchAll = boolean_to_binary_number(MatchAll),</font>
+<font color=red>     0..|      BMatchIQ = boolean_to_binary_number(MatchIQ),</font>
+<font color=red>     0..|      BMatchMessage = boolean_to_binary_number(MatchMessage),</font>
+<font color=red>     0..|      BMatchPresenceIn = boolean_to_binary_number(MatchPresenceIn),</font>
+<font color=red>     0..|      BMatchPresenceOut = boolean_to_binary_number(MatchPresenceOut),</font>
+<font color=red>     0..|      [BType, BValue, BAction, BOrder, BMatchAll, BMatchIQ,</font>
+        |       BMatchMessage, BMatchPresenceIn, BMatchPresenceOut].
+        |  
+<font color=red>     0..|  boolean_to_binary_number(true) -&gt; &lt;&lt;"1"&gt;&gt;;</font>
+<font color=red>     0..|  boolean_to_binary_number(_)   -&gt; &lt;&lt;"0"&gt;&gt;.</font>
+        |  
+        |  sql_get_default_privacy_list(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      odbc_queries:get_default_privacy_list(LServer, Username).</font>
+        |  
+        |  sql_get_default_privacy_list_t(LUser) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      odbc_queries:get_default_privacy_list_t(Username).</font>
+        |  
+        |  sql_get_privacy_list_names(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      odbc_queries:get_privacy_list_names(LServer, Username).</font>
+        |  
+        |  sql_get_privacy_list_names_t(LUser) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      odbc_queries:get_privacy_list_names_t(Username).</font>
+        |  
+        |  sql_get_privacy_list_id(LUser, LServer, Name) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SName = ejabberd_odbc:escape(Name),</font>
+<font color=red>     0..|      odbc_queries:get_privacy_list_id(LServer, Username, SName).</font>
+        |  
+        |  sql_get_privacy_list_id_t(LUser, Name) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SName = ejabberd_odbc:escape(Name),</font>
+<font color=red>     0..|      odbc_queries:get_privacy_list_id_t(Username, SName).</font>
+        |  
+        |  sql_get_privacy_list_data_by_id(ID, LServer) when is_integer(ID) -&gt;
+<font color=red>     0..|      odbc_queries:get_privacy_list_data_by_id(LServer, integer_to_binary(ID));</font>
+        |  sql_get_privacy_list_data_by_id(ID, LServer) -&gt;
+<font color=red>     0..|      odbc_queries:get_privacy_list_data_by_id(LServer, ID).</font>
+        |  
+        |  sql_set_default_privacy_list(LUser, Name) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SName = ejabberd_odbc:escape(Name),</font>
+<font color=red>     0..|      odbc_queries:set_default_privacy_list(Username, SName).</font>
+        |  
+        |  sql_unset_default_privacy_list(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      odbc_queries:unset_default_privacy_list(LServer, Username).</font>
+        |  
+        |  sql_remove_privacy_list(LUser, Name) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SName = ejabberd_odbc:escape(Name),</font>
+<font color=red>     0..|      odbc_queries:remove_privacy_list(Username, SName).</font>
+        |  
+        |  sql_add_privacy_list(LUser, Name) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SName = ejabberd_odbc:escape(Name),</font>
+<font color=red>     0..|      odbc_queries:add_privacy_list(Username, SName).</font>
+        |  
+        |  sql_set_privacy_list(ID, RItems) when is_integer(ID)-&gt;
+<font color=red>     0..|      odbc_queries:set_privacy_list(integer_to_binary(ID), RItems);</font>
+        |  sql_set_privacy_list(ID, RItems) -&gt;
+<font color=red>     0..|      odbc_queries:set_privacy_list(ID, RItems).</font>
+        |  
+        |  sql_del_privacy_lists(LUser, LServer) -&gt;
+<font color=red>     0..|      Username = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      Server = ejabberd_odbc:escape(LServer),</font>
+<font color=red>     0..|      odbc_queries:del_privacy_lists(LServer, Server, Username).</font>
+</pre>
+</body>
+</html>

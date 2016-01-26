@@ -1,0 +1,205 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mongoose_riak.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_riak.erl by COVER 2016-01-26 at 09:49:20
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2015 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mongoose_riak).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include_lib("riakc/include/riakc.hrl").
+        |  
+        |  %% API
+        |  -export([start/0]).
+        |  -export([stop/0]).
+        |  
+        |  -export([start_worker/3]).
+        |  
+        |  -export([put/1, put/2]).
+        |  -export([get/2, get/3]).
+        |  -export([delete/2, delete/3]).
+        |  -export([update_type/3, update_type/4]).
+        |  -export([fetch_type/2, fetch_type/3]).
+        |  -export([list_keys/1]).
+        |  -export([list_buckets/1]).
+        |  -export([get_worker/0]).
+        |  -export([create_new_map/1]).
+        |  -export([update_map/2]).
+        |  -export([mapred/2]).
+        |  -export([search/2]).
+        |  -export([search/3]).
+        |  -export([get_index/4]).
+        |  -export([get_index_range/5]).
+        |  
+        |  -export([pool_name/0]).
+        |  
+        |  -compile({no_auto_import,[put/2]}).
+        |  
+        |  -define(CALL(F, Args), call_riak(F, Args)).
+        |  
+        |  -type riakc_map_op() :: {{binary(), MapDataType :: atom()},
+        |                            fun((riakc_datatype:datatype()) -&gt; riakc_datatype:datatype())}.
+        |  
+        |  -spec start() -&gt; {ok, pid()} | ignore.
+        |  start() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(riak_server) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              ignore;</font>
+        |          RiakOpts -&gt;
+<font color=red>     0..|              {_, RiakAddr} = lists:keyfind(address, 1, RiakOpts),</font>
+<font color=red>     0..|              {_, RiakPort} = lists:keyfind(port, 1, RiakOpts),</font>
+<font color=red>     0..|              Workers = proplists:get_value(pool_size, RiakOpts, 20),</font>
+<font color=red>     0..|              RiakPBOpts = [auto_reconnect, keepalive],</font>
+<font color=red>     0..|              mongoose_riak_sup:start(Workers, RiakAddr, RiakPort, RiakPBOpts)</font>
+        |      end.
+        |  
+        |  -spec stop() -&gt; _.
+        |  stop() -&gt;
+<font color=red>     0..|      mongoose_riak_sup:stop().</font>
+        |  
+        |  -spec start_worker(riakc_pb_socket:address(), riakc_pb_socket:portnum(), proplists:proplist()) -&gt;
+        |      {ok, pid()} | {error, term()}.
+        |  start_worker(Address, Port, Opts) -&gt;
+<font color=red>     0..|      riakc_pb_socket:start_link(Address, Port, Opts).</font>
+        |  
+        |  -spec put(riakc_obj()) -&gt;
+        |      ok | {ok, riakc_obj()} | {ok, key()} | {error, term()}.
+        |  put(Obj) -&gt;
+<font color=red>     0..|      put(Obj, []).</font>
+        |  
+        |  -spec put(riakc_obj(), timeout() | put_options()) -&gt;
+        |      ok | {ok, riakc_obj()} | {ok, key()} | {error, term()}.
+        |  put(Obj, OptsOrTimeout) -&gt;
+<font color=red>     0..|      ?CALL(put, [Obj, OptsOrTimeout]).</font>
+        |  
+        |  -spec get(bucket() | {binary(), bucket()}, key()) -&gt; {ok, riakc_obj()} | {error, term()}.
+        |  get(Bucket, Key) -&gt;
+<font color=red>     0..|      get(Bucket, Key, []).</font>
+        |  
+        |  -spec get(bucket() | {binary(), bucket()}, key(), get_options() | timeout()) -&gt;
+        |      {ok, riakc_obj()} | {error, term()}.
+        |  get(Bucket, Key, OptsOrTimeout) -&gt;
+<font color=red>     0..|      ?CALL(get, [Bucket, Key, OptsOrTimeout]).</font>
+        |  
+        |  
+        |  -spec update_type({binary(), binary()}, binary(), riakc_datatype:update(term())) -&gt;
+        |      ok | {error, term()}.
+        |  update_type(Bucket, Key, Update) -&gt;
+<font color=red>     0..|      update_type(Bucket, Key, Update, []).</font>
+        |  
+        |  -spec update_type({binary(), binary()}, binary(),
+        |      riakc_datatype:update(term()), [proplists:property()]) -&gt;
+        |      ok | {error, term()}.
+        |  update_type(Bucket, Key, Update, Options) -&gt;
+<font color=red>     0..|      ?CALL(update_type, [Bucket, Key, Update, Options]).</font>
+        |  
+        |  -spec delete(bucket() | {binary(), bucket()}, key()) -&gt;
+        |      ok | {error, term()}.
+        |  delete(Bucket, Key) -&gt;
+<font color=red>     0..|      delete(Bucket, Key, []).</font>
+        |  
+        |  -spec delete(bucket() | {binary(), bucket()}, key(), delete_options() | timeout()) -&gt;
+        |      ok | {error, term()}.
+        |  delete(Bucket, Key, OptsOrTimeout) -&gt;
+<font color=red>     0..|      ?CALL(delete, [Bucket, Key, OptsOrTimeout]).</font>
+        |  
+        |  -spec fetch_type({binary(), binary()}, binary()) -&gt;
+        |      {ok, riakc_datatype:datatype()} | {error, term()}.
+        |  fetch_type(Bucket, Key) -&gt;
+<font color=red>     0..|      fetch_type(Bucket, Key, []).</font>
+        |  
+        |  -spec fetch_type({binary(), binary()}, binary(), [proplists:property()]) -&gt;
+        |      {ok, riakc_datatype:datatype()} | {error, term()}.
+        |  fetch_type(Bucket, Key, Opts) -&gt;
+<font color=red>     0..|      ?CALL(fetch_type, [Bucket, Key, Opts]).</font>
+        |  
+        |  -spec list_keys({binary(), binary()}) -&gt;
+        |      {ok, [binary()]} | {error, term()}.
+        |  list_keys(Bucket) -&gt;
+<font color=red>     0..|      ?CALL(list_keys, [Bucket]).</font>
+        |  
+        |  -spec list_buckets(binary()) -&gt; list().
+        |  list_buckets(Type) -&gt;
+<font color=red>     0..|      ?CALL(list_buckets, [Type]).</font>
+        |  
+        |  -spec create_new_map([riakc_map_op()]) -&gt; riakc_map:crdt_map().
+        |  create_new_map(Ops) -&gt;
+<font color=red>     0..|      update_map(riakc_map:new(), Ops).</font>
+        |  
+        |  -spec update_map(riakc_map:crdt_map(), [riakc_map_op()]) -&gt; riakc_map:crdt_map().
+        |  update_map(Map, Ops) -&gt;
+<font color=red>     0..|      lists:foldl(fun update_map_op/2, Map, Ops).</font>
+        |  
+        |  -type mapred_bucket_type_idx_input() :: {index, riakc_obj:bucket(),
+        |                                           binary()|secondary_index_id(),
+        |                                           StartKey::key()|integer(),
+        |                                           EndKey::key()|integer()}.
+        |  
+        |  -spec mapred(mapred_inputs() |  mapred_bucket_type_idx_input(), [mapred_queryterm()]) -&gt;
+        |      {ok, mapred_result()} | {error, term()}.
+        |  mapred(KeyFileters, MapRed) -&gt;
+<font color=red>     0..|      ?CALL(mapred, [KeyFileters, MapRed]).</font>
+        |  
+        |  search(Index, Query) -&gt;
+<font color=red>     0..|      search(Index, Query, []).</font>
+        |  
+        |  search(Index, Query, Opts) -&gt;
+<font color=red>     0..|      ?CALL(search, [Index, Query, Opts]).</font>
+        |  
+        |  -spec get_index(Bucket :: riakc_obj:bucket(),
+        |                  Index :: binary() | secondary_index_id(),
+        |                  Key :: key() | integer(),
+        |                  Opts :: [term()]) -&gt;
+        |      {ok, index_results()} | {error, term()}.
+        |  get_index(BucketType, Index, Value, Opts) -&gt;
+<font color=red>     0..|      ?CALL(get_index_eq, [BucketType, Index, Value, Opts]).</font>
+        |  
+        |  -spec get_index_range(riakc_obj:bucket(), binary() | secondary_index_id(), key() | integer() | list(),
+        |                  key() | integer() | list(), [term()]) -&gt;
+        |                         {ok, index_results()} | {error, term()}.
+        |  get_index_range(Bucket, Index, StartKey, EndKey, Opts) -&gt;
+<font color=red>     0..|      ?CALL(get_index_range, [Bucket, Index, StartKey, EndKey, Opts]).</font>
+        |  
+        |  -spec get_worker() -&gt; pid() | undefined.
+        |  get_worker() -&gt;
+<font color=red>     0..|      case catch cuesport:get_worker(pool_name()) of</font>
+        |          Pid  when is_pid(Pid) -&gt;
+<font color=red>     0..|              Pid;</font>
+        |          _ -&gt;
+<font color=red>     0..|              undefined</font>
+        |      end.
+        |  
+        |  
+        |  -spec pool_name() -&gt;  atom().
+<font color=red>     0..|  pool_name() -&gt; riak_pool.</font>
+        |  
+        |  update_map_op({Field, Fun}, Map) -&gt;
+<font color=red>     0..|      riakc_map:update(Field, Fun, Map).</font>
+        |  
+        |  call_riak(F, ArgsIn) -&gt;
+<font color=red>     0..|      Worker = get_worker(),</font>
+<font color=red>     0..|      Args = [Worker | ArgsIn],</font>
+<font color=red>     0..|      apply(riakc_pb_socket, F, Args).</font>
+</pre>
+</body>
+</html>

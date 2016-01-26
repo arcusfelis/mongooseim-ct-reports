@@ -1,0 +1,1116 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_mam_con_ca_arch.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_con_ca_arch.erl by COVER 2016-01-26 at 09:49:36
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc ODBC backend for Message Archive Management.
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_mam_con_ca_arch).
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Exports
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2, stop/1]).
+        |  
+        |  %% MAM hook handlers
+        |  -export([archive_size/4,
+        |           safe_archive_message/9,
+        |           safe_lookup_messages/14,
+        |           remove_archive/3,
+        |           purge_single_message/6,
+        |           purge_multiple_messages/9]).
+        |  
+        |  %% Helpers
+        |  -export([get_conversations_after/3]).
+        |  
+        |  %% Internal exports
+        |  -export([start_link/4]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Imports
+        |  
+        |  %% UID
+        |  -import(mod_mam_utils,
+        |          [encode_compact_uuid/2]).
+        |  
+        |  %% JID serialization
+        |  -import(mod_mam_utils,
+        |          [jid_to_opt_binary/2,
+        |           expand_minified_jid/2]).
+        |  
+        |  %% Other
+        |  -import(mod_mam_utils,
+        |          [maybe_min/2,
+        |           maybe_max/2,
+        |           apply_start_border/2,
+        |           apply_end_border/2]).
+        |  
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -include_lib("ejabberd/include/jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  -record(state, {
+        |      host,
+        |      conn,
+        |      insert_query_id,
+        |      insert_query_types,
+        |      update_last_id,
+        |      update_last_types,
+        |      purge_conversation_id,
+        |      purge_conversation_types,
+        |      exist_conversation_id,
+        |      exist_conversation_types,
+        |      get_conversations_id,
+        |      get_conversations_types,
+        |      get_last_conversations_id,
+        |      get_last_conversations_types,
+        |      remove_conversations_id,
+        |      remove_conversations_types,
+        |      calc_count_handler,
+        |      extract_messages_handler,
+        |      extract_messages_r_handler,
+        |      query_refs,
+        |      query_refs_count}).
+        |  
+        |  -record(mam_ca_filter, {
+        |      lower_jid,
+        |      upper_jid,
+        |      start_id,
+        |      end_id
+        |  }).
+        |  
+        |  -type worker() :: pid() | atom().
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Types
+        |  
+        |  -type filter() :: #mam_ca_filter{}.
+        |  -type message_id() :: non_neg_integer().
+        |  -type user_id() :: non_neg_integer().
+        |  -type server_hostname() :: binary().
+        |  -type server_host() :: binary().
+        |  -type unix_timestamp() :: non_neg_integer().
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %% Starting and stopping functions for users' archives
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      create_worker_pool(Host),</font>
+<font color=red>     0..|      mod_mam_con_ca_sup:start(Host, cassandra_config(Host)),</font>
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_pm(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_muc(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_pm(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_muc(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      delete_worker_pool(Host),</font>
+<font color=red>     0..|      mod_mam_con_ca_sup:stop(Host).</font>
+        |  
+        |  cassandra_config(Host) -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(Host, ?MODULE, cassandra_config, [{servers, [{"localhost", 9042, 1}]},</font>
+        |                                                               {keyspace, "mam"},
+        |                                                               {credentials, undefined}]).
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam
+        |  
+        |  start_pm(Host, _Opts) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, no_writer, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ejabberd_hooks:add(mam_archive_message, Host, ?MODULE, safe_archive_message, 50)</font>
+        |      end,
+<font color=red>     0..|      ejabberd_hooks:add(mam_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_lookup_messages, Host, ?MODULE, safe_lookup_messages, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop_pm(Host) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, no_writer, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ejabberd_hooks:delete(mam_archive_message, Host, ?MODULE, safe_archive_message, 50)</font>
+        |      end,
+<font color=red>     0..|      ejabberd_hooks:delete(mam_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_lookup_messages, Host, ?MODULE, safe_lookup_messages, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam_muc
+        |  
+        |  start_muc(Host, _Opts) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, no_writer, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ejabberd_hooks:add(mam_archive_message, Host, ?MODULE, safe_archive_message, 50)</font>
+        |      end,
+<font color=red>     0..|      ejabberd_hooks:add(mam_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_lookup_messages, Host, ?MODULE, safe_lookup_messages, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop_muc(Host) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, no_writer, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              ejabberd_hooks:delete(mam_archive_message, Host, ?MODULE, safe_archive_message, 50)</font>
+        |      end,
+<font color=red>     0..|      ejabberd_hooks:delete(mam_archive_size, Host, ?MODULE, archive_size, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_lookup_messages, Host, ?MODULE, safe_lookup_messages, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_purge_single_message, Host, ?MODULE, purge_single_message, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_purge_multiple_messages, Host, ?MODULE, purge_multiple_messages, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %%====================================================================
+        |  %% Internal functions
+        |  %%====================================================================
+        |  
+        |  create_worker_pool(Host) -&gt;
+<font color=red>     0..|      pg2:create(group_name(Host)).</font>
+        |  
+        |  delete_worker_pool(Host) -&gt;
+<font color=red>     0..|      pg2:delete(group_name(Host)).</font>
+        |  
+        |  register_worker(Host, WorkerPid) -&gt;
+<font color=red>     0..|      pg2:join(group_name(Host), WorkerPid).</font>
+        |  
+        |  select_worker(Host, BLowerJID, BUpperJID) -&gt;
+<font color=red>     0..|      case pg2:get_local_members(group_name(Host)) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              error({no_worker, Host});</font>
+        |          Workers -&gt;
+<font color=red>     0..|              N = erlang:phash2({BLowerJID, BUpperJID}, length(Workers)) + 1,</font>
+<font color=red>     0..|              lists:nth(N, Workers)</font>
+        |      end.
+        |  
+        |  select_worker(Host, UserJID) -&gt;
+<font color=red>     0..|      case pg2:get_local_members(group_name(Host)) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              error({no_worker, Host});</font>
+        |          Workers -&gt;
+<font color=red>     0..|              N = erlang:phash2(UserJID, length(Workers)) + 1,</font>
+<font color=red>     0..|              lists:nth(N, Workers)</font>
+        |      end.
+        |  
+        |  group_name(Host) -&gt;
+<font color=red>     0..|      {mam_ca, node(), Host}.</font>
+        |  
+        |  start_link(Host, Addr, Port, ClientOptions) -&gt;
+<font color=red>     0..|      gen_server:start_link(?MODULE, [Host, Addr, Port, ClientOptions], []).</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Internal functions and callbacks
+        |  
+        |  archive_size(Size, _Host, _UserID, _UserJID) when is_integer(Size) -&gt;
+        |      %% TODO
+<font color=red>     0..|      Size.</font>
+        |  
+        |  safe_archive_message(Result, Host, MessID, UserID,
+        |                       LocJID, RemJID, SrcJID, Dir, Packet) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          archive_message(Result, Host, MessID, UserID,</font>
+        |                          LocJID, RemJID, SrcJID, Dir, Packet)
+        |      catch _Type:Reason -&gt;
+<font color=red>     0..|          {error, Reason}</font>
+        |      end.
+        |  
+        |  archive_message(_Result, Host, MessID, _UserID,
+        |                   LocJID=#jid{},
+        |                   RemJID=#jid{},
+        |                  _SrcJID=#jid{}, incoming, Packet) -&gt;
+<font color=red>     0..|      BLocJID = serialize_jid(LocJID),</font>
+<font color=red>     0..|      BRemJID = serialize_jid(RemJID),</font>
+<font color=red>     0..|      case BLocJID &lt; BRemJID of</font>
+        |          true -&gt;
+<font color=red>     0..|              IsFromLower = false,</font>
+<font color=red>     0..|              BLowerJID = BLocJID,</font>
+<font color=red>     0..|              BUpperJID = BRemJID,</font>
+<font color=red>     0..|              Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|              Data = term_to_binary(Packet),</font>
+<font color=red>     0..|              write_message(Worker, Host, MessID, BLowerJID, BUpperJID, IsFromLower, Data);</font>
+        |          false -&gt;
+<font color=red>     0..|              IsFromLower = true,</font>
+<font color=red>     0..|              BLowerJID = BRemJID,</font>
+<font color=red>     0..|              BUpperJID = BLocJID,</font>
+<font color=red>     0..|              Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|              Data = term_to_binary(Packet),</font>
+<font color=red>     0..|              write_message(Worker, Host, MessID, BLowerJID, BUpperJID, IsFromLower, Data)</font>
+        |      end;
+        |  archive_message(_Result, _Host, _MessID, _UserID,
+        |                  _LocJID=#jid{},
+        |                  _RemJID=#jid{},
+        |                  _SrcJID=#jid{}, outgoing, _Packet) -&gt;
+        |      %% Will be archived by remote jid.
+<font color=red>     0..|      ok.</font>
+        |  
+        |  write_message(Worker, Host, MessID, BLowerJID, BUpperJID, IsFromLower, Data) -&gt;
+<font color=red>     0..|      gen_server:cast(Worker, {write_message, MessID, BLowerJID, BUpperJID, IsFromLower, Data}).</font>
+        |  
+        |  safe_lookup_messages({error, Reason}=Result, _Host,
+        |                       _UserID, _UserJID, _RSM, _Borders,
+        |                       _Start, _End, _Now, _WithJID,
+        |                       _PageSize, _LimitPassed, _MaxResultLimit,
+        |                       _IsSimple) -&gt;
+<font color=red>     0..|      Result;</font>
+        |  safe_lookup_messages(Result, Host,
+        |                       UserID, UserJID, RSM, Borders,
+        |                       Start, End, Now, WithJID,
+        |                       PageSize, LimitPassed, MaxResultLimit,
+        |                       IsSimple) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          lookup_messages(Result, Host,</font>
+        |                          UserID, UserJID, RSM, Borders,
+        |                          Start, End, Now, WithJID,
+        |                          PageSize, LimitPassed, MaxResultLimit,
+        |                          IsSimple)
+        |      catch _Type:Reason -&gt;
+<font color=red>     0..|          {error, Reason}</font>
+        |      end.
+        |  
+        |  -spec lookup_messages(Result, Host, _UserID, UserJID, RSM, Borders,
+        |                        Start, End, Now, WithJID, PageSize, LimitPassed,
+        |                        MaxResultLimit, IsSimple) -&gt;
+        |      Result when
+        |        Host :: server_host(), UserJID :: #jid{},
+        |        _UserID :: user_id(), RSM :: #rsm_in{}  | undefined,
+        |        Borders :: #mam_borders{}  | undefined,
+        |        Start :: unix_timestamp()  | undefined,
+        |        End :: unix_timestamp()  | undefined,
+        |        Now :: unix_timestamp(), PageSize :: non_neg_integer(),
+        |        WithJID :: #jid{}  | undefined, LimitPassed :: boolean(),
+        |        MaxResultLimit :: non_neg_integer(), IsSimple :: boolean(),
+        |        Result :: {ok, {TotalCount, Offset, MessageRows}}
+        |        | {error, 'policy-violation'},
+        |        TotalCount :: non_neg_integer(),
+        |        Offset :: non_neg_integer(), MessageRows :: [tuple()].
+        |  lookup_messages(_Result, _Host, _UserID, _UserJID,
+        |                  _RSM, Borders,
+        |                  Start, End, _Now, undefined,
+        |                  _PageSize, _LimitPassed, _MaxResultLimit, _) -&gt;
+<font color=red>     0..|      error(missing_with_jid);</font>
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  #rsm_in{direction = aft, id = ID}, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, _LimitPassed, _MaxResultLimit, true) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      MessageRows = extract_messages(Worker, Host, after_id(ID, Filter), 0, PageSize, false),</font>
+<font color=red>     0..|      {ok, {undefined, undefined, rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}};</font>
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  #rsm_in{direction = before, id = ID},
+        |                  Borders, Start, End, _Now, WithJID,
+        |                  PageSize, _LimitPassed, _MaxResultLimit, true) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      MessageRows = extract_messages(Worker, Host, before_id(ID, Filter), 0, PageSize, true),</font>
+<font color=red>     0..|      {ok, {undefined, undefined, rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}};</font>
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  #rsm_in{direction = undefined, index = Offset}, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, _LimitPassed, _MaxResultLimit, true) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      MessageRows = extract_messages(Worker, Host, Filter, Offset, PageSize, false),</font>
+<font color=red>     0..|      {ok, {undefined, undefined, rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}};</font>
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  undefined, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, _LimitPassed, _MaxResultLimit, true) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      MessageRows = extract_messages(Worker, Host, Filter, 0, PageSize, false),</font>
+<font color=red>     0..|      {ok, {undefined, undefined, rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}};</font>
+        |  
+        |  
+        |  
+        |  %% Cannot be optimized:
+        |  %% - #rsm_in{direction = aft, id = ID}
+        |  %% - #rsm_in{direction = before, id = ID}
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  #rsm_in{direction = before, id = undefined}, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, _LimitPassed, _MaxResultLimit, opt_count) -&gt;
+        |      %% Last page
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      MessageRows = extract_messages(Worker, Host, Filter, 0, PageSize, true),</font>
+<font color=red>     0..|      MessageRowsCount = length(MessageRows),</font>
+<font color=red>     0..|      case MessageRowsCount &lt; PageSize of</font>
+        |          true -&gt;
+<font color=red>     0..|              {ok, {MessageRowsCount, 0,</font>
+        |                    rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}};
+        |          false -&gt;
+<font color=red>     0..|              FirstID = row_to_message_id(hd(MessageRows)),</font>
+<font color=red>     0..|              Offset = calc_count(Worker, Host, before_id(FirstID, Filter)),</font>
+<font color=red>     0..|              {ok, {Offset + MessageRowsCount, Offset,</font>
+        |                    rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}}
+        |      end;
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  #rsm_in{direction = undefined, index = Offset}, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, _LimitPassed, _MaxResultLimit, opt_count) -&gt;
+        |      %% By offset
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      MessageRows = extract_messages(Worker, Host, Filter, Offset, PageSize, false),</font>
+<font color=red>     0..|      MessageRowsCount = length(MessageRows),</font>
+<font color=red>     0..|      case MessageRowsCount &lt; PageSize of</font>
+        |          true -&gt;
+<font color=red>     0..|              {ok, {Offset + MessageRowsCount, Offset,</font>
+        |                    rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}};
+        |          false -&gt;
+<font color=red>     0..|              LastID = row_to_message_id(lists:last(MessageRows)),</font>
+<font color=red>     0..|              CountAfterLastID = calc_count(Worker, Host, after_id(LastID, Filter)),</font>
+<font color=red>     0..|              {ok, {Offset + MessageRowsCount + CountAfterLastID, Offset,</font>
+        |                    rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}}
+        |      end;
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  undefined, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, _LimitPassed, _MaxResultLimit, opt_count) -&gt;
+        |      %% First page
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      MessageRows = extract_messages(Worker, Host, Filter, 0, PageSize, false),</font>
+<font color=red>     0..|      MessageRowsCount = length(MessageRows),</font>
+<font color=red>     0..|      case MessageRowsCount &lt; PageSize of</font>
+        |          true -&gt;
+<font color=red>     0..|              {ok, {MessageRowsCount, 0,</font>
+        |                    rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}};
+        |          false -&gt;
+<font color=red>     0..|              LastID = row_to_message_id(lists:last(MessageRows)),</font>
+<font color=red>     0..|              CountAfterLastID = calc_count(Worker, Host, after_id(LastID, Filter)),</font>
+<font color=red>     0..|              {ok, {MessageRowsCount + CountAfterLastID, 0,</font>
+        |                    rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}}
+        |      end;
+        |  
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  RSM = #rsm_in{direction = aft, id = ID}, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, LimitPassed, MaxResultLimit, _) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      TotalCount = calc_count(Worker, Host, Filter),</font>
+<font color=red>     0..|      Offset     = calc_offset(Worker, Host, Filter, PageSize, TotalCount, RSM),</font>
+        |      %% If a query returns a number of stanzas greater than this limit and the
+        |      %% client did not specify a limit using RSM then the server should return
+        |      %% a policy-violation error to the client.
+<font color=red>     0..|      case TotalCount - Offset &gt; MaxResultLimit andalso not LimitPassed of</font>
+        |          true -&gt;
+<font color=red>     0..|              {error, 'policy-violation'};</font>
+        |  
+        |          false -&gt;
+<font color=red>     0..|              MessageRows = extract_messages(Worker, Host, after_id(ID, Filter), 0, PageSize, false),</font>
+<font color=red>     0..|              {ok, {TotalCount, Offset, rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}}</font>
+        |      end;
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  RSM = #rsm_in{direction = before, id = ID}, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, LimitPassed, MaxResultLimit, _) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      TotalCount = calc_count(Worker, Host, Filter),</font>
+<font color=red>     0..|      Offset     = calc_offset(Worker, Host, Filter, PageSize, TotalCount, RSM),</font>
+        |      %% If a query returns a number of stanzas greater than this limit and the
+        |      %% client did not specify a limit using RSM then the server should return
+        |      %% a policy-violation error to the client.
+<font color=red>     0..|      case TotalCount - Offset &gt; MaxResultLimit andalso not LimitPassed of</font>
+        |          true -&gt;
+<font color=red>     0..|              {error, 'policy-violation'};</font>
+        |  
+        |          false -&gt;
+<font color=red>     0..|              MessageRows = extract_messages(Worker, Host, before_id(ID, Filter), 0, PageSize, true),</font>
+<font color=red>     0..|              {ok, {TotalCount, Offset, rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}}</font>
+        |      end;
+        |  
+        |  lookup_messages(_Result, Host, _UserID, UserJID = #jid{},
+        |                  RSM, Borders,
+        |                  Start, End, _Now, WithJID,
+        |                  PageSize, LimitPassed, MaxResultLimit, _) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      BWithJID = serialize_jid(WithJID),</font>
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      Filter = prepare_filter(BLowerJID, BUpperJID, Borders, Start, End),</font>
+<font color=red>     0..|      TotalCount = calc_count(Worker, Host, Filter),</font>
+<font color=red>     0..|      Offset     = calc_offset(Worker, Host, Filter, PageSize, TotalCount, RSM),</font>
+        |      %% If a query returns a number of stanzas greater than this limit and the
+        |      %% client did not specify a limit using RSM then the server should return
+        |      %% a policy-violation error to the client.
+<font color=red>     0..|      case TotalCount - Offset &gt; MaxResultLimit andalso not LimitPassed of</font>
+        |          true -&gt;
+<font color=red>     0..|              {error, 'policy-violation'};</font>
+        |  
+        |          false -&gt;
+<font color=red>     0..|              MessageRows = extract_messages(Worker, Host, Filter, Offset, PageSize, false),</font>
+<font color=red>     0..|              {ok, {TotalCount, Offset, rows_to_uniform_format(Host, UserJID, WithJID, BUserJID &lt; BWithJID, MessageRows)}}</font>
+        |      end.
+        |  
+        |  after_id(ID, Filter=#mam_ca_filter{start_id = AfterID}) -&gt;
+<font color=red>     0..|      Filter#mam_ca_filter{start_id = maybe_max(ID + 1, AfterID)}.</font>
+        |  
+        |  before_id(undefined, Filter) -&gt;
+<font color=red>     0..|      Filter;</font>
+        |  before_id(ID, Filter=#mam_ca_filter{end_id = BeforeID}) -&gt;
+<font color=red>     0..|      Filter#mam_ca_filter{end_id = maybe_min(ID - 1, BeforeID)}.</font>
+        |  
+        |  to_id(ID, Filter=#mam_ca_filter{end_id = BeforeID}) -&gt;
+<font color=red>     0..|      Filter#mam_ca_filter{end_id = maybe_min(ID, BeforeID)}.</font>
+        |  
+        |  rows_to_uniform_format(Host, UserJID, WithJID, IsLocLower, MessageRows) -&gt;
+<font color=red>     0..|      [row_to_uniform_format(UserJID, WithJID, IsLocLower, Row) || Row &lt;- MessageRows].</font>
+        |  
+        |  row_to_uniform_format(UserJID, _WithJID, IsLocLower, [MessID, IsFromLower, Data])
+        |      when IsFromLower =:= IsLocLower -&gt;
+<font color=red>     0..|      Packet = binary_to_term(Data),</font>
+<font color=red>     0..|      {MessID, UserJID, Packet};</font>
+        |  row_to_uniform_format(_UserJID, WithJID, _IsLocLower, [MessID, _IsFromLower, Data]) -&gt;
+<font color=red>     0..|      Packet = binary_to_term(Data),</font>
+<font color=red>     0..|      {MessID, WithJID, Packet}.</font>
+        |  
+        |  row_to_message_id([MessID,_,_]) -&gt;
+<font color=red>     0..|      MessID.</font>
+        |  
+        |  remove_archive(Host, _UserID, UserJID) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BUserJID),</font>
+<font color=red>     0..|      [purge_conversation0(Host, BUserJID, BWithJID)</font>
+<font color=red>     0..|       || BWithJID &lt;- get_conversations(Worker, BUserJID),</font>
+<font color=red>     0..|          is_user_exists(unserialize_jid(BWithJID))],</font>
+<font color=red>     0..|      remove_conversations(Worker, BUserJID),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  purge_conversation0(Host, BUserJID, BWithJID) -&gt;
+<font color=red>     0..|      BLowerJID = min(BUserJID, BWithJID),</font>
+<font color=red>     0..|      BUpperJID = max(BUserJID, BWithJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BLowerJID, BUpperJID),</font>
+<font color=red>     0..|      purge_conversation(Worker, BLowerJID, BUpperJID).</font>
+        |  
+        |  %% Delete messages.
+        |  purge_conversation(Worker, BLowerJID, BUpperJID) -&gt;
+<font color=red>     0..|      gen_server:call(Worker, {purge_conversation, BLowerJID, BUpperJID}).</font>
+        |  
+        |  remove_conversations(Worker, BUserJID) -&gt;
+<font color=red>     0..|      gen_server:call(Worker, {remove_conversations, BUserJID}).</font>
+        |  
+        |  get_conversations(Worker, BUserJID) -&gt;
+<font color=red>     0..|      ResultF = gen_server:call(Worker, {get_conversations, BUserJID}),</font>
+<font color=red>     0..|      {ok, Result} = ResultF(),</font>
+<font color=red>     0..|      [BWithJID || [BWithJID] &lt;- seestar_result:rows(Result)].</font>
+        |  
+        |  %% @doc Returns remote JID and last message id for user's conversations.
+        |  get_last_conversations(Worker, BUserJID) -&gt;
+<font color=red>     0..|      ResultF = gen_server:call(Worker, {get_last_conversations, BUserJID}),</font>
+<font color=red>     0..|      {ok, Result} = ResultF(),</font>
+<font color=red>     0..|      seestar_result:rows(Result).</font>
+        |  
+        |  -spec get_conversations_after(Host, UserJID, AfterID) -&gt; [{RemJID, LastID}]
+        |      when Host :: binary(),
+        |           UserJID :: #jid{},
+        |           RemJID :: #jid{},
+        |           AfterID :: non_neg_integer(),
+        |           LastID :: non_neg_integer().
+        |  get_conversations_after(Host, UserJID, AfterID) -&gt;
+<font color=red>     0..|      BUserJID = serialize_jid(UserJID),</font>
+<font color=red>     0..|      Worker = select_worker(Host, BUserJID),</font>
+<font color=red>     0..|      [{unserialize_jid(BRemJID), LastID}</font>
+<font color=red>     0..|       || [BRemJID, LastID] &lt;- get_last_conversations(Worker, BUserJID),</font>
+<font color=red>     0..|          LastID &gt; AfterID].</font>
+        |      %% It is not possible to filter by AfterID in cassandra,
+        |      %% so we filter here.
+        |      %% https://issues.apache.org/jira/browse/CASSANDRA-4476
+        |  
+        |  does_conversation_exist(Worker, BUserJID, BWithJID) -&gt;
+<font color=red>     0..|      ResultF = gen_server:call(Worker, {does_conversation_exist, BUserJID, BWithJID}),</font>
+<font color=red>     0..|      {ok, Result} = ResultF(),</font>
+<font color=red>     0..|      [[Count]] = seestar_result:rows(Result),</font>
+<font color=red>     0..|      case Count of</font>
+<font color=red>     0..|          1 -&gt; true;</font>
+<font color=red>     0..|          0 -&gt; false</font>
+        |      end.
+        |  
+        |  -spec purge_single_message(_Result, Host, MessID, _UserID, UserJID,
+        |                             Now) -&gt;
+        |      ok  | {error, 'not-supported'} when
+        |        Host :: server_host(), MessID :: message_id(),
+        |        _UserID :: user_id(), UserJID :: #jid{},
+        |        Now :: unix_timestamp().
+        |  purge_single_message(_Result, Host, MessID, _UserID, _UserJID, _Now) -&gt;
+<font color=red>     0..|     {error, 'not-supported'}.</font>
+        |  
+        |  
+        |  -spec purge_multiple_messages(_Result, Host, _UserID, UserJID, Borders,
+        |                                Start, End, Now, WithJID) -&gt;
+        |      {error, 'not-supported'} when
+        |        Host :: server_host(), _UserID :: user_id(),
+        |        UserJID :: #jid{}, Borders :: #mam_borders{},
+        |        Start :: unix_timestamp()  | undefined,
+        |        End :: unix_timestamp()  | undefined,
+        |        Now :: unix_timestamp(),
+        |        WithJID :: #jid{}  | undefined.
+        |  purge_multiple_messages(_Result, Host, _UserID, UserJID, Borders,
+        |                          Start, End, _Now, WithJID) -&gt;
+<font color=red>     0..|     {error, 'not-supported'}.</font>
+        |  
+        |  
+        |  %% Each record is a tuple of form
+        |  %% `{&lt;&lt;"13663125233"&gt;&gt;,&lt;&lt;"bob@localhost"&gt;&gt;,&lt;&lt;"res1"&gt;&gt;,&lt;&lt;binary&gt;&gt;}'.
+        |  %% Columns are `["id","from_jid","message"]'.
+        |  -spec extract_messages(Worker, Host, Filter, IOffset, IMax, ReverseLimit) -&gt;
+        |      [Row] when
+        |      Worker  :: worker(),
+        |      Host    :: server_hostname(),
+        |      Filter  :: filter(),
+        |      IOffset :: non_neg_integer(),
+        |      IMax    :: pos_integer(),
+        |      ReverseLimit :: boolean(),
+        |      Row :: list().
+        |  extract_messages(_Worker, _Host, _Filter, _IOffset, 0, _) -&gt;
+<font color=red>     0..|      [];</font>
+        |  extract_messages(Worker, Host, Filter, 0, IMax, false) -&gt;
+<font color=red>     0..|      ResultF = gen_server:call(Worker,</font>
+        |          {extract_messages, {Filter, IMax}}),
+<font color=red>     0..|      {ok, Result} = ResultF(),</font>
+<font color=red>     0..|      seestar_result:rows(Result);</font>
+        |  extract_messages(Worker, Host, Filter, 0, IMax, true) -&gt;
+<font color=red>     0..|      ResultF = gen_server:call(Worker,</font>
+        |          {extract_messages_r, {Filter, IMax}}),
+<font color=red>     0..|      {ok, Result} = ResultF(),</font>
+<font color=red>     0..|      lists:reverse(seestar_result:rows(Result));</font>
+        |  extract_messages(_Worker, _Host, _Filter, _IOffset, _IMax, _) -&gt;
+<font color=red>     0..|      error(offset_not_supported).</font>
+        |  
+        |  
+        |  %% @doc Calculate a zero-based index of the row with UID in the result test.
+        |  %%
+        |  %% If the element does not exists, the ID of the next element will
+        |  %% be returned instead.
+        |  %% @end
+        |  -spec calc_index(Worker, Host, Filter, MessID) -&gt; Count
+        |      when
+        |      Worker       :: worker(),
+        |      Host         :: server_hostname(),
+        |      Filter       :: filter(),
+        |      MessID       :: message_id(),
+        |      Count        :: non_neg_integer().
+        |  calc_index(Worker, Host, Filter, MessID) -&gt;
+<font color=red>     0..|      calc_count(Worker, Host, to_id(MessID, Filter)).</font>
+        |  
+        |  %% @doc Count of elements in RSet before the passed element.
+        |  %%
+        |  %% The element with the passed UID can be already deleted.
+        |  %% @end
+        |  -spec calc_before(Worker, Host, Filter, MessID) -&gt; Count
+        |      when
+        |      Worker       :: worker(),
+        |      Host         :: server_hostname(),
+        |      Filter       :: filter(),
+        |      MessID       :: message_id(),
+        |      Count        :: non_neg_integer().
+        |  calc_before(Worker, Host, Filter, MessID) -&gt;
+<font color=red>     0..|      calc_count(Worker, Host, before_id(MessID, Filter)).</font>
+        |  
+        |  
+        |  %% @doc Get the total result set size.
+        |  %% "SELECT COUNT(*) as "count" FROM mam_con_message WHERE "
+        |  -spec calc_count(Worker, Host, Filter) -&gt; Count
+        |      when
+        |      Worker       :: worker(),
+        |      Host         :: server_hostname(),
+        |      Filter       :: filter(),
+        |      Count        :: non_neg_integer().
+        |  calc_count(Worker, Host, Filter) -&gt;
+<font color=red>     0..|      ResultF = gen_server:call(Worker, {calc_count, Filter}),</font>
+<font color=red>     0..|      {ok, Result} = ResultF(),</font>
+<font color=red>     0..|      [[Count]] = seestar_result:rows(Result),</font>
+<font color=red>     0..|      Count.</font>
+        |  
+        |  
+        |  -spec prepare_filter(BLowerJID, BUpperJID, Borders, Start, End) -&gt; filter()
+        |      when
+        |      BLowerJID :: binary(),
+        |      BUpperJID :: binary(),
+        |      Borders :: #mam_borders{} | undefined,
+        |      Start   :: unix_timestamp() | undefined,
+        |      End     :: unix_timestamp() | undefined.
+        |  prepare_filter(BLowerJID, BUpperJID, Borders, Start, End) -&gt;
+<font color=red>     0..|      StartID = maybe_encode_compact_uuid(Start, 0),</font>
+<font color=red>     0..|      EndID   = maybe_encode_compact_uuid(End, 255),</font>
+<font color=red>     0..|      StartID2 = apply_start_border(Borders, StartID),</font>
+<font color=red>     0..|      EndID2   = apply_end_border(Borders, EndID),</font>
+<font color=red>     0..|      prepare_filter_params(BLowerJID, BUpperJID, StartID2, EndID2).</font>
+        |  
+        |  prepare_filter_params(BLowerJID, BUpperJID, StartID, EndID) -&gt;
+<font color=red>     0..|      #mam_ca_filter{</font>
+        |          lower_jid = BLowerJID,
+        |          upper_jid = BUpperJID,
+        |          start_id = StartID,
+        |          end_id = EndID
+        |      }.
+        |  
+        |  eval_filter_params(#mam_ca_filter{
+        |          lower_jid = BLowerJID,
+        |          upper_jid = BUpperJID,
+        |          start_id = StartID,
+        |          end_id = EndID
+        |      }) -&gt;
+<font color=red>     0..|      [BLowerJID, BUpperJID | prepare_filter_opt_params(StartID, EndID)].</font>
+        |  
+        |  select_filter(#mam_ca_filter{
+        |          start_id = StartID,
+        |          end_id = EndID
+        |      }) -&gt;
+<font color=red>     0..|      select_filter(StartID, EndID).</font>
+        |  
+        |  
+        |  -spec select_filter(StartID, EndID) -&gt;
+        |      all  | 'end'  | start  | start_end when
+        |        StartID :: integer()  | undefined,
+        |        EndID :: integer()  | undefined.
+        |  select_filter(undefined, undefined) -&gt;
+<font color=red>     0..|      all;</font>
+        |  select_filter(undefined, _) -&gt;
+<font color=red>     0..|      'end';</font>
+        |  select_filter(_, undefined) -&gt;
+<font color=red>     0..|      start;</font>
+        |  select_filter(_, _) -&gt;
+<font color=red>     0..|      start_end.</font>
+        |  
+        |  prepare_filter_sql(StartID, EndID) -&gt;
+        |      case StartID of
+<font color=red>     0..|         undefined -&gt; "";</font>
+<font color=red>     0..|         _         -&gt; " AND id &gt;= ?"</font>
+<font color=red>     0..|      end ++</font>
+        |      case EndID of
+<font color=red>     0..|         undefined -&gt; "";</font>
+<font color=red>     0..|         _         -&gt; " AND id &lt;= ?"</font>
+        |      end.
+        |  
+        |  prepare_filter_opt_params(StartID, EndID) -&gt;
+<font color=red>     0..|      [Value || Value &lt;- [StartID, EndID], Value =/= undefined].</font>
+        |  
+        |  filter_to_sql() -&gt;
+<font color=red>     0..|      [{select_filter(StartID, EndID),</font>
+        |        prepare_filter_sql(StartID, EndID)}
+<font color=red>     0..|       || StartID        &lt;- [undefined, 0],</font>
+<font color=red>     0..|            EndID        &lt;- [undefined, 0]].</font>
+        |  
+        |  -spec calc_offset(Worker, Host, Filter, PageSize, TotalCount, RSM) -&gt; Offset
+        |      when
+        |      Worker       :: worker(),
+        |      Host         :: server_hostname(),
+        |      Filter       :: filter(),
+        |      PageSize     :: non_neg_integer(),
+        |      TotalCount   :: non_neg_integer(),
+        |      RSM          :: #rsm_in{} | undefined,
+        |      Offset       :: non_neg_integer().
+        |  calc_offset(_W, _LS, _F, _PS, _TC, #rsm_in{direction = undefined, index = Index})
+        |      when is_integer(Index) -&gt;
+<font color=red>     0..|      Index;</font>
+        |  %% Requesting the Last Page in a Result Set
+        |  calc_offset(_W, _LS, _F, PS, TC, #rsm_in{direction = before, id = undefined}) -&gt;
+<font color=red>     0..|      max(0, TC - PS);</font>
+        |  calc_offset(Worker, Host, F, PS, _TC, #rsm_in{direction = before, id = ID})
+        |      when is_integer(ID) -&gt;
+<font color=red>     0..|      max(0, calc_before(Worker, Host, F, ID) - PS);</font>
+        |  calc_offset(Worker, Host, F, _PS, _TC, #rsm_in{direction = aft, id = ID})
+        |      when is_integer(ID) -&gt;
+<font color=red>     0..|      calc_index(Worker, Host, F, ID);</font>
+        |  calc_offset(_W, _LS, _F, _PS, _TC, _RSM) -&gt;
+<font color=red>     0..|      0.</font>
+        |  
+        |  maybe_encode_compact_uuid(undefined, _) -&gt;
+<font color=red>     0..|      undefined;</font>
+        |  maybe_encode_compact_uuid(Microseconds, NodeID) -&gt;
+<font color=red>     0..|      encode_compact_uuid(Microseconds, NodeID).</font>
+        |  
+        |  serialize_jid(JID) -&gt;
+<font color=red>     0..|      jid:to_binary(jid:to_lower(jid:to_bare(JID))).</font>
+        |  
+        |  unserialize_jid(BJID) -&gt;
+<font color=red>     0..|      jid:from_binary(BJID).</font>
+        |  
+        |  is_user_exists(#jid{lserver=LServer, luser=LUser}) -&gt;
+<font color=red>     0..|      ejabberd_users:is_user_exists(LUser, LServer).</font>
+        |  
+        |  %%====================================================================
+        |  %% Internal SQL part
+        |  %%====================================================================
+        |  
+        |  extract_messages_handler(ConnPid) -&gt;
+<font color=red>     0..|      dict:from_list([{FilterName, prepare_query(ConnPid, extract_messages_sql(Filter))}</font>
+<font color=red>     0..|                      || {FilterName, Filter} &lt;- filter_to_sql()]).</font>
+        |  
+        |  extract_messages_r_handler(ConnPid) -&gt;
+<font color=red>     0..|      dict:from_list([{FilterName, prepare_query(ConnPid, extract_messages_r_sql(Filter))}</font>
+<font color=red>     0..|                      || {FilterName, Filter} &lt;- filter_to_sql()]).</font>
+        |  
+        |  calc_count_handler(ConnPid) -&gt;
+<font color=red>     0..|      dict:from_list([{FilterName, prepare_query(ConnPid, calc_count_sql(Filter))}</font>
+<font color=red>     0..|                      || {FilterName, Filter} &lt;- filter_to_sql()]).</font>
+        |  
+        |  extract_messages_sql(Filter) -&gt;
+        |      "SELECT id, is_from_lower, message FROM mam_con_message "
+<font color=red>     0..|          "WHERE lower_jid = ? AND upper_jid = ? " ++</font>
+        |          Filter ++ " ORDER BY id LIMIT ?".
+        |  
+        |  extract_messages_r_sql(Filter) -&gt;
+        |      "SELECT id, is_from_lower, message FROM mam_con_message "
+<font color=red>     0..|          "WHERE lower_jid = ? AND upper_jid = ? " ++</font>
+        |          Filter ++ " ORDER BY id DESC LIMIT ?".
+        |  
+        |  calc_count_sql(Filter) -&gt;
+        |      "SELECT COUNT(*) FROM mam_con_message "
+<font color=red>     0..|          "WHERE lower_jid = ? AND upper_jid = ? " ++ Filter.</font>
+        |  
+        |  execute_extract_messages(ConnPid, Handler, {Filter, IMax}) when is_integer(IMax) -&gt;
+<font color=red>     0..|      Params = eval_filter_params(Filter) ++ [IMax],</font>
+<font color=red>     0..|      FilterName = select_filter(Filter),</font>
+<font color=red>     0..|      PreparedQuery = dict:fetch(FilterName, Handler),</font>
+<font color=red>     0..|      execute_prepared_query(ConnPid, PreparedQuery, Params).</font>
+        |  
+        |  execute_calc_count(ConnPid, Handler, Filter) -&gt;
+<font color=red>     0..|      Params = eval_filter_params(Filter),</font>
+<font color=red>     0..|      FilterName = select_filter(Filter),</font>
+<font color=red>     0..|      PreparedQuery = dict:fetch(FilterName, Handler),</font>
+<font color=red>     0..|      execute_prepared_query(ConnPid, PreparedQuery, Params).</font>
+        |  
+        |  prepare_query(ConnPid, Query) -&gt;
+<font color=red>     0..|      {ok, Res} = seestar_session:prepare(ConnPid, Query),</font>
+<font color=red>     0..|      Types = seestar_result:types(Res),</font>
+<font color=red>     0..|      QueryID = seestar_result:query_id(Res),</font>
+<font color=red>     0..|      {QueryID, Types}.</font>
+        |  
+        |  execute_prepared_query(ConnPid, {QueryID, Types}, Params) -&gt;
+<font color=red>     0..|      seestar_session:execute_async(ConnPid, QueryID, Types, Params, one).</font>
+        |  
+        |  
+        |  save_query_ref(From, QueryRef, State=#state{query_refs=Refs, query_refs_count=RefsCount}) -&gt;
+<font color=red>     0..|      Refs2 = dict:store(QueryRef, From, Refs),</font>
+<font color=red>     0..|      put(query_refs_count, RefsCount+1),</font>
+<font color=red>     0..|      State#state{query_refs=Refs2, query_refs_count=RefsCount+1}.</font>
+        |  
+        |  forward_query_respond(ResultF, QueryRef,
+        |      State=#state{query_refs=Refs, query_refs_count=RefsCount}) -&gt;
+<font color=red>     0..|      case dict:find(QueryRef, Refs) of</font>
+        |          {ok, From} -&gt;
+<font color=red>     0..|              Refs2 = dict:erase(QueryRef, Refs),</font>
+<font color=red>     0..|              gen_server:reply(From, ResultF),</font>
+<font color=red>     0..|              put(query_refs_count, RefsCount-1),</font>
+<font color=red>     0..|              State#state{query_refs=Refs2, query_refs_count=RefsCount-1};</font>
+        |          error -&gt;
+        |  %           lager:warning("Ignore response ~p ~p", [QueryRef, ResultF()]),
+<font color=red>     0..|              State</font>
+        |      end.
+        |  
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  init([Host, Addr, Port, ClientOptions]) -&gt;
+<font color=red>     0..|      register_worker(Host, self()),</font>
+<font color=red>     0..|      {ok, ConnPid} = seestar_session:start_link(Addr, Port, ClientOptions),</font>
+        |  
+<font color=red>     0..|      InsertQuery = "INSERT INTO mam_con_message "</font>
+        |          "(id, lower_jid, upper_jid, is_from_lower, message) "
+        |          "VALUES (?, ?, ?, ?, ?)",
+<font color=red>     0..|      {ok, InsertQueryRes} = seestar_session:prepare(ConnPid, InsertQuery),</font>
+<font color=red>     0..|      InsertQueryID = seestar_result:query_id(InsertQueryRes),</font>
+<font color=red>     0..|      InsertQueryTypes = seestar_result:types(InsertQueryRes),</font>
+        |  
+        |      %% New row will be created, if it does not exist.
+<font color=red>     0..|      UpdateLastQuery = "UPDATE mam_con_user SET "</font>
+        |          "last_message_id = ? WHERE local_jid = ? AND remote_jid = ?",
+<font color=red>     0..|      {ok, UpdateLastRes} = seestar_session:prepare(ConnPid, UpdateLastQuery),</font>
+<font color=red>     0..|      UpdateLastID = seestar_result:query_id(UpdateLastRes),</font>
+<font color=red>     0..|      UpdateLastTypes = seestar_result:types(UpdateLastRes),</font>
+        |  
+<font color=red>     0..|      PurgeConQuery = "DELETE FROM mam_con_message "</font>
+        |          "WHERE lower_jid = ? AND upper_jid = ?",
+<font color=red>     0..|      {ok, PurgeConRes} = seestar_session:prepare(ConnPid, PurgeConQuery),</font>
+<font color=red>     0..|      PurgeConID = seestar_result:query_id(PurgeConRes),</font>
+<font color=red>     0..|      PurgeConTypes = seestar_result:types(PurgeConRes),</font>
+        |  
+<font color=red>     0..|      RemoveConQuery = "DELETE FROM mam_con_user "</font>
+        |          "WHERE local_jid = ?",
+<font color=red>     0..|      {ok, RemoveConRes} = seestar_session:prepare(ConnPid, RemoveConQuery),</font>
+<font color=red>     0..|      RemoveConID = seestar_result:query_id(RemoveConRes),</font>
+<font color=red>     0..|      RemoveConTypes = seestar_result:types(RemoveConRes),</font>
+        |  
+<font color=red>     0..|      GetConQuery = "SELECT remote_jid FROM mam_con_user "</font>
+        |          "WHERE local_jid = ?",
+<font color=red>     0..|      {ok, GetConRes} = seestar_session:prepare(ConnPid, GetConQuery),</font>
+<font color=red>     0..|      GetConID = seestar_result:query_id(GetConRes),</font>
+<font color=red>     0..|      GetConTypes = seestar_result:types(GetConRes),</font>
+        |  
+<font color=red>     0..|      GetLastConQuery = "SELECT remote_jid, last_message_id FROM mam_con_user "</font>
+        |          "WHERE local_jid = ?",
+<font color=red>     0..|      {ok, GetLastConRes} = seestar_session:prepare(ConnPid, GetLastConQuery),</font>
+<font color=red>     0..|      GetLastConID = seestar_result:query_id(GetLastConRes),</font>
+<font color=red>     0..|      GetLastConTypes = seestar_result:types(GetLastConRes),</font>
+        |  
+<font color=red>     0..|      ExistConQuery = "SELECT COUNT(*) FROM mam_con_user "</font>
+        |          "WHERE local_jid = ? AND remote_jid = ?",
+<font color=red>     0..|      {ok, ExistConRes} = seestar_session:prepare(ConnPid, ExistConQuery),</font>
+<font color=red>     0..|      ExistConID = seestar_result:query_id(ExistConRes),</font>
+<font color=red>     0..|      ExistConTypes = seestar_result:types(ExistConRes),</font>
+        |  
+<font color=red>     0..|      ExHandler = extract_messages_handler(ConnPid),</font>
+<font color=red>     0..|      RevExHandler = extract_messages_r_handler(ConnPid),</font>
+<font color=red>     0..|      CountHandler = calc_count_handler(ConnPid),</font>
+<font color=red>     0..|      put(query_refs_count, 0),</font>
+<font color=red>     0..|      State = #state{</font>
+        |          host=Host,
+        |          conn=ConnPid,
+        |          query_refs=dict:new(),
+        |          query_refs_count=0,
+        |          insert_query_id=InsertQueryID,
+        |          insert_query_types=InsertQueryTypes,
+        |          update_last_id=UpdateLastID,
+        |          update_last_types=UpdateLastTypes,
+        |          purge_conversation_id=PurgeConID,
+        |          purge_conversation_types=PurgeConTypes,
+        |          exist_conversation_id=ExistConID,
+        |          exist_conversation_types=ExistConTypes,
+        |          get_conversations_id=GetConID,
+        |          get_conversations_types=GetConTypes,
+        |          get_last_conversations_id=GetLastConID,
+        |          get_last_conversations_types=GetLastConTypes,
+        |          remove_conversations_id=RemoveConID,
+        |          remove_conversations_types=RemoveConTypes,
+        |          extract_messages_handler=ExHandler,
+        |          extract_messages_r_handler=RevExHandler,
+        |          calc_count_handler=CountHandler},
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call({extract_messages, Args}, From,
+        |      State=#state{conn=ConnPid, extract_messages_handler=Handler}) -&gt;
+<font color=red>     0..|      QueryRef = execute_extract_messages(ConnPid, Handler, Args),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call({extract_messages_r, Args}, From,
+        |      State=#state{conn=ConnPid, extract_messages_r_handler=Handler}) -&gt;
+<font color=red>     0..|      QueryRef = execute_extract_messages(ConnPid, Handler, Args),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call({calc_count, Filter}, From,
+        |      State=#state{conn=ConnPid, calc_count_handler=Handler}) -&gt;
+<font color=red>     0..|      QueryRef = execute_calc_count(ConnPid, Handler, Filter),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call({purge_conversation, BLowerJID, BUpperJID}, From,
+        |      State=#state{
+        |          conn=ConnPid,
+        |          purge_conversation_id=PurgeConID,
+        |          purge_conversation_types=PurgeConTypes}) -&gt;
+<font color=red>     0..|      Row = [BLowerJID, BUpperJID],</font>
+<font color=red>     0..|      QueryRef = seestar_session:execute_async(ConnPid, PurgeConID, PurgeConTypes, Row, one),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call({does_conversation_exist, BUserJID, BWithJID}, From,
+        |      State=#state{
+        |          conn=ConnPid,
+        |          exist_conversation_id=ExistConID,
+        |          exist_conversation_types=ExistConTypes}) -&gt;
+<font color=red>     0..|      Row = [BUserJID, BWithJID],</font>
+<font color=red>     0..|      QueryRef = seestar_session:execute_async(ConnPid, ExistConID, ExistConTypes, Row, one),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call({get_conversations, BUserJID}, From,
+        |      State=#state{
+        |          conn=ConnPid,
+        |          get_conversations_id=GetConID,
+        |          get_conversations_types=GetConTypes}) -&gt;
+<font color=red>     0..|      Row = [BUserJID],</font>
+<font color=red>     0..|      QueryRef = seestar_session:execute_async(ConnPid, GetConID, GetConTypes, Row, one),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call({get_last_conversations, BUserJID}, From,
+        |      State=#state{
+        |          conn=ConnPid,
+        |          get_last_conversations_id=GetLastConID,
+        |          get_last_conversations_types=GetLastConTypes}) -&gt;
+<font color=red>     0..|      Row = [BUserJID],</font>
+<font color=red>     0..|      QueryRef = seestar_session:execute_async(ConnPid, GetLastConID, GetLastConTypes, Row, one),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call({remove_conversations, BUserJID}, From,
+        |      State=#state{
+        |          conn=ConnPid,
+        |          remove_conversations_id=RemoveConID,
+        |          remove_conversations_types=RemoveConTypes}) -&gt;
+<font color=red>     0..|      Row = [BUserJID],</font>
+<font color=red>     0..|      QueryRef = seestar_session:execute_async(ConnPid, RemoveConID, RemoveConTypes, Row, one),</font>
+<font color=red>     0..|      {noreply, save_query_ref(From, QueryRef, State)};</font>
+        |  handle_call(_, _From, State=#state{}) -&gt;
+<font color=red>     0..|      {reply, ok, State}.</font>
+        |  
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_cast({write_message, MessID, BLowerJID, BUpperJID, IsFromLower, Data},
+        |      State=#state{
+        |          conn=ConnPid,
+        |          insert_query_id=InsertQueryID,
+        |          insert_query_types=InsertQueryTypes,
+        |          update_last_id=UpdateLastID,
+        |          update_last_types=UpdateLastTypes}) -&gt;
+<font color=red>     0..|      Row1 = [MessID, BLowerJID, BUpperJID, IsFromLower, Data],</font>
+<font color=red>     0..|      Row2 = [MessID, BLowerJID, BUpperJID],</font>
+<font color=red>     0..|      Row3 = [MessID, BUpperJID, BLowerJID],</font>
+<font color=red>     0..|      seestar_session:execute_async(ConnPid, InsertQueryID, InsertQueryTypes, Row1, one),</font>
+<font color=red>     0..|      seestar_session:execute_async(ConnPid, UpdateLastID, UpdateLastTypes, Row2, one),</font>
+<font color=red>     0..|      seestar_session:execute_async(ConnPid, UpdateLastID, UpdateLastTypes, Row3, one),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_cast(Msg, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("Strange cast message ~p.", [Msg]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  
+        |  handle_info({seestar_response, QueryRef, ResultF}, State) -&gt;
+<font color=red>     0..|      {noreply, forward_query_respond(ResultF, QueryRef, State)};</font>
+        |  handle_info(Msg, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("Strange info message ~p.", [Msg]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+</pre>
+</body>
+</html>

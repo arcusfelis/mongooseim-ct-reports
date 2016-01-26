@@ -1,0 +1,227 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/ejabberd_users.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_users.erl by COVER 2016-01-26 at 09:49:18
+
+****************************************************************************
+
+        |  %%% @doc Stores info about non-anonymous users using Mnesia table.
+        |  -module(ejabberd_users).
+        |  %% API
+        |  -export([start/1,
+        |           stop/1,
+        |           start_link/2,
+        |           is_user_exists/2]).
+        |  
+        |  %% Hooks.
+        |  -export([remove_user/2]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(state, {}).
+        |  
+        |  %% @see srv_name/1
+        |  srv_name() -&gt;
+<font color=red>     0..|      ejabberd_users.</font>
+        |  
+        |  
+        |  -spec srv_name(ejabberd:server() | string()) -&gt; atom().
+        |  srv_name(Host) -&gt;
+<font color=red>     0..|      gen_mod:get_module_proc(Host, srv_name()).</font>
+        |  
+        |  
+        |  tbl_name() -&gt;
+<font color=red>     0..|      ejabberd_users.</font>
+        |  
+        |  
+        |  -spec tbl_name(ejabberd:server() | string()) -&gt; atom().
+        |  tbl_name(Host) -&gt;
+<font color=red>     0..|      gen_mod:get_module_proc(Host, tbl_name()).</font>
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  
+        |  -spec start(ejabberd:server()) -&gt; 'ok'.
+        |  start(Host) -&gt;
+<font color=red>     0..|      UserProc = srv_name(Host),</font>
+<font color=red>     0..|      UserChildSpec =</font>
+        |      {UserProc,
+        |       {ejabberd_users, start_link, [UserProc, Host]},
+        |       permanent,
+        |       5000,
+        |       worker,
+        |       [ejabberd_users]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, UserChildSpec),</font>
+<font color=red>     0..|      ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec stop(ejabberd:server()) -&gt; 'ok'.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec start_link(ProcName :: atom(),
+        |                   Host :: ejabberd:server())
+        |        -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(ProcName, Host) -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ProcName}, ?MODULE, [Host], []).</font>
+        |  
+        |  
+        |  -spec is_user_exists(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver() | string()) -&gt; boolean().
+        |  is_user_exists(LUser, LServer) -&gt;
+<font color=red>     0..|      case is_cached_user_exists(LUser, LServer) of</font>
+<font color=red>     0..|          true -&gt; true;</font>
+        |          false -&gt;
+<font color=red>     0..|              case is_stored_user_exists(LUser, LServer) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      put_user_into_cache(LUser, LServer),</font>
+<font color=red>     0..|                      true;</font>
+<font color=red>     0..|                  false -&gt; false</font>
+        |          end
+        |      end.
+        |  
+        |  
+        |  %%====================================================================
+        |  %% Hooks
+        |  %%====================================================================
+        |  
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver() | string()) -&gt; ok.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      delete_user(LUser, LServer),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  -spec init([ejabberd:server() | string(),...]) -&gt; {'ok',#state{}}.
+        |  init([Host]) -&gt;
+<font color=red>     0..|      Tab = tbl_name(Host),</font>
+<font color=red>     0..|      TabOpts = [named_table, public, set,</font>
+        |                 {read_concurrency, true},
+        |                 {write_concurrency, false}],
+<font color=red>     0..|      ets:new(Tab, TabOpts),</font>
+<font color=red>     0..|      {ok, #state{}}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call(_, _From, State=#state{}) -&gt;
+<font color=red>     0..|      {reply, ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_cast(Msg, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("Strange message ~p.", [Msg]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info(Msg, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("Strange message ~p.", [Msg]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  
+        |  %%====================================================================
+        |  %% Helpers
+        |  %%====================================================================
+        |  
+        |  -spec is_stored_user_exists(ejabberd:luser(), ejabberd:lserver()) -&gt; boolean().
+        |  is_stored_user_exists(LUser, LServer) -&gt;
+<font color=red>     0..|      ejabberd_auth:is_user_exists(LUser, LServer)</font>
+<font color=red>     0..|      andalso not is_anonymous_user(LUser, LServer).</font>
+        |  
+        |  
+        |  -spec is_anonymous_user(ejabberd:luser(), ejabberd:lserver()) -&gt; boolean().
+        |  is_anonymous_user(LUser, LServer) -&gt;
+<font color=red>     0..|      case lists:member(ejabberd_auth_anonymous, ejabberd_auth:auth_modules(LServer)) of</font>
+        |          true -&gt;
+<font color=red>     0..|              ejabberd_auth_anonymous:does_user_exist(LUser, LServer);</font>
+        |          false -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_cached_user_exists(ejabberd:luser(), ejabberd:lserver() | string()) -&gt; boolean().
+        |  is_cached_user_exists(LUser, LServer) -&gt;
+<font color=red>     0..|      Key = key(LUser, LServer),</font>
+<font color=red>     0..|      Tab = tbl_name(LServer),</font>
+<font color=red>     0..|      ets:member(Tab, Key).</font>
+        |  
+        |  
+        |  -spec put_user_into_cache(ejabberd:luser(), ejabberd:lserver()) -&gt; 'ok'.
+        |  put_user_into_cache(LUser, LServer) -&gt;
+<font color=red>     0..|      Key = key(LUser, LServer),</font>
+<font color=red>     0..|      Tab = tbl_name(LServer),</font>
+<font color=red>     0..|      ets:insert(Tab, {Key}),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec delete_user(ejabberd:luser(), ejabberd:lserver() | string()) -&gt; 'ok'.
+        |  delete_user(LUser, LServer) -&gt;
+<font color=red>     0..|      Key = key(LUser, LServer),</font>
+<font color=red>     0..|      Tab = tbl_name(LServer),</font>
+<font color=red>     0..|      ets:delete(Tab, Key),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec key(ejabberd:luser(), ejabberd:lserver()
+        |           ) -&gt; {ejabberd:luser(), ejabberd:lserver()}.
+        |  key(LUser, LServer) -&gt;
+<font color=red>     0..|      {LUser, LServer}.</font>
+</pre>
+</body>
+</html>

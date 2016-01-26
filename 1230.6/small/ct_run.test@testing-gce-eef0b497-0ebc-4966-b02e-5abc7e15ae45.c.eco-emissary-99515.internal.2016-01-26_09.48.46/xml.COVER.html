@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/xml.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/xml.erl by COVER 2016-01-26 at 09:49:20
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : xml.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : XML utils
+        |  %%% Created : 20 Nov 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(xml).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([remove_cdata/1,
+        |           get_cdata/1, get_tag_cdata/1,
+        |           get_attr/2, get_attr_s/2,
+        |           get_tag_attr/2, get_tag_attr_s/2,
+        |           get_subtag/2,
+        |           append_subtags/2,
+        |           get_path_s/2,
+        |           replace_tag_attr/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -type xmlel_or_cdata() :: jlib:xmlel() | jlib:xmlcdata().
+        |  
+        |  -spec remove_cdata_p(xmlel_or_cdata()) -&gt; boolean().
+<font color=red>     0..|  remove_cdata_p(#xmlel{}) -&gt; true;</font>
+<font color=red>     0..|  remove_cdata_p(_) -&gt; false.</font>
+        |  
+        |  
+        |  -spec remove_cdata([xmlel_or_cdata()]) -&gt; [xmlel_or_cdata()].
+<font color=red>     0..|  remove_cdata(L) -&gt; [E || E &lt;- L, remove_cdata_p(E)].</font>
+        |  
+        |  
+        |  -spec get_cdata([xmlel_or_cdata()]) -&gt; binary().
+        |  get_cdata(L) -&gt;
+<font color=red>     0..|      list_to_binary(get_cdata(L, "")).</font>
+        |  
+        |  
+        |  -spec get_cdata([xmlel_or_cdata()], [iolist()]) -&gt; [iolist()].
+        |  get_cdata([#xmlcdata{content = CData} | L], S) -&gt;
+<font color=red>     0..|      get_cdata(L, [S, CData]);</font>
+        |  get_cdata([_ | L], S) -&gt;
+<font color=red>     0..|      get_cdata(L, S);</font>
+        |  get_cdata([], S) -&gt;
+<font color=red>     0..|      S.</font>
+        |  
+        |  
+        |  -spec get_tag_cdata(jlib:xmlel()) -&gt; binary().
+        |  get_tag_cdata(#xmlel{children = Els}) -&gt;
+<font color=red>     0..|      get_cdata(Els).</font>
+        |  
+        |  
+        |  -spec get_attr(binary() | string(),
+        |                [jlib:binary_pair()]) -&gt; 'false' | {'value', binary() | string()}.
+        |  get_attr(AttrName, Attrs) -&gt;
+<font color=red>     0..|      case lists:keysearch(AttrName, 1, Attrs) of</font>
+        |          {value, {_, Val}} -&gt;
+<font color=red>     0..|              {value, Val};</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_attr_s(binary(), list()) -&gt; binary().
+        |  get_attr_s(AttrName, Attrs) -&gt;
+<font color=red>     0..|      case lists:keysearch(AttrName, 1, Attrs) of</font>
+        |          {value, {_, Val}} -&gt;
+<font color=red>     0..|              Val;</font>
+        |          _ -&gt;
+<font color=red>     0..|              context_default(AttrName)</font>
+        |      end.
+        |  
+        |  -spec get_tag_attr(binary(), jlib:xmlel()) -&gt; 'false' | {'value', binary()}.
+        |  get_tag_attr(AttrName, #xmlel{attrs = Attrs}) -&gt;
+<font color=red>     0..|      get_attr(AttrName, Attrs).</font>
+        |  
+        |  
+        |  -spec get_tag_attr_s(binary(), jlib:xmlel()) -&gt; binary().
+        |  get_tag_attr_s(AttrName, #xmlel{attrs = Attrs}) -&gt;
+<font color=red>     0..|      get_attr_s(AttrName, Attrs).</font>
+        |  
+        |  
+        |  -spec get_subtag(jlib:xmlel(), binary()) -&gt; 'false' | jlib:xmlel().
+        |  get_subtag(#xmlel{children = Els}, Name) -&gt;
+<font color=red>     0..|      get_subtag1(Els, Name).</font>
+        |  
+        |  
+        |  -spec get_subtag1([xmlel_or_cdata()], binary()) -&gt; 'false' | jlib:xmlel().
+        |  get_subtag1([El | Els], Name) -&gt;
+<font color=red>     0..|      case El of</font>
+        |          #xmlel{name = Name} -&gt;
+<font color=red>     0..|              El;</font>
+        |          _ -&gt;
+<font color=red>     0..|              get_subtag1(Els, Name)</font>
+        |      end;
+        |  get_subtag1([], _) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  
+        |  -spec append_subtags(jlib:xmlel(), [xmlel_or_cdata()]) -&gt; jlib:xmlel().
+        |  append_subtags(XE = #xmlel{children = SubTags1}, SubTags2) -&gt;
+<font color=red>     0..|      XE#xmlel{children = SubTags1 ++ SubTags2}.</font>
+        |  
+        |  
+        |  -spec get_path_s(jlib:xmlel(), [{elem, binary()} | {attr, binary()} | cdata]) -&gt; binary().
+        |  get_path_s(El, []) -&gt;
+<font color=red>     0..|      El;</font>
+        |  get_path_s(El, [{elem, Name} | Path]) -&gt;
+<font color=red>     0..|      case get_subtag(El, Name) of</font>
+        |          false -&gt;
+<font color=red>     0..|              context_default(Name);</font>
+        |          SubEl -&gt;
+<font color=red>     0..|              get_path_s(SubEl, Path)</font>
+        |      end;
+        |  get_path_s(El, [{attr, Name}]) -&gt;
+<font color=red>     0..|      get_tag_attr_s(Name, El);</font>
+        |  get_path_s(El, [cdata]) -&gt;
+<font color=red>     0..|      get_tag_cdata(El).</font>
+        |  
+        |  
+        |  -spec replace_tag_attr(Attr :: binary(), Value :: binary(), jlib:xmlel()
+        |                        ) -&gt; jlib:xmlel().
+        |  replace_tag_attr(Attr, Value, XE = #xmlel{attrs = Attrs}) -&gt;
+<font color=red>     0..|      Attrs1 = lists:keydelete(Attr, 1, Attrs),</font>
+<font color=red>     0..|      Attrs2 = [{Attr, Value} | Attrs1],</font>
+<font color=red>     0..|      XE#xmlel{attrs = Attrs2}.</font>
+        |  
+        |  
+        |  -spec context_default(binary() | string()) -&gt; &lt;&lt;&gt;&gt; | [].
+        |  context_default(Attr) when is_list(Attr) -&gt;
+<font color=red>     0..|      "";</font>
+        |  context_default(_Attr) -&gt;
+<font color=red>     0..|      &lt;&lt;&gt;&gt;.</font>
+</pre>
+</body>
+</html>

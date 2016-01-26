@@ -1,0 +1,1100 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_muc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_muc.erl by COVER 2016-01-26 at 09:49:29
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_muc.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : MUC support (XEP-0045)
+        |  %%% Created : 19 Mar 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_muc).
+        |  -author('alexey@process-one.net').
+        |  -xep([{xep, 45}, {version, "1.25"}]).
+        |  -behaviour(gen_server).
+        |  -behaviour(gen_mod).
+        |  
+        |  %% API
+        |  -export([start_link/2,
+        |           start/2,
+        |           stop/1,
+        |           room_destroyed/4,
+        |           store_room/3,
+        |           restore_room/2,
+        |           forget_room/2,
+        |           create_instant_room/5,
+        |           process_iq_disco_items/4,
+        |           broadcast_service_message/2,
+        |           can_use_nick/3,
+        |           room_jid_to_pid/1]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  %% Internal exports
+        |  -export([route/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  
+        |  -export_type([access/0,
+        |               room/0,
+        |               nick/0,
+        |               packet/0,
+        |               role/0,
+        |               affiliation/0
+        |              ]).
+        |  
+        |  -type role() :: moderator | participant | visitor | none.
+        |  -type affiliation() :: admin | owner | member | outcast | none.
+        |  -type room() :: binary().
+        |  -type nick() :: binary().
+        |  -type room_host() :: ejabberd:simple_bare_jid().
+        |  -type packet() :: jlib:xmlel().
+        |  -type from_to_packet() ::
+        |          {From :: ejabberd:jid(), To :: ejabberd:jid(), Packet :: packet()}.
+        |  -type access() :: {_AccessRoute, _AccessCreate, _AccessAdmin, _AccessPersistent}.
+        |  
+        |  -record(muc_room, {
+        |            name_host,
+        |            opts
+        |           }).
+        |  
+        |  -type muc_room() :: #muc_room{
+        |                         name_host    :: room_host(),
+        |                         opts         :: list()
+        |                        }.
+        |  
+        |  -record(muc_online_room, {name_host, 
+        |                            pid 
+        |                           }).
+        |  
+        |  -type muc_online_room() :: #muc_online_room{
+        |                                name_host :: room_host(),
+        |                                pid       :: pid()
+        |                               }.
+        |  
+        |  -record(muc_registered, {
+        |            us_host,
+        |            nick
+        |           }).
+        |  
+        |  -type muc_registered() :: #muc_registered{
+        |                               us_host    :: ejabberd:literal_jid(),
+        |                               nick       :: nick()
+        |                              }.
+        |  
+        |  -record(state, {host                :: ejabberd:server(),
+        |                  server_host         :: ejabberd:literal_jid(),
+        |                  access,
+        |                  history_size        :: integer(),
+        |                  default_room_opts   :: list(),
+        |                  room_shaper         :: shaper:shaper()
+        |                }).
+        |  
+        |  -type state() :: #state{}.
+        |  
+        |  -export_type([muc_room/0, muc_registered/0]).
+        |  
+        |  -define(PROCNAME, ejabberd_mod_muc).
+        |  
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  %%--------------------------------------------------------------------
+        |  %% Function: start_link() -&gt; {ok,Pid} | ignore | {error,Error}
+        |  %% Description: Starts the server
+        |  %%--------------------------------------------------------------------
+        |  -spec start_link(ejabberd:server(), list())
+        |              -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(Host, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      gen_server:start_link({local, Proc}, ?MODULE, [Host, Opts], []).</font>
+        |  
+        |  
+        |  -spec start(ejabberd:server(),_) -&gt; {'error',_}
+        |              | {'ok','undefined' | pid()} | {'ok','undefined' | pid(),_}.
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      start_supervisor(Host),</font>
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      ChildSpec =</font>
+        |          {Proc,
+        |           {?MODULE, start_link, [Host, Opts]},
+        |           temporary,
+        |           1000,
+        |           worker,
+        |           [?MODULE]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, ChildSpec).</font>
+        |  
+        |  
+        |  -spec stop(ejabberd:server()) -&gt; 'ok'
+        |      | {'error','not_found' | 'restarting' | 'running' | 'simple_one_for_one'}.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      stop_supervisor(Host),</font>
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      gen_server:call(Proc, stop),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup, Proc).</font>
+        |  
+        |  
+        |  %% @doc This function is called by a room in three situations:
+        |  %% A) The owner of the room destroyed it
+        |  %% B) The only participant of a temporary room leaves it
+        |  %% C) mod_muc:stop was called, and each room is being terminated
+        |  %%    In this case, the mod_muc process died before the room processes
+        |  %%    So the message sending must be catched
+        |  -spec room_destroyed(ejabberd:server(), room(), pid(),
+        |                       ejabberd:server()) -&gt; 'ok'.
+        |  room_destroyed(Host, Room, Pid, ServerHost) -&gt;
+<font color=red>     0..|      catch gen_mod:get_module_proc(ServerHost, ?PROCNAME) !</font>
+        |          {room_destroyed, {Room, Host}, Pid},
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% @doc Create a room.
+        |  %% If Opts = default, the default room options are used.
+        |  %% Else use the passed options as defined in mod_muc_room.
+        |  -spec create_instant_room(ejabberd:server(), Name :: room(),
+        |      From :: ejabberd:jid(), Nick :: nick(), Opts :: list()) -&gt; any().
+        |  create_instant_room(Host, Name, From, Nick, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      gen_server:call(Proc, {create_instant, Name, From, Nick, Opts}).</font>
+        |  
+        |  
+        |  -spec store_room(ejabberd:server(), room(), list())
+        |              -&gt; {'aborted',_} | {'atomic',_}.
+        |  store_room(Host, Name, Opts) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  mnesia:write(#muc_room{name_host = {Name, Host},</font>
+        |                                         opts = Opts})
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  
+        |  -spec restore_room(ejabberd:server(), room())
+        |                                      -&gt; 'error' | 'undefined' | [any()].
+        |  restore_room(Host, Name) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(muc_room, {Name, Host}) of</font>
+        |          [#muc_room{opts = Opts}] -&gt;
+<font color=red>     0..|              Opts;</font>
+        |          _ -&gt;
+<font color=red>     0..|              error</font>
+        |      end.
+        |  
+        |  
+        |  -spec forget_room(ejabberd:server(), room()) -&gt; 'ok'.
+        |  forget_room(Host, Name) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  mnesia:delete({muc_room, {Name, Host}})</font>
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F),</font>
+<font color=red>     0..|      ejabberd_hooks:run(forget_room, Host, [Host, Name]),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec process_iq_disco_items(Host :: ejabberd:server(), From :: ejabberd:jid(),
+        |          To :: ejabberd:jid(), ejabberd:iq()) -&gt; ok | {error, lager_not_started}.
+        |  process_iq_disco_items(Host, From, To, #iq{lang = Lang} = IQ) -&gt;
+<font color=red>     0..|      Rsm = jlib:rsm_decode(IQ),</font>
+<font color=red>     0..|      Res = IQ#iq{type = result,</font>
+        |                  sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                   attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_DISCO_ITEMS}],
+        |                                   children = iq_disco_items(Host, From, Lang, Rsm)}]},
+<font color=red>     0..|      ejabberd_router:route(To,</font>
+        |                            From,
+        |                            jlib:iq_to_xml(Res)).
+        |  
+        |  
+        |  -spec can_use_nick(ejabberd:server(), ejabberd:jid(), nick()) -&gt; boolean().
+        |  can_use_nick(_Host, _JID, &lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      false;</font>
+        |  can_use_nick(Host, JID, Nick) -&gt;
+<font color=red>     0..|      {LUser, LServer, _} = jid:to_lower(JID),</font>
+<font color=red>     0..|      LUS = {LUser, LServer},</font>
+<font color=red>     0..|      case catch mnesia:dirty_select(</font>
+        |                   muc_registered,
+        |                   [{#muc_registered{us_host = '$1',
+        |                                     nick = Nick,
+        |                                     _ = '_'},
+        |                     [{'==', {element, 2, '$1'}, Host}],
+        |                     ['$_']}]) of
+        |          {'EXIT', _Reason} -&gt;
+<font color=red>     0..|              true;</font>
+        |          [] -&gt;
+<font color=red>     0..|              true;</font>
+        |          [#muc_registered{us_host = {U, _Host}}] -&gt;
+<font color=red>     0..|              U == LUS</font>
+        |      end.
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  -spec init([ejabberd:server() | list(),...]) -&gt; {'ok',state()}.
+        |  init([Host, Opts]) -&gt;
+<font color=red>     0..|      mnesia:create_table(muc_room,</font>
+        |                          [{disc_copies, [node()]},
+        |                           {attributes, record_info(fields, muc_room)}]),
+<font color=red>     0..|      mnesia:create_table(muc_registered,</font>
+        |                          [{disc_copies, [node()]},
+        |                           {attributes, record_info(fields, muc_registered)}]),
+<font color=red>     0..|      mnesia:create_table(muc_online_room,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {attributes, record_info(fields, muc_online_room)}]),
+<font color=red>     0..|      mnesia:add_table_copy(muc_online_room, node(), ram_copies),</font>
+<font color=red>     0..|      mnesia:add_table_copy(muc_room, node(), disc_copies),</font>
+<font color=red>     0..|      mnesia:add_table_copy(muc_registered, node(), disc_copies),</font>
+<font color=red>     0..|      catch ets:new(muc_online_users, [bag, named_table, public, {keypos, 2}]),</font>
+<font color=red>     0..|      MyHost = gen_mod:get_opt_host(Host, Opts, &lt;&lt;"conference.@HOST@"&gt;&gt;),</font>
+<font color=red>     0..|      update_tables(MyHost),</font>
+<font color=red>     0..|      clean_table_from_bad_node(node(), MyHost),</font>
+<font color=red>     0..|      mnesia:add_table_index(muc_registered, nick),</font>
+<font color=red>     0..|      mnesia:subscribe(system),</font>
+<font color=red>     0..|      Access = gen_mod:get_opt(access, Opts, all),</font>
+<font color=red>     0..|      AccessCreate = gen_mod:get_opt(access_create, Opts, all),</font>
+<font color=red>     0..|      AccessAdmin = gen_mod:get_opt(access_admin, Opts, none),</font>
+<font color=red>     0..|      AccessPersistent = gen_mod:get_opt(access_persistent, Opts, all),</font>
+<font color=red>     0..|      HistorySize = gen_mod:get_opt(history_size, Opts, 20),</font>
+<font color=red>     0..|      DefRoomOpts = gen_mod:get_opt(default_room_options, Opts, []),</font>
+<font color=red>     0..|      RoomShaper = gen_mod:get_opt(room_shaper, Opts, none),</font>
+        |  
+<font color=red>     0..|      State = #state{host = MyHost,</font>
+        |              server_host = Host,
+        |              access = {Access, AccessCreate, AccessAdmin, AccessPersistent},
+        |              default_room_opts = DefRoomOpts,
+        |              history_size = HistorySize,
+        |              room_shaper = RoomShaper},
+        |  
+<font color=red>     0..|      F = fun(From, To, Packet) -&gt;</font>
+<font color=red>     0..|              mod_muc:route({From, To, Packet}, State)</font>
+        |          end,
+<font color=red>     0..|      ejabberd_router:register_route(MyHost, {apply_fun, F}),</font>
+        |  
+<font color=red>     0..|      load_permanent_rooms(MyHost, Host,</font>
+        |                           {Access, AccessCreate, AccessAdmin, AccessPersistent},
+        |                           HistorySize,
+        |                           RoomShaper),
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call(stop, _From, State) -&gt;
+<font color=red>     0..|      {stop, normal, ok, State};</font>
+        |  
+        |  handle_call({create_instant, Room, From, Nick, Opts},
+        |              _From,
+        |              #state{host = Host,
+        |                     server_host = ServerHost,
+        |                     access = Access,
+        |                     default_room_opts = DefOpts,
+        |                     history_size = HistorySize,
+        |                     room_shaper = RoomShaper} = State) -&gt;
+<font color=red>     0..|      ?DEBUG("MUC: create new room '~s'~n", [Room]),</font>
+<font color=red>     0..|      NewOpts = case Opts of</font>
+<font color=red>     0..|                    default -&gt; DefOpts;</font>
+<font color=red>     0..|                    _ -&gt; Opts</font>
+        |                end,
+<font color=red>     0..|      {ok, Pid} = mod_muc_room:start(</font>
+        |                    Host, ServerHost, Access,
+        |                    Room, HistorySize,
+        |                    RoomShaper, From,
+        |            Nick, [{instant, true}|NewOpts]),
+<font color=red>     0..|      register_room(Host, Room, Pid),</font>
+<font color=red>     0..|      {reply, ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_info({route, From, To, Packet}, State) -&gt;
+<font color=red>     0..|      case catch route({From, To, Packet}, State) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason]);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info({room_destroyed, RoomHost, Pid}, State) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  mnesia:delete_object(#muc_online_room{name_host = RoomHost,</font>
+        |                                                        pid = Pid})
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info({mnesia_system_event, {mnesia_down, Node}}, State) -&gt;
+<font color=red>     0..|      clean_table_from_bad_node(Node),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, State) -&gt;
+<font color=red>     0..|      ejabberd_router:unregister_route(State#state.host),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  -spec start_supervisor(ejabberd:server()) -&gt; {'error',_}
+        |                                             | {'ok','undefined' | pid()}
+        |                                             | {'ok','undefined' | pid(),_}.
+        |  start_supervisor(Host) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ejabberd_mod_muc_sup),</font>
+<font color=red>     0..|      ChildSpec =</font>
+        |          {Proc,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [Proc, mod_muc_room]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, ChildSpec).</font>
+        |  
+        |  
+        |  -spec stop_supervisor(ejabberd:server()) -&gt; 'ok'
+        |      | {'error','not_found' | 'restarting' | 'running' | 'simple_one_for_one'}.
+        |  stop_supervisor(Host) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ejabberd_mod_muc_sup),</font>
+<font color=red>     0..|      supervisor:terminate_child(ejabberd_sup, Proc),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup, Proc).</font>
+        |  
+        |  
+        |  -spec route({From :: ejabberd:jid(),
+        |      To :: ejabberd:simple_jid() | ejabberd:jid(), Packet :: any()}, state())
+        |              -&gt; 'ok' | pid().
+        |  route(Routed, State) -&gt;
+<font color=red>     0..|      route_by_privilege(Routed, State).</font>
+        |  
+        |  
+        |  -spec route_by_privilege({From :: ejabberd:jid(),
+        |      To :: ejabberd:simple_jid() | ejabberd:jid(), Packet :: any()},
+        |          state()) -&gt; 'ok' | pid().
+        |  route_by_privilege({From, To, Packet} = Routed,
+        |                     #state{access={AccessRoute,_,_,_},
+        |                            server_host=ServerHost} = State) -&gt;
+<font color=red>     0..|      case acl:match_rule(ServerHost, AccessRoute, From) of</font>
+        |          allow -&gt;
+<font color=red>     0..|              {Room, _, _} = jid:to_lower(To),</font>
+<font color=red>     0..|              route_to_room(Room, Routed, State);</font>
+        |          _ -&gt;
+<font color=red>     0..|              #xmlel{attrs = Attrs} = Packet,</font>
+<font color=red>     0..|              Lang = xml:get_attr_s(&lt;&lt;"xml:lang"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|              ErrText = &lt;&lt;"Access denied by service policy"&gt;&gt;,</font>
+<font color=red>     0..|              Err = jlib:make_error_reply(Packet,</font>
+        |                                          ?ERRT_FORBIDDEN(Lang, ErrText)),
+<font color=red>     0..|              ejabberd_router:route_error(To, From, Err, Packet)</font>
+        |      end.
+        |  
+        |  
+        |  -spec route_to_room(room(), from_to_packet(), state()) -&gt; 'ok' | pid().
+        |  route_to_room(&lt;&lt;&gt;&gt;, {_,To,_} = Routed, State) -&gt;
+<font color=red>     0..|      {_, _, Nick} = jid:to_lower(To),</font>
+<font color=red>     0..|      route_by_nick(Nick, Routed, State);</font>
+        |  route_to_room(Room, {From,To,Packet} = Routed, #state{host=Host} = State) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(muc_online_room, {Room, Host}) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              route_to_nonexistent_room(Room, Routed, State);</font>
+        |          [R] -&gt;
+<font color=red>     0..|              Pid = R#muc_online_room.pid,</font>
+<font color=red>     0..|              ?DEBUG("MUC: send to process ~p~n", [Pid]),</font>
+<font color=red>     0..|              {_, _, Nick} = jid:to_lower(To),</font>
+<font color=red>     0..|              mod_muc_room:route(Pid, From, Nick, Packet),</font>
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec route_to_nonexistent_room(room(), from_to_packet(), state()) -&gt; 'ok'.
+        |  route_to_nonexistent_room(Room, {From, To, Packet},
+        |                            #state{host=Host} = State) -&gt;
+<font color=red>     0..|      #xmlel{name = Name, attrs = Attrs} = Packet,</font>
+<font color=red>     0..|      Type = xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|      case {Name, Type} of</font>
+        |          {&lt;&lt;"presence"&gt;&gt;, &lt;&lt;&gt;&gt;} -&gt;
+<font color=red>     0..|              ServerHost = State#state.server_host,</font>
+<font color=red>     0..|              Access = State#state.access,</font>
+<font color=red>     0..|              {_, AccessCreate, _, _} = Access,</font>
+<font color=red>     0..|              case check_user_can_create_room(ServerHost, AccessCreate,</font>
+        |                                              From, Room) of
+        |                  true -&gt;
+<font color=red>     0..|                      HistorySize = State#state.history_size,</font>
+<font color=red>     0..|                      RoomShaper  = State#state.room_shaper,</font>
+<font color=red>     0..|                      DefRoomOpts = State#state.default_room_opts,</font>
+<font color=red>     0..|                      {_, _, Nick} = jid:to_lower(To),</font>
+<font color=red>     0..|                      {ok, Pid} = start_new_room(Host, ServerHost, Access, Room,</font>
+        |                                                 HistorySize, RoomShaper, From,
+        |                                                 Nick, DefRoomOpts),
+<font color=red>     0..|                      register_room(Host, Room, Pid),</font>
+<font color=red>     0..|                      mod_muc_room:route(Pid, From, Nick, Packet),</font>
+<font color=red>     0..|                      ok;</font>
+        |                  false -&gt;
+<font color=red>     0..|                      Lang = xml:get_attr_s(&lt;&lt;"xml:lang"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|                      ErrText = &lt;&lt;"Room creation is denied by service policy"&gt;&gt;,</font>
+<font color=red>     0..|                      Err = jlib:make_error_reply(</font>
+        |                              Packet, ?ERRT_NOT_ALLOWED(Lang, ErrText)),
+<font color=red>     0..|                      ejabberd_router:route(To, From, Err)</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              Lang = xml:get_attr_s(&lt;&lt;"xml:lang"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|              ErrText = &lt;&lt;"Conference room does not exist"&gt;&gt;,</font>
+<font color=red>     0..|              Err = jlib:make_error_reply(</font>
+        |                      Packet, ?ERRT_ITEM_NOT_FOUND(Lang, ErrText)),
+<font color=red>     0..|              ejabberd_router:route(To, From, Err)</font>
+        |      end.
+        |  
+        |  
+        |  -spec route_by_nick(room(), from_to_packet(), state()) -&gt; 'ok' | pid().
+        |  route_by_nick(&lt;&lt;&gt;&gt;, {_,_,Packet} = Routed, State) -&gt;
+<font color=red>     0..|      #xmlel{name = Name} = Packet,</font>
+<font color=red>     0..|      route_by_type(Name, Routed, State);</font>
+        |  route_by_nick(_Nick, {From, To, Packet}, _State) -&gt;
+<font color=red>     0..|      #xmlel{attrs = Attrs} = Packet,</font>
+<font color=red>     0..|      case xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs) of</font>
+        |          &lt;&lt;"error"&gt;&gt; -&gt;
+<font color=red>     0..|              ok;</font>
+        |          &lt;&lt;"result"&gt;&gt; -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Err = jlib:make_error_reply(Packet, ?ERR_ITEM_NOT_FOUND),</font>
+<font color=red>     0..|              ejabberd_router:route(To, From, Err)</font>
+        |      end.
+        |  
+        |  
+        |  -spec route_by_type(binary(), from_to_packet(), state()) -&gt; 'ok' | pid().
+        |  route_by_type(&lt;&lt;"iq"&gt;&gt;, {From, To, Packet}, #state{host = Host} = State) -&gt;
+<font color=red>     0..|      ServerHost = State#state.server_host,</font>
+<font color=red>     0..|      case jlib:iq_query_info(Packet) of</font>
+        |          #iq{type = get, xmlns = ?NS_DISCO_INFO = XMLNS, lang = Lang} = IQ -&gt;
+<font color=red>     0..|              Info = ejabberd_hooks:run_fold(disco_info, ServerHost, [],</font>
+        |                                             [ServerHost, ?MODULE, "", Lang]),
+<font color=red>     0..|              Res = IQ#iq{type = result,</font>
+        |                          sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                           attrs = [{&lt;&lt;"xmlns"&gt;&gt;, XMLNS}],
+        |                                           children = iq_disco_info(Lang) ++ Info}]},
+<font color=red>     0..|              ejabberd_router:route(To, From, jlib:iq_to_xml(Res));</font>
+        |          #iq{type = get, xmlns = ?NS_DISCO_ITEMS} = IQ -&gt;
+<font color=red>     0..|              spawn(?MODULE, process_iq_disco_items, [Host, From, To, IQ]);</font>
+        |          #iq{type = get, xmlns = ?NS_REGISTER = XMLNS, lang = Lang} = IQ -&gt;
+<font color=red>     0..|              Res = IQ#iq{type = result,</font>
+        |                          sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                           attrs = [{&lt;&lt;"xmlns"&gt;&gt;, XMLNS}],
+        |                                           children = iq_get_register_info(Host, From, Lang)}]},
+<font color=red>     0..|              ejabberd_router:route(To, From, jlib:iq_to_xml(Res));</font>
+        |          #iq{type = set,
+        |              xmlns = ?NS_REGISTER = XMLNS,
+        |              lang = Lang,
+        |              sub_el = SubEl} = IQ -&gt;
+<font color=red>     0..|              case process_iq_register_set(Host, From, SubEl, Lang) of</font>
+        |                  {result, IQRes} -&gt;
+<font color=red>     0..|                      Res = IQ#iq{type = result,</font>
+        |                                  sub_el = [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                                                   attrs = [{&lt;&lt;"xmlns"&gt;&gt;, XMLNS}],
+        |                                                   children = IQRes}]},
+<font color=red>     0..|                      ejabberd_router:route(To, From, jlib:iq_to_xml(Res));</font>
+        |                  {error, Error} -&gt;
+<font color=red>     0..|                      Err = jlib:make_error_reply(Packet, Error),</font>
+<font color=red>     0..|                      ejabberd_router:route(To, From, Err)</font>
+        |              end;
+        |          #iq{type = get, xmlns = ?NS_VCARD = XMLNS, lang = Lang} = IQ -&gt;
+<font color=red>     0..|              Res = IQ#iq{type = result,</font>
+        |                          sub_el = [#xmlel{name = &lt;&lt;"vCard"&gt;&gt;,
+        |                                           attrs = [{&lt;&lt;"xmlns"&gt;&gt;, XMLNS}],
+        |                                           children = iq_get_vcard(Lang)}]},
+<font color=red>     0..|              ejabberd_router:route(To, From, jlib:iq_to_xml(Res));</font>
+        |          #iq{type = get, xmlns = ?NS_MUC_UNIQUE} = IQ -&gt;
+<font color=red>     0..|             Res = IQ#iq{type = result,</font>
+        |                         sub_el = [#xmlel{name = &lt;&lt;"unique"&gt;&gt;,
+        |                                          attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_MUC_UNIQUE}],
+        |                                          children = [iq_get_unique(From)]}]},
+<font color=red>     0..|             ejabberd_router:route(To, From, jlib:iq_to_xml(Res));</font>
+        |          #iq{} -&gt;
+<font color=red>     0..|              Err = jlib:make_error_reply(Packet, ?ERR_FEATURE_NOT_IMPLEMENTED),</font>
+<font color=red>     0..|              ejabberd_router:route(To, From, Err);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end;
+        |  route_by_type(&lt;&lt;"message"&gt;&gt;, {From, To, Packet},
+        |                #state{host = Host, server_host = ServerHost,
+        |                       access = {_,_,AccessAdmin,_}}) -&gt;
+<font color=red>     0..|      #xmlel{attrs = Attrs} = Packet,</font>
+<font color=red>     0..|      case xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs) of</font>
+        |          &lt;&lt;"error"&gt;&gt; -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              case acl:match_rule(ServerHost, AccessAdmin, From) of</font>
+        |                  allow -&gt;
+<font color=red>     0..|                      Msg = xml:get_path_s(Packet, [{elem, &lt;&lt;"body"&gt;&gt;}, cdata]),</font>
+<font color=red>     0..|                      broadcast_service_message(Host, Msg);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      Lang = xml:get_attr_s(&lt;&lt;"xml:lang"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|                      ErrText = &lt;&lt;"Only service administrators are allowed to send service messages"&gt;&gt;,</font>
+<font color=red>     0..|                      Err = ?ERRT_FORBIDDEN(Lang, ErrText),</font>
+<font color=red>     0..|                      ErrorReply = jlib:make_error_reply(Packet, Err),</font>
+<font color=red>     0..|                      ejabberd_router:route(To, From, ErrorReply)</font>
+        |              end
+        |      end;
+        |  route_by_type(&lt;&lt;"presence"&gt;&gt;, _Routed, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec check_user_can_create_room('global' | ejabberd:server(),
+        |          'allow' | atom(), ejabberd:jid(), room()) -&gt; boolean().
+        |  check_user_can_create_room(ServerHost, AccessCreate, From, RoomID) -&gt;
+<font color=red>     0..|      case acl:match_rule(ServerHost, AccessCreate, From) of</font>
+        |          allow -&gt;
+<font color=red>     0..|              (size(RoomID) =&lt; gen_mod:get_module_opt(ServerHost, mod_muc,</font>
+        |                                                      max_room_id, infinite));
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  -spec load_permanent_rooms(Host :: ejabberd:server(), Srv :: ejabberd:server(),
+        |          Access :: access(), HistorySize :: 'undefined' | integer(),
+        |          RoomShaper :: shaper:shaper()) -&gt; 'ok'.
+        |  load_permanent_rooms(Host, ServerHost, Access, HistorySize, RoomShaper) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_select(</font>
+        |                   muc_room, [{#muc_room{name_host = {'_', Host}, _ = '_'},
+        |                               [],
+        |                               ['$_']}]) of
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason]),</font>
+<font color=red>     0..|              ok;</font>
+        |          Rs -&gt;
+<font color=red>     0..|              lists:foreach(</font>
+        |                fun(R) -&gt;
+<font color=red>     0..|                        {Room, Host} = R#muc_room.name_host,</font>
+<font color=red>     0..|                        case mnesia:dirty_read(muc_online_room, {Room, Host}) of</font>
+        |                            [] -&gt;
+<font color=red>     0..|                                {ok, Pid} = mod_muc_room:start(</font>
+        |                                              Host,
+        |                                              ServerHost,
+        |                                              Access,
+        |                                              Room,
+        |                                              HistorySize,
+        |                                              RoomShaper,
+        |                                              R#muc_room.opts),
+<font color=red>     0..|                                register_room(Host, Room, Pid);</font>
+        |                            _ -&gt;
+<font color=red>     0..|                                ok</font>
+        |                        end
+        |                end, Rs)
+        |      end.
+        |  
+        |  
+        |  -spec start_new_room(Host :: 'undefined' | ejabberd:server(),
+        |          Srv :: ejabberd:server(), Access :: access(), room(),
+        |          HistorySize :: 'undefined' | integer(), RoomShaper :: shaper:shaper(),
+        |          From :: ejabberd:jid(), nick(), DefRoomOpts :: 'undefined' | [any()])
+        |              -&gt; {'error',_}
+        |               | {'ok','undefined' | pid()}
+        |               | {'ok','undefined' | pid(),_}.
+        |  start_new_room(Host, ServerHost, Access, Room,
+        |                 HistorySize, RoomShaper, From,
+        |                 Nick, DefRoomOpts) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(muc_room, {Room, Host}) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              ?DEBUG("MUC: open new room '~s'~n", [Room]),</font>
+<font color=red>     0..|              mod_muc_room:start(Host, ServerHost, Access,</font>
+        |                                 Room, HistorySize,
+        |                                 RoomShaper, From,
+        |                                 Nick, DefRoomOpts);
+        |          [#muc_room{opts = Opts}|_] -&gt;
+<font color=red>     0..|              ?DEBUG("MUC: restore room '~s'~n", [Room]),</font>
+<font color=red>     0..|              mod_muc_room:start(Host, ServerHost, Access,</font>
+        |                                 Room, HistorySize,
+        |                                 RoomShaper, Opts)
+        |      end.
+        |  
+        |  
+        |  -spec register_room('undefined' | ejabberd:server(), room(),
+        |                      'undefined' | pid()) -&gt; {'aborted',_} | {'atomic',_}.
+        |  register_room(Host, Room, Pid) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  mnesia:write(#muc_online_room{name_host = {Room, Host},</font>
+        |                                                pid = Pid})
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  
+        |  -spec room_jid_to_pid(RoomJID :: ejabberd:jid()) -&gt; {ok, pid()} | {error, not_found}.
+        |  room_jid_to_pid(#jid{luser=RoomName, lserver=MucService}) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(muc_online_room, {RoomName, MucService}) of</font>
+        |          [R] -&gt;
+<font color=red>     0..|          {ok, R#muc_online_room.pid};</font>
+        |      [] -&gt;
+<font color=red>     0..|          {error, not_found}</font>
+        |      end.
+        |  
+        |  
+        |  -spec iq_disco_info(ejabberd:lang()) -&gt; [jlib:xmlel(),...].
+        |  iq_disco_info(Lang) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"identity"&gt;&gt;,</font>
+        |              attrs = [{&lt;&lt;"category"&gt;&gt;, &lt;&lt;"conference"&gt;&gt;},
+        |                       {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"text"&gt;&gt;},
+        |                       {&lt;&lt;"name"&gt;&gt;, translate:translate(Lang, &lt;&lt;"Chatrooms"&gt;&gt;)}]},
+        |       #xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_DISCO_INFO}]},
+        |       #xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_DISCO_ITEMS}]},
+        |       #xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_MUC}]},
+        |       #xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_MUC_UNIQUE}]},
+        |       #xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_REGISTER}]},
+        |       #xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_RSM}]},
+        |       #xmlel{name = &lt;&lt;"feature"&gt;&gt;, attrs = [{&lt;&lt;"var"&gt;&gt;, ?NS_VCARD}]}].
+        |  
+        |  
+        |  -spec iq_disco_items(ejabberd:server(), ejabberd:jid(), ejabberd:lang(),
+        |          Rsm :: none | jlib:rsm_in()) -&gt; any().
+        |  iq_disco_items(Host, From, Lang, none) -&gt;
+<font color=red>     0..|      lists:zf(fun(#muc_online_room{name_host = {Name, _Host}, pid = Pid}) -&gt;</font>
+<font color=red>     0..|                       case catch gen_fsm:sync_send_all_state_event(</font>
+        |                                    Pid, {get_disco_item, From, Lang}, 100) of
+        |                           {item, Desc} -&gt;
+<font color=red>     0..|                               flush(),</font>
+<font color=red>     0..|                               {true,</font>
+        |                                #xmlel{name = &lt;&lt;"item"&gt;&gt;,
+        |                                       attrs = [{&lt;&lt;"jid"&gt;&gt;, jid:to_binary({Name, Host, &lt;&lt;&gt;&gt;})},
+        |                                                {&lt;&lt;"name"&gt;&gt;, Desc}]}};
+        |                           _ -&gt;
+<font color=red>     0..|                               false</font>
+        |                       end
+        |               end, get_vh_rooms(Host));
+        |  iq_disco_items(Host, From, Lang, Rsm) -&gt;
+<font color=red>     0..|      {Rooms, RsmO} = get_vh_rooms(Host, Rsm),</font>
+<font color=red>     0..|      RsmOut = jlib:rsm_encode(RsmO),</font>
+        |      lists:zf(fun(#muc_online_room{name_host = {Name, _Host}, pid = Pid}) -&gt;
+<font color=red>     0..|                       case catch gen_fsm:sync_send_all_state_event(</font>
+        |                                    Pid, {get_disco_item, From, Lang}, 100) of
+        |                           {item, Desc} -&gt;
+<font color=red>     0..|                               flush(),</font>
+<font color=red>     0..|                               {true,</font>
+        |                                #xmlel{name = &lt;&lt;"item"&gt;&gt;,
+        |                                       attrs = [{&lt;&lt;"jid"&gt;&gt;, jid:to_binary({Name, Host, &lt;&lt;&gt;&gt;})},
+        |                                                {&lt;&lt;"name"&gt;&gt;, Desc}]}};
+        |                           _ -&gt;
+<font color=red>     0..|                               false</font>
+        |                       end
+<font color=red>     0..|               end, Rooms) ++ RsmOut.</font>
+        |  
+        |  
+        |  -spec get_vh_rooms(ejabberd:server(), jlib:rsm_in()) -&gt; {list(), jlib:rsm_out()}.
+        |  get_vh_rooms(Host, #rsm_in{max=M, direction=Direction, id=I, index=Index}) -&gt;
+<font color=red>     0..|      AllRooms = lists:sort(get_vh_rooms(Host)),</font>
+<font color=red>     0..|      Count = erlang:length(AllRooms),</font>
+<font color=red>     0..|      Guard = case Direction of</font>
+        |                  _ when Index =/= undefined -&gt;
+<font color=red>     0..|              [{'=:=', {element, 2, '$1'}, Host}];</font>
+        |                  aft -&gt;
+<font color=red>     0..|              [{'=:=', {element, 2, '$1'}, Host},</font>
+        |               {'&gt;',   {element, 1, '$1'}, I}]; %% not exact here
+        |          before when I =/= &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|              [{'=:=', {element, 2, '$1'}, Host},</font>
+        |               {'&lt;',   {element, 1, '$1'}, I}]; %% not exact here
+        |                  _ -&gt;
+<font color=red>     0..|              [{'=:=', {element, 2, '$1'}, Host}]</font>
+        |              end,
+<font color=red>     0..|      L = lists:sort(</font>
+        |            mnesia:dirty_select(muc_online_room,
+        |                                [{#muc_online_room{name_host = '$1', _ = '_'},
+        |                                  Guard,
+        |                                  ['$_']}])),
+<font color=red>     0..|      L2 = if</font>
+        |               Index == undefined andalso Direction == before -&gt;
+<font color=red>     0..|                   lists:reverse(lists:sublist(lists:reverse(L), 1, M));</font>
+        |               Index == undefined -&gt;
+<font color=red>     0..|                   lists:sublist(L, 1, M);</font>
+        |               Index &gt; Count  orelse Index &lt; 0 -&gt;
+<font color=red>     0..|                   [];</font>
+        |               true -&gt;
+<font color=red>     0..|                   lists:sublist(L, Index+1, M)</font>
+        |           end,
+<font color=red>     0..|      if</font>
+        |          L2 == [] -&gt;
+<font color=red>     0..|              {L2, #rsm_out{count=Count}};</font>
+        |          true -&gt;
+<font color=red>     0..|              H = hd(L2),</font>
+<font color=red>     0..|              NewIndex = get_room_pos(H, AllRooms),</font>
+<font color=red>     0..|              T=lists:last(L2),</font>
+<font color=red>     0..|              {F, _} = H#muc_online_room.name_host,</font>
+<font color=red>     0..|              {Last, _} = T#muc_online_room.name_host,</font>
+<font color=red>     0..|              {L2, #rsm_out{first=F, last=Last, count=Count, index=NewIndex}}</font>
+        |      end.
+        |  
+        |  %% @doc Return the position of desired room in the list of rooms.
+        |  %% The room must exist in the list. The count starts in 0.
+        |  -spec get_room_pos(muc_online_room(), [muc_online_room()]) -&gt; integer().
+        |  get_room_pos(Desired, Rooms) -&gt;
+<font color=red>     0..|      get_room_pos(Desired, Rooms, 0).</font>
+        |  get_room_pos(Desired, [HeadRoom | _], HeadPosition)
+        |    when (Desired#muc_online_room.name_host ==
+        |          HeadRoom#muc_online_room.name_host) -&gt;
+<font color=red>     0..|      HeadPosition;</font>
+        |  get_room_pos(Desired, [_ | Rooms], HeadPosition) -&gt;
+<font color=red>     0..|      get_room_pos(Desired, Rooms, HeadPosition + 1).</font>
+        |  
+        |  
+        |  -spec flush() -&gt; 'ok'.
+        |  flush() -&gt;
+<font color=red>     0..|      receive</font>
+        |          _ -&gt;
+<font color=red>     0..|              flush()</font>
+        |      after 0 -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec xfield(Type :: binary(), Label :: binary(), Var :: binary(),
+        |               Val :: binary(), ejabberd:lang()) -&gt; jlib:xmlel().
+        |  xfield(Type, Label, Var, Val, Lang) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"field"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"type"&gt;&gt;, Type},
+        |                       {&lt;&lt;"label"&gt;&gt;, translate:translate(Lang, Label)},
+        |                       {&lt;&lt;"var"&gt;&gt;, Var}],
+        |             children = [#xmlel{name = &lt;&lt;"value"&gt;&gt;,
+        |                                children = [#xmlcdata{content = Val}]}]}.
+        |  
+        |  
+        |  %% @doc Get a pseudo unique Room Name. The Room Name is generated as a hash of
+        |  %%      the requester JID, the local time and a random salt.
+        |  %%
+        |  %%      &lt;&lt;"pseudo"&gt;&gt; because we don't verify that there is not a room
+        |  %%       with the returned Name already created, nor mark the generated Name
+        |  %%       as &lt;&lt;"already used"&gt;&gt;.  But in practice, it is unique enough. See
+        |  %%       http://xmpp.org/extensions/xep-0045.html#createroom-unique
+        |  -spec iq_get_unique(ejabberd:jid()) -&gt; jlib:xmlcdata().
+        |  iq_get_unique(From) -&gt;
+<font color=red>     0..|          #xmlcdata{content = sha:sha1_hex(term_to_binary([From, now(), randoms:get_string()]))}.</font>
+        |  
+        |  
+        |  -spec iq_get_register_info('undefined' | ejabberd:server(),
+        |          ejabberd:simple_jid() | ejabberd:jid(), ejabberd:lang())
+        |              -&gt; [jlib:xmlel(),...].
+        |  iq_get_register_info(Host, From, Lang) -&gt;
+<font color=red>     0..|      {LUser, LServer, _} = jid:to_lower(From),</font>
+<font color=red>     0..|      LUS = {LUser, LServer},</font>
+<font color=red>     0..|      {Nick, Registered} =</font>
+        |          case catch mnesia:dirty_read(muc_registered, {LUS, Host}) of
+        |              {'EXIT', _Reason} -&gt;
+<font color=red>     0..|                  {&lt;&lt;&gt;&gt;, []};</font>
+        |              [] -&gt;
+<font color=red>     0..|                  {&lt;&lt;&gt;&gt;, []};</font>
+        |              [#muc_registered{nick = N}] -&gt;
+<font color=red>     0..|                  {N, [#xmlel{name = &lt;&lt;"registered"&gt;&gt;}]}</font>
+        |          end,
+<font color=red>     0..|      Registered ++</font>
+        |          [#xmlel{name = &lt;&lt;"instructions"&gt;&gt;,
+        |                  children = [#xmlcdata{content = translate:translate(
+        |                                                    Lang, &lt;&lt;"You need a client that supports x:data to register the nickname"&gt;&gt;)}]},
+        |           #xmlel{name = &lt;&lt;"x"&gt;&gt;, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_XDATA}],
+        |                  children = [#xmlel{name = &lt;&lt;"title"&gt;&gt;,
+        |                                     children = [#xmlcdata{content = &lt;&lt;(translate:translate(
+        |                                                                       Lang, &lt;&lt;"Nickname Registration at "&gt;&gt;))/binary, Host/binary&gt;&gt;}]},
+        |                              #xmlel{name = &lt;&lt;"instructions"&gt;&gt;,
+        |                                     children = [#xmlcdata{content = translate:translate(
+        |                                                                       Lang, &lt;&lt;"Enter nickname you want to register"&gt;&gt;)}]},
+        |                              xfield(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Nickname"&gt;&gt;, &lt;&lt;"nick"&gt;&gt;, Nick, Lang)]}].
+        |  
+        |  
+        |  -spec iq_set_register_info(ejabberd:server(),
+        |          ejabberd:simple_jid() | ejabberd:jid(), nick(), ejabberd:lang())
+        |              -&gt; {'error',jlib:xmlel()} | {'result',[]}.
+        |  iq_set_register_info(Host, From, Nick, Lang) -&gt;
+<font color=red>     0..|      {LUser, LServer, _} = jid:to_lower(From),</font>
+<font color=red>     0..|      LUS = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  case Nick of</font>
+        |                      &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|                          mnesia:delete({muc_registered, {LUS, Host}}),</font>
+<font color=red>     0..|                          ok;</font>
+        |                      _ -&gt;
+<font color=red>     0..|                          Allow =</font>
+        |                              case mnesia:select(
+        |                                     muc_registered,
+        |                                     [{#muc_registered{us_host = '$1',
+        |                                                       nick = Nick,
+        |                                                       _ = '_'},
+        |                                       [{'==', {element, 2, '$1'}, Host}],
+        |                                       ['$_']}]) of
+        |                                  [] -&gt;
+<font color=red>     0..|                                      true;</font>
+        |                                  [#muc_registered{us_host = {U, _Host}}] -&gt;
+<font color=red>     0..|                                      U == LUS</font>
+        |                              end,
+<font color=red>     0..|                          if</font>
+        |                              Allow -&gt;
+<font color=red>     0..|                                  mnesia:write(</font>
+        |                                    #muc_registered{us_host = {LUS, Host},
+        |                                                    nick = Nick}),
+<font color=red>     0..|                                  ok;</font>
+        |                              true -&gt;
+<font color=red>     0..|                                  false</font>
+        |                          end
+        |                  end
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              {result, []};</font>
+        |          {atomic, false} -&gt;
+<font color=red>     0..|              ErrText = &lt;&lt;"That nickname is registered by another person"&gt;&gt;,</font>
+<font color=red>     0..|              {error, ?ERRT_CONFLICT(Lang, ErrText)};</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end.
+        |  
+        |  
+        |  -spec process_iq_register_set(ejabberd:server(), ejabberd:jid(),
+        |          jlib:xmlel(), ejabberd:lang())
+        |              -&gt; {'error', jlib:xmlel()} | {'result',[]}.
+        |  process_iq_register_set(Host, From, SubEl, Lang) -&gt;
+<font color=red>     0..|      #xmlel{children = Els} = SubEl,</font>
+<font color=red>     0..|      case xml:get_subtag(SubEl, &lt;&lt;"remove"&gt;&gt;) of</font>
+        |          false -&gt;
+<font color=red>     0..|              case xml:remove_cdata(Els) of</font>
+        |                  [#xmlel{name = &lt;&lt;"x"&gt;&gt;} = XEl] -&gt;
+<font color=red>     0..|                      case {xml:get_tag_attr_s(&lt;&lt;"xmlns"&gt;&gt;, XEl),</font>
+        |                            xml:get_tag_attr_s(&lt;&lt;"type"&gt;&gt;, XEl)} of
+        |                          {?NS_XDATA, &lt;&lt;"cancel"&gt;&gt;} -&gt;
+<font color=red>     0..|                              {result, []};</font>
+        |                          {?NS_XDATA, &lt;&lt;"submit"&gt;&gt;} -&gt;
+<font color=red>     0..|                              XData = jlib:parse_xdata_submit(XEl),</font>
+<font color=red>     0..|                              case XData of</font>
+        |                                  invalid -&gt;
+<font color=red>     0..|                                      {error, ?ERR_BAD_REQUEST};</font>
+        |                                  _ -&gt;
+<font color=red>     0..|                                      case lists:keysearch(&lt;&lt;"nick"&gt;&gt;, 1, XData) of</font>
+        |                                          {value, {_, [Nick]}} when Nick /= &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|                                              iq_set_register_info(Host, From, Nick, Lang);</font>
+        |                                          _ -&gt;
+<font color=red>     0..|                                              ErrText = &lt;&lt;"You must fill in field \"Nickname\" in the form"&gt;&gt;,</font>
+<font color=red>     0..|                                              {error, ?ERRT_NOT_ACCEPTABLE(Lang, ErrText)}</font>
+        |                                      end
+        |                              end;
+        |                          _ -&gt;
+<font color=red>     0..|                              {error, ?ERR_BAD_REQUEST}</font>
+        |                      end;
+        |                  _ -&gt;
+<font color=red>     0..|                      {error, ?ERR_BAD_REQUEST}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              iq_set_register_info(Host, From, &lt;&lt;&gt;&gt;, Lang)</font>
+        |      end.
+        |  
+        |  
+        |  -spec iq_get_vcard(ejabberd:lang()) -&gt; [jlib:xmlel(),...].
+        |  iq_get_vcard(Lang) -&gt;
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"FN"&gt;&gt;,</font>
+        |              children = [#xmlcdata{content = &lt;&lt;"ejabberd/mod_muc"&gt;&gt;}]},
+        |       #xmlel{name = &lt;&lt;"URL"&gt;&gt;, children = [#xmlcdata{content = ?EJABBERD_URI}]},
+        |       #xmlel{name = &lt;&lt;"DESC"&gt;&gt;,
+        |              children = [#xmlcdata{content =
+        |                                    &lt;&lt;(translate:translate(Lang, &lt;&lt;"ejabberd MUC module"&gt;&gt;))/binary,
+        |                                      "\nCopyright (c) 2003-2011 ProcessOne"&gt;&gt;}]}].
+        |  
+        |  
+        |  -spec broadcast_service_message(ejabberd:server(), binary() | string()) -&gt; ok.
+        |  broadcast_service_message(Host, Msg) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(#muc_online_room{pid = Pid}) -&gt;
+<font color=red>     0..|                gen_fsm:send_all_state_event(</font>
+        |                  Pid, {service_message, Msg})
+        |        end, get_vh_rooms(Host)).
+        |  
+        |  
+        |  -spec get_vh_rooms(ejabberd:server()) -&gt; [muc_online_room()].
+        |  get_vh_rooms(Host) -&gt;
+<font color=red>     0..|      mnesia:dirty_select(muc_online_room,</font>
+        |                          [{#muc_online_room{name_host = '$1', _ = '_'},
+        |                            [{'==', {element, 2, '$1'}, Host}],
+        |                            ['$_']}]).
+        |  
+        |  
+        |  -spec clean_table_from_bad_node(node()) -&gt; any().
+        |  clean_table_from_bad_node(Node) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  Es = mnesia:select(</font>
+        |                         muc_online_room,
+        |                         [{#muc_online_room{pid = '$1', _ = '_'},
+        |                           [{'==', {node, '$1'}, Node}],
+        |                           ['$_']}]),
+<font color=red>     0..|                  lists:foreach(fun(E) -&gt;</font>
+<font color=red>     0..|                                        mnesia:delete_object(E)</font>
+        |                                end, Es)
+        |          end,
+<font color=red>     0..|      mnesia:async_dirty(F).</font>
+        |  
+        |  
+        |  -spec clean_table_from_bad_node(node(), ejabberd:server()) -&gt; any().
+        |  clean_table_from_bad_node(Node, Host) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  Es = mnesia:select(</font>
+        |                         muc_online_room,
+        |                         [{#muc_online_room{pid = '$1',
+        |                                            name_host = {'_', Host},
+        |                                            _ = '_'},
+        |                           [{'==', {node, '$1'}, Node}],
+        |                           ['$_']}]),
+<font color=red>     0..|                  lists:foreach(fun(E) -&gt;</font>
+<font color=red>     0..|                                        mnesia:delete_object(E)</font>
+        |                                end, Es)
+        |          end,
+<font color=red>     0..|      mnesia:async_dirty(F).</font>
+        |  
+        |  
+        |  -spec update_tables(ejabberd:server()) -&gt; any().
+        |  update_tables(Host) -&gt;
+<font color=red>     0..|      update_muc_room_table(Host),</font>
+<font color=red>     0..|      update_muc_registered_table(Host).</font>
+        |  
+        |  
+        |  -spec update_muc_room_table(ejabberd:server()) -&gt; any().
+        |  update_muc_room_table(Host) -&gt;
+<font color=red>     0..|      Fields = record_info(fields, muc_room),</font>
+<font color=red>     0..|      case mnesia:table_info(muc_room, attributes) of</font>
+        |          Fields -&gt;
+<font color=red>     0..|              ok;</font>
+        |          [name, opts] -&gt;
+<font color=red>     0..|              ?INFO_MSG("Converting muc_room table from {name, opts} format", []),</font>
+<font color=red>     0..|              {atomic, ok} = mnesia:create_table(</font>
+        |                               mod_muc_tmp_table,
+        |                               [{disc_only_copies, [node()]},
+        |                                {type, bag},
+        |                                {local_content, true},
+        |                                {record_name, muc_room},
+        |                                {attributes, record_info(fields, muc_room)}]),
+<font color=red>     0..|              mnesia:transform_table(muc_room, ignore, Fields),</font>
+<font color=red>     0..|              F1 = fun() -&gt;</font>
+<font color=red>     0..|                           mnesia:write_lock_table(mod_muc_tmp_table),</font>
+<font color=red>     0..|                           mnesia:foldl(</font>
+        |                             fun(#muc_room{name_host = Name} = R, _) -&gt;
+<font color=red>     0..|                                     mnesia:dirty_write(</font>
+        |                                       mod_muc_tmp_table,
+        |                                       R#muc_room{name_host = {Name, Host}})
+        |                             end, ok, muc_room)
+        |                   end,
+<font color=red>     0..|              mnesia:transaction(F1),</font>
+<font color=red>     0..|              mnesia:clear_table(muc_room),</font>
+<font color=red>     0..|              F2 = fun() -&gt;</font>
+<font color=red>     0..|                           mnesia:write_lock_table(muc_room),</font>
+<font color=red>     0..|                           mnesia:foldl(</font>
+        |                             fun(R, _) -&gt;
+<font color=red>     0..|                                     mnesia:dirty_write(R)</font>
+        |                             end, ok, mod_muc_tmp_table)
+        |                   end,
+<font color=red>     0..|              mnesia:transaction(F2),</font>
+<font color=red>     0..|              mnesia:delete_table(mod_muc_tmp_table);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ?INFO_MSG("Recreating muc_room table", []),</font>
+<font color=red>     0..|              mnesia:transform_table(muc_room, ignore, Fields)</font>
+        |      end.
+        |  
+        |  
+        |  -spec update_muc_registered_table(ejabberd:server()) -&gt; any().
+        |  update_muc_registered_table(Host) -&gt;
+<font color=red>     0..|      Fields = record_info(fields, muc_registered),</font>
+<font color=red>     0..|      case mnesia:table_info(muc_registered, attributes) of</font>
+        |          Fields -&gt;
+<font color=red>     0..|              ok;</font>
+        |          [user, nick] -&gt;
+<font color=red>     0..|              ?INFO_MSG("Converting muc_registered table from {user, nick} format", []),</font>
+<font color=red>     0..|              {atomic, ok} = mnesia:create_table(</font>
+        |                               mod_muc_tmp_table,
+        |                               [{disc_only_copies, [node()]},
+        |                                {type, bag},
+        |                                {local_content, true},
+        |                                {record_name, muc_registered},
+        |                                {attributes, record_info(fields, muc_registered)}]),
+<font color=red>     0..|              mnesia:del_table_index(muc_registered, nick),</font>
+<font color=red>     0..|              mnesia:transform_table(muc_registered, ignore, Fields),</font>
+<font color=red>     0..|              F1 = fun() -&gt;</font>
+<font color=red>     0..|                           mnesia:write_lock_table(mod_muc_tmp_table),</font>
+<font color=red>     0..|                           mnesia:foldl(</font>
+        |                             fun(#muc_registered{us_host = US} = R, _) -&gt;
+<font color=red>     0..|                                     mnesia:dirty_write(</font>
+        |                                       mod_muc_tmp_table,
+        |                                       R#muc_registered{us_host = {US, Host}})
+        |                             end, ok, muc_registered)
+        |                   end,
+<font color=red>     0..|              mnesia:transaction(F1),</font>
+<font color=red>     0..|              mnesia:clear_table(muc_registered),</font>
+<font color=red>     0..|              F2 = fun() -&gt;</font>
+<font color=red>     0..|                           mnesia:write_lock_table(muc_registered),</font>
+<font color=red>     0..|                           mnesia:foldl(</font>
+        |                             fun(R, _) -&gt;
+<font color=red>     0..|                                     mnesia:dirty_write(R)</font>
+        |                             end, ok, mod_muc_tmp_table)
+        |                   end,
+<font color=red>     0..|              mnesia:transaction(F2),</font>
+<font color=red>     0..|              mnesia:delete_table(mod_muc_tmp_table);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ?INFO_MSG("Recreating muc_registered table", []),</font>
+<font color=red>     0..|              mnesia:transform_table(muc_registered, ignore, Fields)</font>
+        |      end.
+</pre>
+</body>
+</html>

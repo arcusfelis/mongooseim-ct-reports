@@ -1,0 +1,1363 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/ejabberd_s2s_out.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_s2s_out.erl by COVER 2016-01-26 at 09:49:37
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_s2s_out.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Manage outgoing server-to-server connections
+        |  %%% Created :  6 Dec 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_s2s_out).
+        |  -author('alexey@process-one.net').
+        |  -behaviour(p1_fsm).
+        |  
+        |  %% External exports
+        |  -export([start/3,
+        |           start_link/3,
+        |           start_connection/1,
+        |           terminate_if_waiting_delay/2,
+        |           stop_connection/1]).
+        |  
+        |  %% p1_fsm callbacks (same as gen_fsm)
+        |  -export([init/1,
+        |           open_socket/2,
+        |           wait_for_stream/2,
+        |           wait_for_validation/2,
+        |           wait_for_features/2,
+        |           wait_for_auth_result/2,
+        |           wait_for_starttls_proceed/2,
+        |           relay_to_bridge/2,
+        |           reopen_socket/2,
+        |           wait_before_retry/2,
+        |           stream_established/2,
+        |           handle_event/3,
+        |           handle_sync_event/4,
+        |           handle_info/3,
+        |           terminate/3,
+        |           print_state/1,
+        |           code_change/4,
+        |           test_get_addr_port/1,
+        |           get_addr_port/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(state, {socket,
+        |                  streamid,
+        |                  use_v10,
+        |                  tls = false             :: boolean(),
+        |                  tls_required = false    :: boolean(),
+        |                  tls_enabled = false     :: boolean(),
+        |                  tls_options = [connect] :: list(),
+        |                  authenticated = false   :: boolean(),
+        |                  db_enabled = true       :: boolean(),
+        |                  try_auth = true         :: boolean(),
+        |                  myname, server, queue,
+        |                  delay_to_retry = undefined_delay,
+        |                  new = false             :: false | binary(),
+        |                  verify = false          :: false | {pid(), Key :: binary(), SID :: binary()},
+        |                  bridge,
+        |                  timer                   :: reference()
+        |                }).
+        |  -type state() :: #state{}.
+        |  
+        |  -type element_queue() :: queue:queue(#xmlel{}).
+        |  -type statename() :: open_socket
+        |                     | wait_for_stream
+        |                     | wait_for_features
+        |                     | wait_for_auth_result
+        |                     | wait_for_starttls_proceed
+        |                     | wait_for_validation
+        |                     | wait_before_retry
+        |                     | relay_to_bridge.
+        |  %% FSM handler return value
+        |  -type fsm_return() :: {'stop', Reason :: 'normal', state()}
+        |                      | {'next_state', statename(), state()}
+        |                      | {'next_state', statename(), state(), Timeout :: integer()}.
+        |  %%-define(DBGFSM, true).
+        |  
+        |  -ifdef(DBGFSM).
+        |  -define(FSMOPTS, [{debug, [trace]}]).
+        |  -else.
+        |  -define(FSMOPTS, []).
+        |  -endif.
+        |  
+        |  %% Module start with or without supervisor:
+        |  -ifdef(NO_TRANSIENT_SUPERVISORS).
+        |  -define(SUPERVISOR_START, p1_fsm:start(ejabberd_s2s_out, [From, Host, Type],
+        |                                         fsm_limit_opts() ++ ?FSMOPTS)).
+        |  -else.
+        |  -define(SUPERVISOR_START, supervisor:start_child(ejabberd_s2s_out_sup,
+        |                                                   [From, Host, Type])).
+        |  -endif.
+        |  
+        |  -define(FSMTIMEOUT, 30000).
+        |  
+        |  %% We do not block on send anymore.
+        |  -define(TCP_SEND_TIMEOUT, 15000).
+        |  
+        |  %% Maximum delay to wait before retrying to connect after a failed attempt.
+        |  %% Specified in miliseconds. Default value is 5 minutes.
+        |  -define(MAX_RETRY_DELAY, 300000).
+        |  
+        |  -define(STREAM_HEADER,
+        |          &lt;&lt;"&lt;?xml version='1.0'?&gt;"
+        |          "&lt;stream:stream "
+        |          "xmlns:stream='http://etherx.jabber.org/streams' "
+        |          "xmlns='jabber:server' "
+        |          "xmlns:db='jabber:server:dialback' "
+        |          "from='~s' "
+        |          "to='~s'~s&gt;"&gt;&gt;
+        |         ).
+        |  
+        |  -define(STREAM_TRAILER, &lt;&lt;"&lt;/stream:stream&gt;"&gt;&gt;).
+        |  
+        |  -define(INVALID_NAMESPACE_ERR,
+        |          exml:to_binary(?SERR_INVALID_NAMESPACE)).
+        |  
+        |  -define(HOST_UNKNOWN_ERR,
+        |          exml:to_binary(?SERR_HOST_UNKNOWN)).
+        |  
+        |  -define(INVALID_XML_ERR,
+        |          exml:to_binary(?SERR_XML_NOT_WELL_FORMED)).
+        |  
+        |  -define(SOCKET_DEFAULT_RESULT, {error, badarg}).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  -spec start(_,_,_) -&gt; {'error',_} | {'ok','undefined' | pid()} | {'ok','undefined' | pid(),_}.
+        |  start(From, Host, Type) -&gt;
+<font color=red>     0..|      ?SUPERVISOR_START.</font>
+        |  
+        |  
+        |  -spec start_link(_,_,_) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(From, Host, Type) -&gt;
+<font color=red>     0..|      p1_fsm:start_link(ejabberd_s2s_out, [From, Host, Type],</font>
+        |                        fsm_limit_opts() ++ ?FSMOPTS).
+        |  
+        |  
+        |  start_connection(Pid) -&gt;
+<font color=red>     0..|      p1_fsm:send_event(Pid, init).</font>
+        |  
+        |  
+        |  stop_connection(Pid) -&gt;
+<font color=red>     0..|      p1_fsm:send_event(Pid, closed).</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Callback functions from p1_fsm
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: init/1
+        |  %% Returns: {ok, StateName, StateData}          |
+        |  %%          {ok, StateName, StateData, Timeout} |
+        |  %%          ignore                              |
+        |  %%          {stop, StopReason}
+        |  %%----------------------------------------------------------------------
+        |  -spec init([any(),...]) -&gt; {'ok','open_socket',state()}.
+        |  init([From, Server, Type]) -&gt;
+<font color=red>     0..|      process_flag(trap_exit, true),</font>
+<font color=red>     0..|      ?DEBUG("started: ~p", [{From, Server, Type}]),</font>
+<font color=red>     0..|      {TLS, TLSRequired} = case ejabberd_config:get_local_option(s2s_use_starttls) of</font>
+        |                UseTls when (UseTls==undefined) or (UseTls==false) -&gt;
+<font color=red>     0..|                    {false, false};</font>
+        |                UseTls when (UseTls==true) or (UseTls==optional) -&gt;
+<font color=red>     0..|                    {true, false};</font>
+        |                UseTls when (UseTls==required) or (UseTls==required_trusted) -&gt;
+<font color=red>     0..|                    {true, true}</font>
+        |            end,
+<font color=red>     0..|      UseV10 = TLS,</font>
+<font color=red>     0..|      TLSOpts = case ejabberd_config:get_local_option(s2s_certfile) of</font>
+        |  		  undefined -&gt;
+<font color=red>     0..|  		      [connect];</font>
+        |  		  CertFile -&gt;
+<font color=red>     0..|  		      [{certfile, CertFile}, connect]</font>
+        |  	      end,
+<font color=red>     0..|      TLSOpts2 = case ejabberd_config:get_local_option(s2s_ciphers) of</font>
+        |  		       undefined -&gt;
+<font color=red>     0..|  			       TLSOpts;</font>
+        |  		       Ciphers -&gt;
+<font color=red>     0..|  			       [{ciphers, Ciphers} | TLSOpts]</font>
+        |  	       end,
+<font color=red>     0..|      {New, Verify} = case Type of</font>
+        |                          {new, Key} -&gt;
+<font color=red>     0..|                              {Key, false};</font>
+        |                          {verify, Pid, Key, SID} -&gt;
+<font color=red>     0..|                              start_connection(self()),</font>
+<font color=red>     0..|                              {false, {Pid, Key, SID}}</font>
+        |                      end,
+<font color=red>     0..|      Timer = erlang:start_timer(?S2STIMEOUT, self(), []),</font>
+<font color=red>     0..|      {ok, open_socket, #state{use_v10 = UseV10,</font>
+        |  			     tls = TLS,
+        |  			     tls_required = TLSRequired,
+        |  			     tls_options = TLSOpts2,
+        |  			     queue = queue:new(),
+        |  			     myname = From,
+        |  			     server = Server,
+        |  			     new = New,
+        |  			     verify = Verify,
+        |  			     timer = Timer}}.
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: StateName/2
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  -spec open_socket(_, state()) -&gt; fsm_return().
+        |  open_socket(init, StateData) -&gt;
+<font color=red>     0..|      log_s2s_out(StateData#state.new,</font>
+        |                  StateData#state.myname,
+        |                  StateData#state.server,
+        |                  StateData#state.tls),
+<font color=red>     0..|      ?DEBUG("open_socket: ~p", [{StateData#state.myname,</font>
+        |                                  StateData#state.server,
+        |                                  StateData#state.new,
+        |                                  StateData#state.verify}]),
+<font color=red>     0..|      AddrList = get_predefined_addresses(StateData#state.server) ++</font>
+        |                 case ejabberd_s2s:domain_utf8_to_ascii(StateData#state.server) of
+        |                     false -&gt;
+<font color=red>     0..|                         [];</font>
+        |                     ASCIIAddr -&gt;
+<font color=red>     0..|                         get_addr_port(ASCIIAddr)</font>
+        |                 end,
+<font color=red>     0..|      case lists:foldl(fun({Addr, Port}, Acc) -&gt;</font>
+<font color=red>     0..|                               case Acc of</font>
+        |                                   {ok, Socket} -&gt;
+<font color=red>     0..|                                       {ok, Socket};</font>
+        |                                   _ -&gt;
+<font color=red>     0..|                                       open_socket1(Addr, Port)</font>
+        |                               end
+        |                       end, ?SOCKET_DEFAULT_RESULT, AddrList) of
+        |          {ok, Socket} -&gt;
+<font color=red>     0..|              Version = if</font>
+        |                            StateData#state.use_v10 -&gt;
+<font color=red>     0..|                                &lt;&lt;" version='1.0'"&gt;&gt;;</font>
+        |                            true -&gt;
+<font color=red>     0..|                                &lt;&lt;""&gt;&gt;</font>
+        |                        end,
+<font color=red>     0..|              NewStateData = StateData#state{socket = Socket,</font>
+        |                                             tls_enabled = false,
+        |                                             streamid = new_id()},
+<font color=red>     0..|              send_text(NewStateData, list_to_binary(</font>
+        |                                        io_lib:format(?STREAM_HEADER,
+        |                                                      [StateData#state.myname, StateData#state.server,
+        |                                                       Version]))),
+<font color=red>     0..|              {next_state, wait_for_stream, NewStateData, ?FSMTIMEOUT};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              ?INFO_MSG("s2s connection: ~s -&gt; ~s (remote server not found)",</font>
+        |                        [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|              case ejabberd_hooks:run_fold(find_s2s_bridge,</font>
+        |                                           undefined,
+        |                                           [StateData#state.myname,
+        |                                            StateData#state.server]) of
+        |                  {Mod, Fun, Type} -&gt;
+<font color=red>     0..|                      ?INFO_MSG("found a bridge to ~s for: ~s -&gt; ~s",</font>
+        |                                [Type, StateData#state.myname,
+        |                                 StateData#state.server]),
+<font color=red>     0..|                      NewStateData = StateData#state{bridge={Mod, Fun}},</font>
+<font color=red>     0..|                      {next_state, relay_to_bridge, NewStateData};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      wait_before_reconnect(StateData)</font>
+        |              end
+        |      end;
+        |  open_socket(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("s2s connection: ~s -&gt; ~s (stopped in open socket)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  open_socket(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("s2s connection: ~s -&gt; ~s (timeout in open socket)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  open_socket(_, StateData) -&gt;
+<font color=red>     0..|      {next_state, open_socket, StateData}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% IPv4
+        |  -spec open_socket1(Host :: binary() | inet:ip_address(),
+        |                     Port :: inet:port_number()) -&gt; {'error',_} | {'ok',_}.
+        |  open_socket1({_,_,_,_} = Addr, Port) -&gt;
+<font color=red>     0..|      open_socket2(inet, Addr, Port);</font>
+        |  %% IPv6
+        |  open_socket1({_,_,_,_,_,_,_,_} = Addr, Port) -&gt;
+<font color=red>     0..|      open_socket2(inet6, Addr, Port);</font>
+        |  %% Hostname
+        |  open_socket1(Host, Port) -&gt;
+<font color=red>     0..|      lists:foldl(fun(_Family, {ok, _Socket} = R) -&gt;</font>
+<font color=red>     0..|                          R;</font>
+        |                     (Family, _) -&gt;
+<font color=red>     0..|                          Addrs = get_addrs(Host, Family),</font>
+<font color=red>     0..|                          lists:foldl(fun(_Addr, {ok, _Socket} = R) -&gt;</font>
+<font color=red>     0..|                                              R;</font>
+        |                                         (Addr, _) -&gt;
+<font color=red>     0..|                                              open_socket1(Addr, Port)</font>
+        |                                      end, ?SOCKET_DEFAULT_RESULT, Addrs)
+        |                  end, ?SOCKET_DEFAULT_RESULT, outgoing_s2s_families()).
+        |  
+        |  
+        |  -spec open_socket2(Type :: 'inet' | 'inet6',
+        |                     Addr :: inet:ip_address(),
+        |                     Port :: inet:port_number()) -&gt; {'error',_} | {'ok',_}.
+        |  open_socket2(Type, Addr, Port) -&gt;
+<font color=red>     0..|      ?DEBUG("s2s_out: connecting to ~p:~p~n", [Addr, Port]),</font>
+<font color=red>     0..|      Timeout = outgoing_s2s_timeout(),</font>
+<font color=red>     0..|      SockOpts = [binary,</font>
+        |                  {packet, 0},
+        |                  {send_timeout, ?TCP_SEND_TIMEOUT},
+        |                  {send_timeout_close, true},
+        |                  {active, false},
+        |                  Type],
+        |  
+<font color=red>     0..|      case (catch ejabberd_socket:connect(Addr, Port, SockOpts, Timeout)) of</font>
+<font color=red>     0..|          {ok, _Socket} = R -&gt; R;</font>
+        |          {error, Reason} = R -&gt;
+<font color=red>     0..|              ?DEBUG("s2s_out: connect return ~p~n", [Reason]),</font>
+<font color=red>     0..|              R;</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?DEBUG("s2s_out: connect crashed ~p~n", [Reason]),</font>
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  %%----------------------------------------------------------------------
+        |  
+        |  -spec wait_for_stream(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) -&gt;
+<font color=red>     0..|      case {xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs),</font>
+        |            xml:get_attr_s(&lt;&lt;"xmlns:db"&gt;&gt;, Attrs),
+        |            xml:get_attr_s(&lt;&lt;"version"&gt;&gt;, Attrs) == &lt;&lt;"1.0"&gt;&gt;} of
+        |          {&lt;&lt;"jabber:server"&gt;&gt;, &lt;&lt;"jabber:server:dialback"&gt;&gt;, false} -&gt;
+<font color=red>     0..|              send_db_request(StateData);</font>
+        |          {&lt;&lt;"jabber:server"&gt;&gt;, &lt;&lt;"jabber:server:dialback"&gt;&gt;, true} when
+        |          StateData#state.use_v10 -&gt;
+<font color=red>     0..|              {next_state, wait_for_features, StateData, ?FSMTIMEOUT};</font>
+        |          %% Clause added to handle Tigase's workaround for an old ejabberd bug:
+        |          {&lt;&lt;"jabber:server"&gt;&gt;, &lt;&lt;"jabber:server:dialback"&gt;&gt;, true} when
+        |          not StateData#state.use_v10 -&gt;
+<font color=red>     0..|              send_db_request(StateData);</font>
+        |          {&lt;&lt;"jabber:server"&gt;&gt;, &lt;&lt;""&gt;&gt;, true} when StateData#state.use_v10 -&gt;
+<font color=red>     0..|              {next_state, wait_for_features, StateData#state{db_enabled = false}, ?FSMTIMEOUT};</font>
+        |          {NSProvided, DB, _} -&gt;
+<font color=red>     0..|              send_text(StateData, ?INVALID_NAMESPACE_ERR),</font>
+<font color=red>     0..|              ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (invalid namespace).~n"</font>
+        |                        "Namespace provided: ~p~nNamespace expected: \"jabber:server\"~n"
+        |                        "xmlns:db provided: ~p~nAll attributes: ~p",
+        |                        [StateData#state.myname, StateData#state.server, NSProvided, DB, Attrs]),
+<font color=red>     0..|              {stop, normal, StateData}</font>
+        |      end;
+        |  wait_for_stream({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (invalid xml)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_stream({xmlstreamend,_Name}, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (xmlstreamend)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_stream(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (timeout in wait_for_stream)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_stream(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (close in wait_for_stream)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  -spec wait_for_validation(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  wait_for_validation({xmlstreamelement, El}, StateData) -&gt;
+<font color=red>     0..|      case is_verify_res(El) of</font>
+        |          {result, To, From, Id, Type} -&gt;
+<font color=red>     0..|              ?DEBUG("recv result: ~p", [{From, To, Id, Type}]),</font>
+<font color=red>     0..|              case {Type, StateData#state.tls_enabled, StateData#state.tls_required} of</font>
+        |                  {&lt;&lt;"valid"&gt;&gt;, Enabled, Required} when (Enabled==true) or (Required==false) -&gt;
+<font color=red>     0..|                      send_queue(StateData, StateData#state.queue),</font>
+<font color=red>     0..|                      ?INFO_MSG("Connection established: ~s -&gt; ~s with TLS=~p",</font>
+        |                                [StateData#state.myname, StateData#state.server, StateData#state.tls_enabled]),
+<font color=red>     0..|                      ejabberd_hooks:run(s2s_connect_hook,</font>
+        |                                         [StateData#state.myname,
+        |                                          StateData#state.server]),
+<font color=red>     0..|                      {next_state, stream_established,</font>
+        |                       StateData#state{queue = queue:new()}};
+        |                  {&lt;&lt;"valid"&gt;&gt;, Enabled, Required} when (Enabled==false) and (Required==true) -&gt;
+        |                      %% TODO: bounce packets
+<font color=red>     0..|                      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (TLS is required but unavailable)",</font>
+        |                                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|                      {stop, normal, StateData};</font>
+        |                  _ -&gt;
+        |                      %% TODO: bounce packets
+<font color=red>     0..|                      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (invalid dialback key)",</font>
+        |                                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|                      {stop, normal, StateData}</font>
+        |              end;
+        |          {verify, To, From, Id, Type} -&gt;
+<font color=red>     0..|              ?DEBUG("recv verify: ~p", [{From, To, Id, Type}]),</font>
+<font color=red>     0..|              case StateData#state.verify of</font>
+        |                  false -&gt;
+<font color=red>     0..|                      NextState = wait_for_validation,</font>
+        |                      %% TODO: Should'nt we close the connection here ?
+<font color=red>     0..|                      {next_state, NextState, StateData,</font>
+        |                       get_timeout_interval(NextState)};
+        |                  {Pid, _Key, _SID} -&gt;
+<font color=red>     0..|                      case Type of</font>
+        |                          &lt;&lt;"valid"&gt;&gt; -&gt;
+<font color=red>     0..|                              p1_fsm:send_event(</font>
+        |                                Pid, {valid,
+        |                                      StateData#state.server,
+        |                                      StateData#state.myname});
+        |                          _ -&gt;
+<font color=red>     0..|                              p1_fsm:send_event(</font>
+        |                                Pid, {invalid,
+        |                                      StateData#state.server,
+        |                                      StateData#state.myname})
+        |                      end,
+<font color=red>     0..|                      if</font>
+        |                          StateData#state.verify == false -&gt;
+<font color=red>     0..|                              {stop, normal, StateData};</font>
+        |                          true -&gt;
+<font color=red>     0..|                              NextState = wait_for_validation,</font>
+<font color=red>     0..|                              {next_state, NextState, StateData,</font>
+        |                               get_timeout_interval(NextState)}
+        |                      end
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              {next_state, wait_for_validation, StateData, ?FSMTIMEOUT*3}</font>
+        |      end;
+        |  wait_for_validation({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for validation: ~s -&gt; ~s (xmlstreamend)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_validation({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for validation: ~s -&gt; ~s (xmlstreamerror)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_validation(timeout, #state{verify = {VPid, VKey, SID}} = StateData)
+        |    when is_pid(VPid) and is_binary(VKey) and is_binary(SID) -&gt;
+        |      %% This is an auxiliary s2s connection for dialback.
+        |      %% This timeout is normal and doesn't represent a problem.
+<font color=red>     0..|      ?DEBUG("wait_for_validation: ~s -&gt; ~s (timeout in verify connection)",</font>
+        |             [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_validation(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait_for_validation: ~s -&gt; ~s (connect timeout)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_validation(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for validation: ~s -&gt; ~s (closed)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  -spec wait_for_features(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  wait_for_features({xmlstreamelement, El}, StateData) -&gt;
+<font color=red>     0..|      case El of</font>
+        |          #xmlel{name = &lt;&lt;"stream:features"&gt;&gt;, children = Els} -&gt;
+<font color=red>     0..|              {SASLEXT, StartTLS, StartTLSRequired} =</font>
+        |                  lists:foldl(
+        |                    fun(#xmlel{name = &lt;&lt;"mechanisms"&gt;&gt;, attrs = Attrs1,
+        |                               children = Els1} = _El1,
+        |                        {_SEXT, STLS, STLSReq} = Acc) -&gt;
+<font color=red>     0..|                            case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs1) of</font>
+        |                                ?NS_SASL -&gt;
+<font color=red>     0..|                                    NewSEXT =</font>
+        |                                        lists:any(
+        |                                          fun(#xmlel{name = &lt;&lt;"mechanism"&gt;&gt;,
+        |                                                     children = Els2}) -&gt;
+<font color=red>     0..|                                                  case xml:get_cdata(Els2) of</font>
+<font color=red>     0..|                                                      &lt;&lt;"EXTERNAL"&gt;&gt; -&gt; true;</font>
+<font color=red>     0..|                                                      _ -&gt; false</font>
+        |                                                  end;
+<font color=red>     0..|                                             (_) -&gt; false</font>
+        |                                          end, Els1),
+<font color=red>     0..|                                    {NewSEXT, STLS, STLSReq};</font>
+        |                                _ -&gt;
+<font color=red>     0..|                                    Acc</font>
+        |                            end;
+        |                       (#xmlel{name = &lt;&lt;"starttls"&gt;&gt;, attrs = Attrs1} = El1,
+        |                        {SEXT, _STLS, _STLSReq} = Acc) -&gt;
+<font color=red>     0..|                            case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs1) of</font>
+        |                                ?NS_TLS -&gt;
+<font color=red>     0..|                                    Req = case xml:get_subtag(El1, &lt;&lt;"required"&gt;&gt;) of</font>
+<font color=red>     0..|                                              #xmlel{} -&gt; true;</font>
+<font color=red>     0..|                                              false -&gt; false</font>
+        |                                          end,
+<font color=red>     0..|                                    {SEXT, true, Req};</font>
+        |                                _ -&gt;
+<font color=red>     0..|                                    Acc</font>
+        |                            end;
+        |                       (_, Acc) -&gt;
+<font color=red>     0..|                            Acc</font>
+        |                    end, {false, false, false}, Els),
+<font color=red>     0..|              if</font>
+        |                  (not SASLEXT) and (not StartTLS) and
+        |                  StateData#state.authenticated -&gt;
+<font color=red>     0..|                      send_queue(StateData, StateData#state.queue),</font>
+<font color=red>     0..|                      ?INFO_MSG("Connection established: ~s -&gt; ~s",</font>
+        |                                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|                      ejabberd_hooks:run(s2s_connect_hook,</font>
+        |                                         [StateData#state.myname,
+        |                                          StateData#state.server]),
+<font color=red>     0..|                      {next_state, stream_established,</font>
+        |                       StateData#state{queue = queue:new()}};
+        |                  SASLEXT and StateData#state.try_auth and
+        |                  (StateData#state.new /= false) -&gt;
+<font color=red>     0..|                      send_element(StateData,</font>
+        |                                    #xmlel{name = &lt;&lt;"auth"&gt;&gt;,
+        |                                           attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_SASL},
+        |                                                    {&lt;&lt;"mechanism"&gt;&gt;, &lt;&lt;"EXTERNAL"&gt;&gt;}],
+        |                                            children = [#xmlcdata{content = jlib:encode_base64(
+        |                                                                              StateData#state.myname)}]}),
+<font color=red>     0..|                       {next_state, wait_for_auth_result,</font>
+        |                        StateData#state{try_auth = false}, ?FSMTIMEOUT};
+        |                   StartTLS and StateData#state.tls and
+        |                    (not StateData#state.tls_enabled) -&gt;
+<font color=red>     0..|                       send_element(StateData,</font>
+        |                                    #xmlel{name = &lt;&lt;"starttls"&gt;&gt;,
+        |                                           attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_TLS}]}),
+<font color=red>     0..|                       {next_state, wait_for_starttls_proceed, StateData,</font>
+        |                        ?FSMTIMEOUT};
+        |                   StartTLSRequired and (not StateData#state.tls) -&gt;
+<font color=red>     0..|                       ?DEBUG("restarted: ~p", [{StateData#state.myname,</font>
+        |                                                 StateData#state.server}]),
+<font color=red>     0..|                       ejabberd_socket:close(StateData#state.socket),</font>
+<font color=red>     0..|                       {next_state, reopen_socket,</font>
+        |                        StateData#state{socket = undefined,
+        |                                        use_v10 = false}, ?FSMTIMEOUT};
+        |                   StateData#state.db_enabled -&gt;
+<font color=red>     0..|                       send_db_request(StateData);</font>
+        |                   true -&gt;
+<font color=red>     0..|                       ?DEBUG("restarted: ~p", [{StateData#state.myname,</font>
+        |                                                 StateData#state.server}]),
+        |                       % TODO: clear message queue
+<font color=red>     0..|                       ejabberd_socket:close(StateData#state.socket),</font>
+<font color=red>     0..|                       {next_state, reopen_socket, StateData#state{socket = undefined,</font>
+        |                                                                   use_v10 = false}, ?FSMTIMEOUT}
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              send_text(StateData,</font>
+        |                        &lt;&lt;(exml:to_binary(?SERR_BAD_FORMAT))/binary,
+        |                        (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|              ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (bad format)",</font>
+        |                        [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|              {stop, normal, StateData}</font>
+        |      end;
+        |  wait_for_features({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait_for_features: xmlstreamend", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_features({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      ?INFO_MSG("wait for features: xmlstreamerror", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_features(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for features: timeout", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_features(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for features: closed", []),</font>
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  -spec wait_for_auth_result(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  wait_for_auth_result({xmlstreamelement, El}, StateData) -&gt;
+<font color=red>     0..|      case El of</font>
+        |          #xmlel{name = &lt;&lt;"success"&gt;&gt;, attrs = Attrs} -&gt;
+<font color=red>     0..|              case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs) of</font>
+        |                  ?NS_SASL -&gt;
+<font color=red>     0..|                      ?DEBUG("auth: ~p", [{StateData#state.myname,</font>
+        |                                           StateData#state.server}]),
+<font color=red>     0..|                      ejabberd_socket:reset_stream(StateData#state.socket),</font>
+<font color=red>     0..|                      send_text(StateData,</font>
+        |                                list_to_binary(
+        |                                  io_lib:format(?STREAM_HEADER,
+        |                                                [StateData#state.myname, StateData#state.server,
+        |                                                 &lt;&lt;" version='1.0'"&gt;&gt;]))),
+<font color=red>     0..|                      {next_state, wait_for_stream,</font>
+        |                       StateData#state{streamid = new_id(),
+        |                                       authenticated = true
+        |                                      }, ?FSMTIMEOUT};
+        |                  _ -&gt;
+<font color=red>     0..|                      send_text(StateData,</font>
+        |                                &lt;&lt;(exml:to_binary(?SERR_BAD_FORMAT))/binary,
+        |                                (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|                      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (bad format)",</font>
+        |                                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|                      {stop, normal, StateData}</font>
+        |              end;
+        |          #xmlel{name = &lt;&lt;"failure"&gt;&gt;, attrs = Attrs} -&gt;
+<font color=red>     0..|              case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs) of</font>
+        |                  ?NS_SASL -&gt;
+<font color=red>     0..|                      ?DEBUG("restarted: ~p", [{StateData#state.myname,</font>
+        |                                                StateData#state.server}]),
+<font color=red>     0..|                      ejabberd_socket:close(StateData#state.socket),</font>
+<font color=red>     0..|                      {next_state, reopen_socket,</font>
+        |                       StateData#state{socket = undefined}, ?FSMTIMEOUT};
+        |                  _ -&gt;
+<font color=red>     0..|                      send_text(StateData,</font>
+        |                                &lt;&lt;(exml:to_binary(?SERR_BAD_FORMAT))/binary,
+        |                                (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|                      ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (bad format)",</font>
+        |                                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|                      {stop, normal, StateData}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              send_text(StateData,</font>
+        |                        &lt;&lt;(exml:to_binary(?SERR_BAD_FORMAT))/binary,
+        |                                (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|              ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (bad format)",</font>
+        |                        [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|              {stop, normal, StateData}</font>
+        |      end;
+        |  wait_for_auth_result({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for auth result: xmlstreamend", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_auth_result({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      ?INFO_MSG("wait for auth result: xmlstreamerror", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_auth_result(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for auth result: timeout", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_auth_result(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for auth result: closed", []),</font>
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  -spec wait_for_starttls_proceed(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  wait_for_starttls_proceed({xmlstreamelement, El}, StateData) -&gt;
+<font color=red>     0..|      case El of</font>
+        |  	#xmlel{name = &lt;&lt;"proceed"&gt;&gt;, attrs = Attrs} -&gt;
+<font color=red>     0..|  	    case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs) of</font>
+        |  		?NS_TLS -&gt;
+<font color=red>     0..|  		    ?DEBUG("starttls: ~p", [{StateData#state.myname,</font>
+        |  					     StateData#state.server}]),
+<font color=red>     0..|  		    Socket = StateData#state.socket,</font>
+<font color=red>     0..|  		    TLSOpts = case ejabberd_config:get_local_option(</font>
+        |  				     {domain_certfile,
+        |  				      binary_to_list(StateData#state.myname)}) of
+        |  				  undefined -&gt;
+<font color=red>     0..|  				      StateData#state.tls_options;</font>
+        |  				  CertFile -&gt;
+<font color=red>     0..|  				      [{certfile, CertFile} |</font>
+        |  				       lists:keydelete(
+        |  					 certfile, 1,
+        |  					 StateData#state.tls_options)]
+        |  			      end,
+<font color=red>     0..|  		    TLSOpts2 = case ejabberd_config:get_local_option(s2s_ciphers) of</font>
+        |  				       undefined -&gt;
+<font color=red>     0..|  					       TLSOpts;</font>
+        |  				       Ciphers -&gt;
+<font color=red>     0..|  					       [{ciphers, Ciphers} | TLSOpts]</font>
+        |  			       end,
+<font color=red>     0..|  		    TLSSocket = ejabberd_socket:starttls(Socket, TLSOpts2),</font>
+<font color=red>     0..|  		    NewStateData = StateData#state{socket = TLSSocket,</font>
+        |  						   streamid = new_id(),
+        |  						   tls_enabled = true,
+        |  						   tls_options = TLSOpts2
+        |  						  },
+<font color=red>     0..|  		    send_text(NewStateData,</font>
+        |                        list_to_binary(
+        |                          io_lib:format(?STREAM_HEADER,
+        |                                        [StateData#state.myname, StateData#state.server,
+        |                                         &lt;&lt;" version='1.0'"&gt;&gt;]))),
+<font color=red>     0..|  		    {next_state, wait_for_stream, NewStateData, ?FSMTIMEOUT};</font>
+        |  		_ -&gt;
+<font color=red>     0..|  		    send_text(StateData,</font>
+        |  			      &lt;&lt;(exml:to_binary(?SERR_BAD_FORMAT))/binary,
+        |  			      (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|  		    ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (bad format)",</font>
+        |  			      [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|  		    {stop, normal, StateData}</font>
+        |  	    end;
+        |  	_ -&gt;
+<font color=red>     0..|  	    ?INFO_MSG("Closing s2s connection: ~s -&gt; ~s (bad format)",</font>
+        |  		      [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|  	    {stop, normal, StateData}</font>
+        |      end;
+        |  wait_for_starttls_proceed({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for starttls proceed: xmlstreamend", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_starttls_proceed({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      ?INFO_MSG("wait for starttls proceed: xmlstreamerror", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_starttls_proceed(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for starttls proceed: timeout", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_starttls_proceed(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("wait for starttls proceed: closed", []),</font>
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  -spec reopen_socket(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  reopen_socket({xmlstreamelement, _El}, StateData) -&gt;
+<font color=red>     0..|      {next_state, reopen_socket, StateData, ?FSMTIMEOUT};</font>
+        |  reopen_socket({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      {next_state, reopen_socket, StateData, ?FSMTIMEOUT};</font>
+        |  reopen_socket({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      {next_state, reopen_socket, StateData, ?FSMTIMEOUT};</font>
+        |  reopen_socket(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("reopen socket: timeout", []),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  reopen_socket(closed, StateData) -&gt;
+<font color=red>     0..|      p1_fsm:send_event(self(), init),</font>
+<font color=red>     0..|      {next_state, open_socket, StateData, ?FSMTIMEOUT}.</font>
+        |  
+        |  
+        |  %% @doc This state is use to avoid reconnecting to often to bad sockets
+        |  -spec wait_before_retry(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  wait_before_retry(_Event, StateData) -&gt;
+<font color=red>     0..|      {next_state, wait_before_retry, StateData, ?FSMTIMEOUT}.</font>
+        |  
+        |  
+        |  -spec relay_to_bridge(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  relay_to_bridge(stop, StateData) -&gt;
+<font color=red>     0..|      wait_before_reconnect(StateData);</font>
+        |  relay_to_bridge(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("relay to bridge: ~s -&gt; ~s (closed)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  relay_to_bridge(_Event, StateData) -&gt;
+<font color=red>     0..|      {next_state, relay_to_bridge, StateData}.</font>
+        |  
+        |  
+        |  -spec stream_established(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  stream_established({xmlstreamelement, El}, StateData) -&gt;
+<font color=red>     0..|      ?DEBUG("s2S stream established", []),</font>
+<font color=red>     0..|      case is_verify_res(El) of</font>
+        |          {verify, VTo, VFrom, VId, VType} -&gt;
+<font color=red>     0..|              ?DEBUG("recv verify: ~p", [{VFrom, VTo, VId, VType}]),</font>
+<font color=red>     0..|              case StateData#state.verify of</font>
+        |                  {VPid, _VKey, _SID} -&gt;
+<font color=red>     0..|                      case VType of</font>
+        |                          &lt;&lt;"valid"&gt;&gt; -&gt;
+<font color=red>     0..|                              p1_fsm:send_event(</font>
+        |                                VPid, {valid,
+        |                                       StateData#state.server,
+        |                                       StateData#state.myname});
+        |                          _ -&gt;
+<font color=red>     0..|                              p1_fsm:send_event(</font>
+        |                                VPid, {invalid,
+        |                                       StateData#state.server,
+        |                                       StateData#state.myname})
+        |                      end;
+        |                  _ -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      {next_state, stream_established, StateData};</font>
+        |  stream_established({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("Connection closed in stream established: ~s -&gt; ~s (xmlstreamend)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  stream_established({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      ?INFO_MSG("stream established: ~s -&gt; ~s (xmlstreamerror)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  stream_established(timeout, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("stream established: ~s -&gt; ~s (timeout)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  stream_established(closed, StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("stream established: ~s -&gt; ~s (closed)",</font>
+        |                [StateData#state.myname, StateData#state.server]),
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: StateName/3
+        |  %% Returns: {next_state, NextStateName, NextStateData}            |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout}   |
+        |  %%          {reply, Reply, NextStateName, NextStateData}          |
+        |  %%          {reply, Reply, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}                          |
+        |  %%          {stop, Reason, Reply, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  %%state_name(Event, From, StateData) -&gt;
+        |  %%    Reply = ok,
+        |  %%    {reply, Reply, state_name, StateData}.
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_event/3
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  handle_event(_Event, StateName, StateData) -&gt;
+<font color=red>     0..|      {next_state, StateName, StateData, get_timeout_interval(StateName)}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_sync_event/4
+        |  %% Returns: The associated StateData for this connection
+        |  %%   {reply, Reply, NextStateName, NextStateData}
+        |  %%   Reply = {state_infos, [{InfoName::atom(), InfoValue::any()]
+        |  %%----------------------------------------------------------------------
+        |  handle_sync_event(get_state_infos, _From, StateName, StateData) -&gt;
+<font color=red>     0..|      {Addr,Port} = try ejabberd_socket:peername(StateData#state.socket) of</font>
+<font color=red>     0..|                        {ok, {A,P}} -&gt;  {A,P};</font>
+<font color=red>     0..|                        {error, _} -&gt; {unknown,unknown}</font>
+        |                    catch
+        |                        _:_ -&gt;
+<font color=red>     0..|                            {unknown,unknown}</font>
+        |                    end,
+<font color=red>     0..|      Infos = [</font>
+        |               {direction, out},
+        |               {statename, StateName},
+        |               {addr, Addr},
+        |               {port, Port},
+        |               {streamid, StateData#state.streamid},
+        |               {use_v10, StateData#state.use_v10},
+        |               {tls, StateData#state.tls},
+        |               {tls_required, StateData#state.tls_required},
+        |               {tls_enabled, StateData#state.tls_enabled},
+        |               {tls_options, StateData#state.tls_options},
+        |               {authenticated, StateData#state.authenticated},
+        |               {db_enabled, StateData#state.db_enabled},
+        |               {try_auth, StateData#state.try_auth},
+        |               {myname, StateData#state.myname},
+        |               {server, StateData#state.server},
+        |               {delay_to_retry, StateData#state.delay_to_retry},
+        |               {verify, StateData#state.verify}
+        |              ],
+<font color=red>     0..|      Reply = {state_infos, Infos},</font>
+<font color=red>     0..|      {reply,Reply,StateName,StateData};</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_sync_event/4
+        |  %% Returns: {next_state, NextStateName, NextStateData}            |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout}   |
+        |  %%          {reply, Reply, NextStateName, NextStateData}          |
+        |  %%          {reply, Reply, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}                          |
+        |  %%          {stop, Reason, Reply, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  handle_sync_event(_Event, _From, StateName, StateData) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, StateName, StateData, get_timeout_interval(StateName)}.</font>
+        |  
+        |  
+        |  code_change(_OldVsn, StateName, StateData, _Extra) -&gt;
+<font color=red>     0..|      {ok, StateName, StateData}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_info/3
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  handle_info({send_text, Text}, StateName, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData, Text),</font>
+<font color=red>     0..|      cancel_timer(StateData#state.timer),</font>
+<font color=red>     0..|      Timer = erlang:start_timer(?S2STIMEOUT, self(), []),</font>
+<font color=red>     0..|      {next_state, StateName, StateData#state{timer = Timer},</font>
+        |       get_timeout_interval(StateName)};
+        |  handle_info({send_element, El}, StateName, StateData) -&gt;
+<font color=red>     0..|      case StateName of</font>
+        |          stream_established -&gt;
+<font color=red>     0..|              cancel_timer(StateData#state.timer),</font>
+<font color=red>     0..|              Timer = erlang:start_timer(?S2STIMEOUT, self(), []),</font>
+<font color=red>     0..|              send_element(StateData, El),</font>
+<font color=red>     0..|              {next_state, StateName, StateData#state{timer = Timer}};</font>
+        |          %% In this state we bounce all message: We are waiting before
+        |          %% trying to reconnect
+        |          wait_before_retry -&gt;
+<font color=red>     0..|              bounce_element(El, ?ERR_REMOTE_SERVER_NOT_FOUND),</font>
+<font color=red>     0..|              {next_state, StateName, StateData};</font>
+        |          relay_to_bridge -&gt;
+        |              %% In this state we relay all outbound messages
+        |              %% to a foreign protocol bridge such as SMTP, SIP, etc.
+<font color=red>     0..|              {Mod, Fun} = StateData#state.bridge,</font>
+<font color=red>     0..|              ?DEBUG("relaying stanza via ~p:~p/1", [Mod, Fun]),</font>
+<font color=red>     0..|              case catch Mod:Fun(El) of</font>
+        |                  {'EXIT', Reason} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("Error while relaying to bridge: ~p", [Reason]),</font>
+<font color=red>     0..|                      bounce_element(El, ?ERR_INTERNAL_SERVER_ERROR),</font>
+<font color=red>     0..|                      wait_before_reconnect(StateData);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {next_state, StateName, StateData}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              Q = queue:in(El, StateData#state.queue),</font>
+<font color=red>     0..|              {next_state, StateName, StateData#state{queue = Q},</font>
+        |               get_timeout_interval(StateName)}
+        |      end;
+        |  handle_info({timeout, Timer, _}, wait_before_retry,
+        |              #state{timer = Timer} = StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("Reconnect delay expired: Will now retry to connect to ~s when needed.", [StateData#state.server]),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  handle_info({timeout, Timer, _}, _StateName,
+        |              #state{timer = Timer} = StateData) -&gt;
+<font color=red>     0..|      ?INFO_MSG("Closing connection with ~s: timeout", [StateData#state.server]),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  handle_info(terminate_if_waiting_before_retry, wait_before_retry, StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  handle_info(terminate_if_waiting_before_retry, StateName, StateData) -&gt;
+<font color=red>     0..|      {next_state, StateName, StateData, get_timeout_interval(StateName)};</font>
+        |  handle_info(_, StateName, StateData) -&gt;
+<font color=red>     0..|      {next_state, StateName, StateData, get_timeout_interval(StateName)}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: terminate/3
+        |  %% Purpose: Shutdown the fsm
+        |  %% Returns: any
+        |  %%----------------------------------------------------------------------
+        |  terminate(Reason, StateName, StateData) -&gt;
+<font color=red>     0..|      ?DEBUG("terminated: ~p", [{Reason, StateName}]),</font>
+<font color=red>     0..|      case StateData#state.new of</font>
+        |          false -&gt;
+<font color=red>     0..|              ok;</font>
+        |          Key -&gt;
+<font color=red>     0..|              ejabberd_s2s:remove_connection(</font>
+        |                {StateData#state.myname, StateData#state.server}, self(), Key)
+        |      end,
+        |      %% bounce queue manage by process and Erlang message queue
+<font color=red>     0..|      bounce_queue(StateData#state.queue, ?ERR_REMOTE_SERVER_NOT_FOUND),</font>
+<font color=red>     0..|      bounce_messages(?ERR_REMOTE_SERVER_NOT_FOUND),</font>
+<font color=red>     0..|      case StateData#state.socket of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _Socket -&gt;
+<font color=red>     0..|              ejabberd_socket:close(StateData#state.socket)</font>
+        |      end,
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: print_state/1
+        |  %% Purpose: Prepare the state to be printed on error log
+        |  %% Returns: State to print
+        |  %%----------------------------------------------------------------------
+        |  print_state(State) -&gt;
+<font color=red>     0..|      State.</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec send_text(state(), binary()) -&gt; 'ok'.
+        |  send_text(StateData, Text) -&gt;
+<font color=red>     0..|      ejabberd_socket:send(StateData#state.socket, Text).</font>
+        |  
+        |  
+        |  -spec send_element(state(), jlib:xmlel()) -&gt; 'ok'.
+        |  send_element(StateData, El) -&gt;
+<font color=red>     0..|      send_text(StateData, exml:to_binary(El)).</font>
+        |  
+        |  
+        |  -spec send_queue(state(), Q :: element_queue()) -&gt; 'ok'.
+        |  send_queue(StateData, Q) -&gt;
+<font color=red>     0..|      case queue:out(Q) of</font>
+        |          {{value, El}, Q1} -&gt;
+<font color=red>     0..|              send_element(StateData, El),</font>
+<font color=red>     0..|              send_queue(StateData, Q1);</font>
+        |          {empty, _Q1} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Bounce a single message (xmlel)
+        |  -spec bounce_element(El :: jlib:xmlel(), Error :: jlib:xmlel()) -&gt; 'ok'.
+        |  bounce_element(El, Error) -&gt;
+<font color=red>     0..|      #xmlel{attrs = Attrs} = El,</font>
+<font color=red>     0..|      case xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs) of</font>
+<font color=red>     0..|          &lt;&lt;"error"&gt;&gt; -&gt; ok;</font>
+<font color=red>     0..|          &lt;&lt;"result"&gt;&gt; -&gt; ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Err = jlib:make_error_reply(El, Error),</font>
+<font color=red>     0..|              From = jid:from_binary(xml:get_tag_attr_s(&lt;&lt;"from"&gt;&gt;, El)),</font>
+<font color=red>     0..|              To = jid:from_binary(xml:get_tag_attr_s(&lt;&lt;"to"&gt;&gt;, El)),</font>
+<font color=red>     0..|              ejabberd_router:route(To, From, Err)</font>
+        |      end.
+        |  
+        |  
+        |  -spec bounce_queue(Q :: element_queue(), Error :: jlib:xmlel()) -&gt; 'ok'.
+        |  bounce_queue(Q, Error) -&gt;
+<font color=red>     0..|      case queue:out(Q) of</font>
+        |          {{value, El}, Q1} -&gt;
+<font color=red>     0..|              bounce_element(El, Error),</font>
+<font color=red>     0..|              bounce_queue(Q1, Error);</font>
+        |          {empty, _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec new_id() -&gt; binary().
+        |  new_id() -&gt;
+<font color=red>     0..|      list_to_binary(randoms:get_string()).</font>
+        |  
+        |  
+        |  -spec cancel_timer(reference()) -&gt; 'ok'.
+        |  cancel_timer(Timer) -&gt;
+<font color=red>     0..|      erlang:cancel_timer(Timer),</font>
+<font color=red>     0..|      receive</font>
+        |          {timeout, Timer, _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      after 0 -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec bounce_messages(jlib:xmlel()) -&gt; 'ok'.
+        |  bounce_messages(Error) -&gt;
+<font color=red>     0..|      receive</font>
+        |          {send_element, El} -&gt;
+<font color=red>     0..|              bounce_element(El, Error),</font>
+<font color=red>     0..|              bounce_messages(Error)</font>
+        |      after 0 -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec send_db_request(state()) -&gt; fsm_return().
+        |  send_db_request(StateData) -&gt;
+<font color=red>     0..|      Server = StateData#state.server,</font>
+<font color=red>     0..|      New = case StateData#state.new of</font>
+        |                false -&gt;
+<font color=red>     0..|                    case ejabberd_s2s:try_register(</font>
+        |                           {StateData#state.myname, Server}) of
+        |                        {key, Key} -&gt;
+<font color=red>     0..|                            Key;</font>
+        |                        false -&gt;
+<font color=red>     0..|                            false</font>
+        |                    end;
+        |                Key -&gt;
+<font color=red>     0..|                    Key</font>
+        |            end,
+<font color=red>     0..|      NewStateData = StateData#state{new = New},</font>
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          case New of</font>
+        |              false -&gt;
+<font color=red>     0..|                  ok;</font>
+        |              Key1 -&gt;
+<font color=red>     0..|                  send_element(StateData,</font>
+        |                               #xmlel{name = &lt;&lt;"db:result"&gt;&gt;,
+        |                                      attrs = [{&lt;&lt;"from"&gt;&gt;, StateData#state.myname},
+        |                                               {&lt;&lt;"to"&gt;&gt;, Server}],
+        |                                      children = [#xmlcdata{content = Key1}]})
+        |          end,
+<font color=red>     0..|          case StateData#state.verify of</font>
+        |              false -&gt;
+<font color=red>     0..|                  ok;</font>
+        |              {_Pid, Key2, SID} -&gt;
+<font color=red>     0..|                  send_element(StateData,</font>
+        |                               #xmlel{name = &lt;&lt;"db:verify"&gt;&gt;,
+        |                                      attrs = [{&lt;&lt;"from"&gt;&gt;, StateData#state.myname},
+        |                                               {&lt;&lt;"to"&gt;&gt;, StateData#state.server},
+        |                                               {&lt;&lt;"id"&gt;&gt;, SID}],
+        |                                      children = [#xmlcdata{content = Key2}]})
+        |          end,
+<font color=red>     0..|          {next_state, wait_for_validation, NewStateData, ?FSMTIMEOUT*6}</font>
+        |      catch
+        |          _:_ -&gt;
+<font color=red>     0..|              {stop, normal, NewStateData}</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_verify_res(jlib:xmlel()) -&gt; 'false' | {'result',_,_,_,_} | {'verify',_,_,_,_}.
+        |  is_verify_res(#xmlel{name = Name,
+        |                       attrs = Attrs}) when Name == &lt;&lt;"db:result"&gt;&gt; -&gt;
+<font color=red>     0..|      {result,</font>
+        |       xml:get_attr_s(&lt;&lt;"to"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"from"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"id"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs)};
+        |  is_verify_res(#xmlel{name = Name,
+        |                       attrs = Attrs}) when Name == &lt;&lt;"db:verify"&gt;&gt; -&gt;
+<font color=red>     0..|      {verify,</font>
+        |       xml:get_attr_s(&lt;&lt;"to"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"from"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"id"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs)};
+        |  is_verify_res(_) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  
+        |  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        |  %% SRV support
+        |  
+        |  -include_lib("kernel/include/inet.hrl").
+        |  
+        |  -spec get_addr_port(ejabberd:server()) -&gt; [{inet:ip_address(), inet:port_number()}].
+        |  get_addr_port(Server) -&gt;
+<font color=red>     0..|      Res = srv_lookup(Server),</font>
+<font color=red>     0..|      case Res of</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?DEBUG("srv lookup of '~s' failed: ~p~n", [Server, Reason]),</font>
+<font color=red>     0..|              [{Server, outgoing_s2s_port()}];</font>
+        |          {ok, #hostent{h_addr_list = AddrList}} -&gt;
+        |              %% Probabilities are not exactly proportional to weights
+        |              %% for simplicity (higher weigths are overvalued)
+<font color=red>     0..|              {A1, A2, A3} = now(),</font>
+<font color=red>     0..|              random:seed(A1, A2, A3),</font>
+<font color=red>     0..|              case (catch lists:map(</font>
+        |                            fun({Priority, Weight, Port, Host}) -&gt;
+<font color=red>     0..|                                    N = case Weight of</font>
+<font color=red>     0..|                                            0 -&gt; 0;</font>
+<font color=red>     0..|                                            _ -&gt; (Weight + 1) * random:uniform()</font>
+        |                                        end,
+<font color=red>     0..|                                    {Priority * 65536 - N, Host, Port}</font>
+        |                            end, AddrList)) of
+        |                  {'EXIT', _Reason} -&gt;
+<font color=red>     0..|                      [{Server, outgoing_s2s_port()}];</font>
+        |                  SortedList -&gt;
+<font color=red>     0..|                      List = lists:map(</font>
+        |                               fun({_, Host, Port}) -&gt;
+<font color=red>     0..|                                       {Host, Port}</font>
+        |                               end, lists:keysort(1, SortedList)),
+<font color=red>     0..|                      ?DEBUG("srv lookup of '~s': ~p~n", [Server, List]),</font>
+<font color=red>     0..|                      List</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec srv_lookup(ejabberd:server()) -&gt; {'error',atom()} | {'ok', inet:hostent()}.
+        |  srv_lookup(Server) -&gt;
+<font color=red>     0..|      Options = case ejabberd_config:get_local_option(s2s_dns_options) of</font>
+<font color=red>     0..|                    L when is_list(L) -&gt; L;</font>
+<font color=red>     0..|                    _ -&gt; []</font>
+        |                end,
+<font color=red>     0..|      TimeoutMs = timer:seconds(proplists:get_value(timeout, Options, 10)),</font>
+<font color=red>     0..|      Retries = proplists:get_value(retries, Options, 2),</font>
+<font color=red>     0..|      srv_lookup(Server, TimeoutMs, Retries).</font>
+        |  
+        |  
+        |  %% @doc XXX - this behaviour is suboptimal in the case that the domain
+        |  %% has a "_xmpp-server._tcp." but not a "_jabber._tcp." record and
+        |  %% we don't get a DNS reply for the "_xmpp-server._tcp." lookup. In this
+        |  %% case we'll give up when we get the "_jabber._tcp." nxdomain reply.
+        |  -spec srv_lookup(ejabberd:server(),
+        |                   Timeout :: non_neg_integer(),
+        |                   Retries :: pos_integer()
+        |                   ) -&gt; {'error',atom()} | {'ok', inet:hostent()}.
+        |  srv_lookup(_Server, _Timeout, Retries) when Retries &lt; 1 -&gt;
+<font color=red>     0..|      {error, timeout};</font>
+        |  srv_lookup(Server, Timeout, Retries) -&gt;
+<font color=red>     0..|      case inet_res:getbyname("_xmpp-server._tcp." ++ binary_to_list(Server), srv, Timeout) of</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              case inet_res:getbyname("_jabber._tcp." ++ binary_to_list(Server), srv, Timeout) of</font>
+        |                  {error, timeout} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("The DNS servers~n  ~p~ntimed out on request"</font>
+        |                                 " for ~p IN SRV."
+        |                                 " You should check your DNS configuration.",
+        |                                 [inet_db:res_option(nameserver), Server]),
+<font color=red>     0..|                      srv_lookup(Server, Timeout, Retries - 1);</font>
+<font color=red>     0..|                  R -&gt; R</font>
+        |              end;
+<font color=red>     0..|          {ok, _HEnt} = R -&gt; R</font>
+        |      end.
+        |  
+        |  
+        |  test_get_addr_port(Server) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |        fun(_, Acc) -&gt;
+<font color=red>     0..|                [HostPort | _] = get_addr_port(Server),</font>
+<font color=red>     0..|                case lists:keysearch(HostPort, 1, Acc) of</font>
+        |                    false -&gt;
+<font color=red>     0..|                        [{HostPort, 1} | Acc];</font>
+        |                    {value, {_, Num}} -&gt;
+<font color=red>     0..|                        lists:keyreplace(HostPort, 1, Acc, {HostPort, Num + 1})</font>
+        |                end
+        |        end, [], lists:seq(1, 100000)).
+        |  
+        |  
+        |  -spec get_addrs(Host :: atom() | binary() | string(),
+        |                  Family :: 'inet4' | 'inet6' | 'ipv4' | 'ipv6'
+        |                  ) -&gt; [inet:ip_address()].
+        |  get_addrs(Host, Family) when is_binary(Host) -&gt;
+<font color=red>     0..|      get_addrs(binary_to_list(Host), Family);</font>
+        |  get_addrs(Host, Family) -&gt;
+<font color=red>     0..|      Type = case Family of</font>
+<font color=red>     0..|                 inet4 -&gt; inet;</font>
+<font color=red>     0..|                 ipv4 -&gt; inet;</font>
+<font color=red>     0..|                 inet6 -&gt; inet6;</font>
+<font color=red>     0..|                 ipv6 -&gt; inet6</font>
+        |             end,
+<font color=red>     0..|      case inet:gethostbyname(Host, Type) of</font>
+        |          {ok, #hostent{h_addr_list = Addrs}} -&gt;
+<font color=red>     0..|              ?DEBUG("~s of ~s resolved to: ~p~n", [Type, Host, Addrs]),</font>
+<font color=red>     0..|              Addrs;</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?DEBUG("~s lookup of '~s' failed: ~p~n", [Type, Host, Reason]),</font>
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  
+        |  -spec outgoing_s2s_port() -&gt; integer().
+        |  outgoing_s2s_port() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(outgoing_s2s_port) of</font>
+        |          Port when is_integer(Port) -&gt;
+<font color=red>     0..|              Port;</font>
+        |          undefined -&gt;
+<font color=red>     0..|              5269</font>
+        |      end.
+        |  
+        |  
+        |  -spec outgoing_s2s_families() -&gt; ['ipv4' | 'ipv6',...].
+        |  outgoing_s2s_families() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(outgoing_s2s_options) of</font>
+        |          {Families, _} when is_list(Families) -&gt;
+<font color=red>     0..|              Families;</font>
+        |          undefined -&gt;
+        |              %% DISCUSSION: Why prefer IPv4 first?
+        |              %%
+        |              %% IPv4 connectivity will be available for everyone for
+        |              %% many years to come. So, there's absolutely no benefit
+        |              %% in preferring IPv6 connections which are flaky at best
+        |              %% nowadays.
+        |              %%
+        |              %% On the other hand content providers hesitate putting up
+        |              %% AAAA records for their sites due to the mentioned
+        |              %% quality of current IPv6 connectivity. Making IPv6 the a
+        |              %% `fallback' may avoid these problems elegantly.
+<font color=red>     0..|              [ipv4, ipv6]</font>
+        |      end.
+        |  
+        |  
+        |  -spec outgoing_s2s_timeout() -&gt; non_neg_integer() | infinity.
+        |  outgoing_s2s_timeout() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(outgoing_s2s_options) of</font>
+        |          {_, Timeout} when is_integer(Timeout) -&gt;
+<font color=red>     0..|              Timeout;</font>
+        |          {_, infinity} -&gt;
+<font color=red>     0..|              infinity;</font>
+        |          undefined -&gt;
+        |              %% 10 seconds
+<font color=red>     0..|              10000</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Human readable S2S logging: Log only new outgoing connections as INFO
+        |  %% Do not log dialback
+<font color=red>     0..|  log_s2s_out(false, _, _, _) -&gt; ok;</font>
+        |  %% Log new outgoing connections:
+        |  log_s2s_out(_, Myname, Server, Tls) -&gt;
+<font color=red>     0..|      ?INFO_MSG("Trying to open s2s connection: ~s -&gt; ~s with TLS=~p", [Myname, Server, Tls]).</font>
+        |  
+        |  
+        |  %% @doc Calculate timeout depending on which state we are in:
+        |  %% Can return integer &gt; 0 | infinity
+        |  -spec get_timeout_interval(statename()) -&gt; 'infinity' | non_neg_integer().
+        |  get_timeout_interval(StateName) -&gt;
+<font color=red>     0..|      case StateName of</font>
+        |          %% Validation implies dialback: Networking can take longer:
+        |          wait_for_validation -&gt;
+<font color=red>     0..|              ?FSMTIMEOUT*6;</font>
+        |          %% When stream is established, we only rely on S2S Timeout timer:
+        |          stream_established -&gt;
+<font color=red>     0..|              infinity;</font>
+        |          _ -&gt;
+<font color=red>     0..|              ?FSMTIMEOUT</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc This function is intended to be called at the end of a state
+        |  %% function that want to wait for a reconnect delay before stopping.
+        |  -spec wait_before_reconnect(state()) -&gt; fsm_return().
+        |  wait_before_reconnect(StateData) -&gt;
+        |      %% bounce queue manage by process and Erlang message queue
+<font color=red>     0..|      bounce_queue(StateData#state.queue, ?ERR_REMOTE_SERVER_NOT_FOUND),</font>
+<font color=red>     0..|      bounce_messages(?ERR_REMOTE_SERVER_NOT_FOUND),</font>
+<font color=red>     0..|      cancel_timer(StateData#state.timer),</font>
+<font color=red>     0..|      Delay = case StateData#state.delay_to_retry of</font>
+        |                  undefined_delay -&gt;
+        |                      %% The initial delay is random between 1 and 15 seconds
+        |                      %% Return a random integer between 1000 and 15000
+<font color=red>     0..|                      {_, _, MicroSecs} = now(),</font>
+<font color=red>     0..|                      (MicroSecs rem 14000) + 1000;</font>
+        |                  D1 -&gt;
+        |                      %% Duplicate the delay with each successive failed
+        |                      %% reconnection attempt, but don't exceed the max
+<font color=red>     0..|                      lists:min([D1 * 2, get_max_retry_delay()])</font>
+        |              end,
+<font color=red>     0..|      Timer = erlang:start_timer(Delay, self(), []),</font>
+<font color=red>     0..|      {next_state, wait_before_retry, StateData#state{timer=Timer,</font>
+        |                                                      delay_to_retry = Delay,
+        |                                                      queue = queue:new()}}.
+        |  
+        |  
+        |  %% @doc Get the maximum allowed delay for retry to reconnect (in miliseconds).
+        |  %% The default value is 5 minutes.
+        |  %% The option {s2s_max_retry_delay, Seconds} can be used (in seconds).
+        |  get_max_retry_delay() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(s2s_max_retry_delay) of</font>
+        |          Seconds when is_integer(Seconds) -&gt;
+<font color=red>     0..|              Seconds*1000;</font>
+        |          _ -&gt;
+<font color=red>     0..|              ?MAX_RETRY_DELAY</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Terminate s2s_out connections that are in state wait_before_retry
+        |  terminate_if_waiting_delay(From, To) -&gt;
+<font color=red>     0..|      FromTo = {From, To},</font>
+<font color=red>     0..|      Pids = ejabberd_s2s:get_connections_pids(FromTo),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(Pid) -&gt;
+<font color=red>     0..|                Pid ! terminate_if_waiting_before_retry</font>
+        |        end,
+        |        Pids).
+        |  
+        |  
+        |  -spec fsm_limit_opts() -&gt; [{'max_queue',integer()}].
+        |  fsm_limit_opts() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(max_fsm_queue) of</font>
+        |          N when is_integer(N) -&gt;
+<font color=red>     0..|              [{max_queue, N}];</font>
+        |          _ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Get IPs predefined for a given s2s domain in the configuration
+        |  -spec get_predefined_addresses(atom()) -&gt; [{inet:ip_address(), inet:port_number()}].
+        |  get_predefined_addresses(Server) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option({s2s_addr, Server}) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              [];</font>
+        |          {{_,_,_,_}, Port} = IP4Port when is_integer(Port) -&gt;
+<font color=red>     0..|              [IP4Port];</font>
+        |          {{_,_,_,_,_,_,_,_}, Port} = IP6Port when is_integer(Port) -&gt;
+<font color=red>     0..|              [IP6Port];</font>
+        |          {_,_,_,_} = IP4 -&gt;
+<font color=red>     0..|              [{IP4, outgoing_s2s_port()}];</font>
+        |          {_,_,_,_,_,_,_,_} = IP6 -&gt;
+<font color=red>     0..|              [{IP6, outgoing_s2s_port()}]</font>
+        |      end.
+</pre>
+</body>
+</html>

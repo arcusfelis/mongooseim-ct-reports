@@ -1,0 +1,458 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mongoose_metrics.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_metrics.erl by COVER 2016-01-26 at 09:49:38
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2014 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mongoose_metrics).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% API
+        |  -export([init/0,
+        |           init_subscriptions/0,
+        |           update/2,
+        |           create/2,
+        |           ensure_metric/2,
+        |           start_host_metrics_subscriptions/3,
+        |           start_vm_metrics_subscriptions/2,
+        |           start_global_metrics_subscriptions/2,
+        |           start_data_metrics_subscriptions/2,
+        |           start_backend_metrics_subscriptions/2,
+        |           get_metric_value/1,
+        |           get_metric_values/1,
+        |           get_host_metric_names/1,
+        |           get_global_metric_names/0,
+        |           get_aggregated_values/1,
+        |           init_predefined_host_metrics/1,
+        |           create_global_metrics/0,
+        |           create_generic_hook_metric/2,
+        |           increment_generic_hook_metric/2,
+        |           get_odbc_data_stats/0,
+        |           get_odbc_mam_async_stats/0,
+        |           get_dist_data_stats/0,
+        |           get_up_time/0,
+        |           remove_host_metrics/1,
+        |           remove_all_metrics/0]).
+        |  
+        |  -define(DEFAULT_REPORT_INTERVAL, 60000). %%60s
+        |  
+        |  
+        |  -spec init() -&gt; ok.
+        |  init() -&gt;
+<font color=red>     0..|      create_global_metrics(),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |          fun(Host) -&gt;
+<font color=red>     0..|              mongoose_metrics:init_predefined_host_metrics(Host)</font>
+        |          end, ?MYHOSTS),
+<font color=red>     0..|      init_subscriptions().</font>
+        |  
+        |  init_subscriptions() -&gt;
+<font color=red>     0..|      Reporters = exometer_report:list_reporters(),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |          fun({Name, _ReporterPid}) -&gt;
+<font color=red>     0..|                  Interval = get_report_interval(),</font>
+<font color=red>     0..|                  subscribe_to_all(Name, Interval)</font>
+        |          end, Reporters).
+        |  
+        |  get_report_interval() -&gt;
+<font color=red>     0..|      application:get_env(exometer, mongooseim_report_interval,</font>
+        |                          ?DEFAULT_REPORT_INTERVAL).
+        |  
+        |  -spec update({term(), term()} | list(), term()) -&gt; any().
+        |  update(Name, Change) when is_tuple(Name)-&gt;
+<font color=red>     0..|      update(tuple_to_list(Name), Change);</font>
+        |  update(Name, Change) -&gt;
+<font color=red>     0..|      exometer:update(Name, Change).</font>
+        |  
+        |  -spec create(list(), term()) -&gt; ok | {error, term()}.
+        |  create(Metric, Spec) -&gt;
+<font color=red>     0..|      ensure_metric(Metric, Spec).</font>
+        |  
+        |  start_host_metrics_subscriptions(Reporter, Host, Interval) -&gt;
+<font color=red>     0..|      do_start_metrics_subscriptions(Reporter, Interval, [Host]).</font>
+        |  
+        |  start_vm_metrics_subscriptions(Reporter, Interval) -&gt;
+<font color=red>     0..|      do_start_vm_metrics_subscriptions(Reporter, Interval).</font>
+        |  
+        |  start_global_metrics_subscriptions(Reporter, Interval) -&gt;
+<font color=red>     0..|      do_start_global_metrics_subscriptions(Reporter, Interval).</font>
+        |  
+        |  start_data_metrics_subscriptions(Reporter, Interval) -&gt;
+<font color=red>     0..|      do_start_metrics_subscriptions(Reporter, Interval, [data, xmpp]).</font>
+        |  
+        |  start_backend_metrics_subscriptions(Reporter, Interval) -&gt;
+<font color=red>     0..|      do_start_metrics_subscriptions(Reporter, Interval, [backends]).</font>
+        |  
+        |  get_host_metric_names(Host) -&gt;
+<font color=red>     0..|      [MetricName || {[_Host | MetricName], _, _} &lt;- exometer:find_entries([Host])].</font>
+        |  
+        |  get_global_metric_names() -&gt;
+<font color=red>     0..|      get_host_metric_names(global).</font>
+        |  
+        |  get_metric_value({Host, Name}) -&gt;
+<font color=red>     0..|      get_metric_value([Host, Name]);</font>
+        |  get_metric_value(Metric) -&gt;
+<font color=red>     0..|      exometer:get_value(Metric).</font>
+        |  
+        |  get_metric_values(Metric) when is_list(Metric) -&gt;
+<font color=red>     0..|      exometer:get_values(Metric);</font>
+        |  get_metric_values(Host) -&gt;
+<font color=red>     0..|      exometer:get_values([Host]).</font>
+        |  
+        |  
+        |  get_aggregated_values(Metric) -&gt;
+<font color=red>     0..|      exometer:aggregate([{{['_',Metric],'_','_'},[],[true]}], [one, count, value]).</font>
+        |  
+        |  -spec init_predefined_host_metrics(ejabberd:lserver()) -&gt; ok.
+        |  init_predefined_host_metrics(Host) -&gt;
+<font color=red>     0..|      create_metrics(Host),</font>
+<font color=red>     0..|      metrics_hooks(add, Host),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec create_generic_hook_metric(ejabberd:lserver(), atom()) -&gt; ok | {ok, already_present}.
+        |  create_generic_hook_metric(Host, Hook) -&gt;
+<font color=red>     0..|      do_create_generic_hook_metric([Host, filter_hook(Hook)]).</font>
+        |  
+        |  -spec increment_generic_hook_metric(ejabberd:lserver(), atom()) -&gt; ok | {error, any()}.
+        |  increment_generic_hook_metric(Host, Hook) -&gt;
+<font color=red>     0..|      do_increment_generic_hook_metric([Host, filter_hook(Hook)]).</font>
+        |  
+        |  -spec get_up_time() -&gt; {value, integer()}.
+        |  get_up_time() -&gt;
+<font color=red>     0..|      {value, erlang:round(element(1, erlang:statistics(wall_clock))/1000)}.</font>
+        |  
+        |  -spec do_create_generic_hook_metric(list()) -&gt; ok | {ok, already_present}.
+        |  do_create_generic_hook_metric([_, skip]) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  do_create_generic_hook_metric(MetricName) -&gt;
+<font color=red>     0..|      ensure_metric(MetricName, spiral).</font>
+        |  
+        |  -spec do_increment_generic_hook_metric(list()) -&gt; ok | {error, any()}.
+        |  do_increment_generic_hook_metric([_, skip]) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  do_increment_generic_hook_metric(MetricName) -&gt;
+<font color=red>     0..|      update(MetricName, 1).</font>
+        |  
+        |  get_dist_data_stats() -&gt;
+<font color=red>     0..|      DistStats = [inet_stats(Port) || {_, Port} &lt;- erlang:system_info(dist_ctrl)],</font>
+<font color=red>     0..|      [{connections, length(DistStats)} | merge_stats(DistStats)].</font>
+        |  
+        |  get_odbc_data_stats() -&gt;
+<font color=red>     0..|      RegularODBCWorkers = [catch ejabberd_odbc_sup:get_pids(Host) || Host &lt;- ?MYHOSTS],</font>
+<font color=red>     0..|      get_odbc_stats(lists:flatten(RegularODBCWorkers)).</font>
+        |  
+        |  get_odbc_mam_async_stats() -&gt;
+        |      %% MAM async ODBC workers are organized differently...
+<font color=red>     0..|      MamAsynODBCWorkers = [catch element(2, gen_server:call(Pid, get_connection, 1000)) || {_, Pid, worker, _} &lt;- supervisor:which_children(mod_mam_sup)],</font>
+<font color=red>     0..|      get_odbc_stats(MamAsynODBCWorkers).</font>
+        |  
+        |  get_odbc_stats(ODBCWorkers) -&gt;
+<font color=red>     0..|      ODBCConnections = [catch ejabberd_odbc:get_db_info(Pid) || Pid &lt;- ODBCWorkers],</font>
+<font color=red>     0..|      Ports = [get_port_from_odbc_connection(Conn) || Conn &lt;- ODBCConnections],</font>
+<font color=red>     0..|      PortStats = [inet_stats(Port) || Port &lt;- lists:flatten(Ports)],</font>
+<font color=red>     0..|      [{workers, length(ODBCConnections)} | merge_stats(PortStats)].</font>
+        |  %%
+        |  
+        |  get_port_from_odbc_connection({ok, DbType, Pid}) when DbType =:= mysql; DbType =:= pgsql -&gt;
+        |      %% Pid of mysql_conn process
+<font color=red>     0..|      {links, [MySQLRecv]} = erlang:process_info(Pid, links),</font>
+        |      %% Port is hold by mysql_recv process which is linked to the mysql_conn
+<font color=red>     0..|      {links, Links} = erlang:process_info(MySQLRecv, links),</font>
+<font color=red>     0..|      [Port || Port &lt;- Links, is_port(Port)];</font>
+        |  get_port_from_odbc_connection({ok, odbc, Pid}) -&gt;
+<font color=red>     0..|      {links, Links} = erlang:process_info(Pid, links),</font>
+<font color=red>     0..|      [Port || Port &lt;- Links, is_port(Port), {name, "tcp_inet"} == erlang:port_info(Port, name)];</font>
+        |  get_port_from_odbc_connection(_) -&gt;
+<font color=red>     0..|      undefined.</font>
+        |  
+        |  -define (INET_STATS, [recv_oct,
+        |                        recv_cnt,
+        |                        recv_max,
+        |                        send_oct,
+        |                        send_max,
+        |                        send_cnt,
+        |                        send_pend
+        |                       ]).
+        |  -define(EMPTY_INET_STATS, [{recv_oct,0},
+        |                             {recv_cnt,0},
+        |                             {recv_max,0},
+        |                             {send_oct,0},
+        |                             {send_max,0},
+        |                             {send_cnt,0},
+        |                             {send_pend,0}
+        |                            ]).
+        |  
+        |  merge_stats(Stats) -&gt;
+<font color=red>     0..|      OrdDict = lists:foldl(fun(Stat, Acc) -&gt;</font>
+<font color=red>     0..|          StatDict = orddict:from_list(Stat),</font>
+<font color=red>     0..|          orddict:merge(fun merge_stats_fun/3, Acc, StatDict)</font>
+        |      end, orddict:from_list(?EMPTY_INET_STATS), Stats),
+        |  
+<font color=red>     0..|      orddict:to_list(OrdDict).</font>
+        |  
+        |  merge_stats_fun(recv_max, V1, V2) -&gt;
+<font color=red>     0..|      erlang:max(V1, V2);</font>
+        |  merge_stats_fun(send_max, V1, V2) -&gt;
+<font color=red>     0..|      erlang:max(V1, V2);</font>
+        |  merge_stats_fun(_, V1, V2) -&gt;
+<font color=red>     0..|      V1 + V2.</font>
+        |  
+        |  
+        |  inet_stats(Port) when is_port(Port) -&gt;
+<font color=red>     0..|      {ok, Stats} = inet:getstat(Port, ?INET_STATS),</font>
+<font color=red>     0..|      Stats;</font>
+        |  inet_stats(_) -&gt;
+<font color=red>     0..|      ?EMPTY_INET_STATS.</font>
+        |  
+        |  remove_host_metrics(Host) -&gt;
+<font color=red>     0..|      lists:foreach(fun remove_metric/1,</font>
+        |                    exometer:find_entries([Host])).
+        |  
+        |  remove_all_metrics() -&gt;
+<font color=red>     0..|      lists:foreach(fun remove_metric/1,</font>
+        |                    exometer:find_entries([])).
+        |  
+        |  remove_metric({Name, _, _}) -&gt;
+<font color=red>     0..|      exometer_admin:delete_entry(Name).</font>
+        |  
+        |  %% decided whether to use a metric for given hook or not
+<font color=red>     0..|  filter_hook(sm_register_connection_hook) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(sm_remove_connection_hook) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(auth_failed) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(user_send_packet) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(user_receive_packet) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(xmpp_bounce_message) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(xmpp_stanza_dropped) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(xmpp_send_element) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(roster_get) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(roster_set) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(roster_push) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(register_user) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(remove_user) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(privacy_iq_get) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(privacy_iq_set) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(privacy_check_packet) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_get_prefs) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_set_prefs) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_remove_archive) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_archive_message) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_flush_messages) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_drop_message) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_drop_iq) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_drop_messages) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_purge_single_message) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_purge_multiple_messages) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_get_prefs) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_set_prefs) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_remove_archive) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_lookup_messages) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_archive_message) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_flush_messages) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_drop_message) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_drop_iq) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_drop_messages) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_purge_single_message) -&gt; skip;</font>
+<font color=red>     0..|  filter_hook(mam_muc_purge_multiple_messages) -&gt; skip;</font>
+        |  
+<font color=red>     0..|  filter_hook(Hook) -&gt; Hook.</font>
+        |  
+        |  
+        |  
+        |  -spec create_metrics(ejabberd:server()) -&gt; 'ok'.
+        |  create_metrics(Host) -&gt;
+<font color=red>     0..|      lists:foreach(fun(Name) -&gt; ensure_metric(Name, spiral) end,</font>
+        |                    get_general_counters(Host)),
+        |  
+<font color=red>     0..|      lists:foreach(fun(Name) -&gt; ensure_metric(Name, counter) end,</font>
+        |                    get_total_counters(Host)).
+        |  
+        |  ensure_metric(Metric, Type) when is_list(Metric) -&gt;
+<font color=red>     0..|      case exometer:info(Metric, type) of</font>
+<font color=red>     0..|          Type -&gt; {ok, already_present};</font>
+<font color=red>     0..|          undefined -&gt; exometer:new(Metric, Type)</font>
+        |      end.
+        |  
+        |  -spec metrics_hooks('add' | 'delete', ejabberd:server()) -&gt; 'ok'.
+        |  metrics_hooks(Op, Host) -&gt;
+<font color=red>     0..|      lists:foreach(fun(Hook) -&gt;</font>
+<font color=red>     0..|          apply(ejabberd_hooks, Op, Hook)</font>
+        |      end, mongoose_metrics_hooks:get_hooks(Host)).
+        |  
+        |  -define (GENERAL_COUNTERS, [
+        |      sessionSuccessfulLogins,
+        |      sessionAuthAnonymous,
+        |      sessionAuthFails,
+        |      sessionLogouts,
+        |      xmppMessageSent,
+        |      xmppMessageReceived,
+        |      xmppMessageBounced,
+        |      xmppPresenceSent,
+        |      xmppPresenceReceived,
+        |      xmppIqSent,
+        |      xmppIqReceived,
+        |      xmppStanzaSent,
+        |      xmppStanzaReceived,
+        |      xmppStanzaDropped,
+        |      xmppStanzaCount,
+        |      xmppErrorTotal,
+        |      xmppErrorIq,
+        |      xmppErrorMessage,
+        |      xmppErrorPresence,
+        |      modRosterSets,
+        |      modRosterGets,
+        |      modPresenceSubscriptions,
+        |      modPresenceUnsubscriptions,
+        |      modRosterPush,
+        |      modRegisterCount,
+        |      modUnregisterCount,
+        |      modPrivacySets,
+        |      modPrivacySetsActive,
+        |      modPrivacySetsDefault,
+        |      modPrivacyPush,
+        |      modPrivacyGets,
+        |      modPrivacyStanzaBlocked,
+        |      modPrivacyStanzaAll,
+        |      modMamPrefsSets,
+        |      modMamPrefsGets,
+        |      modMamArchiveRemoved,
+        |      modMamLookups,
+        |      modMamForwarded,
+        |      modMamArchived,
+        |      modMamFlushed,
+        |      modMamDropped,
+        |      modMamDropped2,
+        |      modMamDroppedIQ,
+        |      modMamSinglePurges,
+        |      modMamMultiplePurges,
+        |      modMucMamPrefsSets,
+        |      modMucMamPrefsGets,
+        |      modMucMamArchiveRemoved,
+        |      modMucMamLookups,
+        |      modMucMamForwarded,
+        |      modMucMamArchived,
+        |      modMucMamSinglePurges,
+        |      modMucMamMultiplePurges
+        |  ]).
+        |  
+        |  
+        |  -spec get_general_counters(ejabberd:server()) -&gt; [[ejabberd:server() | atom(), ...]].
+        |  get_general_counters(Host) -&gt;
+<font color=red>     0..|      get_counters(Host, ?GENERAL_COUNTERS).</font>
+        |  
+        |  -define (TOTAL_COUNTERS, [
+        |      sessionCount
+        |  ]).
+        |  
+        |  
+        |  -spec get_total_counters(ejabberd:server()) -&gt; [[ejabberd:server() | atom(), ...]].
+        |  get_total_counters(Host) -&gt;
+<font color=red>     0..|      get_counters(Host, ?TOTAL_COUNTERS).</font>
+        |  
+        |  -define(EX_EVAL_SINGLE_VALUE, {[{l, [{t, [value, {v, 'Value'}]}]}],[value]}).
+        |  -define(GLOBAL_COUNTERS,
+        |          [{[global, totalSessionCount],
+        |            {function, ejabberd_sm, get_total_sessions_number, [],
+        |             eval, ?EX_EVAL_SINGLE_VALUE}},
+        |           {[global, uniqueSessionCount],
+        |            {function, ejabberd_sm, get_unique_sessions_number, [],
+        |             eval, ?EX_EVAL_SINGLE_VALUE}},
+        |           {[global, nodeSessionCount],
+        |            {function, ejabberd_sm, get_node_sessions_number, [],
+        |             eval, ?EX_EVAL_SINGLE_VALUE}},
+        |           {[global, nodeUpTime],
+        |            {function, mongoose_metrics, get_up_time, [],
+        |             tagged, [value]}}
+        |          ]
+        |  ).
+        |  
+        |  -define(GLOBAL_HISTOGRAMS, [[data, xmpp, received, encrypted_size],
+        |                              [data, xmpp, received, compressed_size],
+        |                              [data, xmpp, received, xml_stanza_size],
+        |                              [data, xmpp, sent, encrypted_size],
+        |                              [data, xmpp, sent, compressed_size],
+        |                              [data, xmpp, sent, xml_stanza_size]]).
+        |  
+        |  -define(DATA_FUN_METRICS,
+        |          [{[data, odbc, regular],
+        |            {function, mongoose_metrics, get_odbc_data_stats, [], proplist, [workers | ?INET_STATS]}},
+        |           {[data, odbc, mam_async],
+        |            {function, mongoose_metrics, get_odbc_mam_async_stats, [], proplist, [workers | ?INET_STATS]}},
+        |           {[data, dist],
+        |            {function, mongoose_metrics, get_dist_data_stats, [], proplist, [connections | ?INET_STATS]}}]).
+        |  
+        |  create_global_metrics() -&gt;
+<font color=red>     0..|      lists:foreach(fun({Metric, FunSpec, DataPoints}) -&gt;</font>
+<font color=red>     0..|          FunSpecTuple = list_to_tuple(FunSpec ++ [DataPoints]),</font>
+<font color=red>     0..|          catch exometer:new(Metric, FunSpecTuple)</font>
+        |      end, get_vm_stats()),
+<font color=red>     0..|      lists:foreach(fun({Metric, Spec}) -&gt; create(Metric, Spec) end,</font>
+        |                    ?GLOBAL_COUNTERS),
+<font color=red>     0..|      create_data_metrics().</font>
+        |  
+        |  create_data_metrics() -&gt;
+<font color=red>     0..|      lists:foreach(fun(Metric) -&gt; exometer:new(Metric, histogram) end,</font>
+        |          ?GLOBAL_HISTOGRAMS),
+<font color=red>     0..|      lists:foreach(fun({Metric, Spec}) -&gt; exometer:new(Metric, Spec) end,</font>
+        |          ?DATA_FUN_METRICS).
+        |  
+        |  
+        |  get_vm_stats() -&gt;
+<font color=red>     0..|      [{[erlang, system_info], [function, erlang, system_info, ['$dp'], value],</font>
+        |          [port_count, port_limit, process_count, process_limit, ets_limit]},
+        |       {[erlang, memory], [function, erlang, memory, ['$dp'], value],
+        |        [total, processes_used, atom_used, binary, ets, system]}].
+        |  
+        |  get_counters(Host, Counters) -&gt;
+<font color=red>     0..|      [[Host, Counter] || Counter &lt;- Counters].</font>
+        |  
+        |  do_start_vm_metrics_subscriptions(Reporter, Interval) -&gt;
+<font color=red>     0..|      [exometer_report:subscribe(Reporter, Metric, DataPoints, Interval)</font>
+<font color=red>     0..|       || {Metric, _, DataPoints} &lt;- get_vm_stats()].</font>
+        |  
+        |  do_start_global_metrics_subscriptions(Reporter, Interval) -&gt;
+<font color=red>     0..|      [exometer_report:subscribe(Reporter, Metric, default, Interval)</font>
+<font color=red>     0..|       || {Metric, _} &lt;- ?GLOBAL_COUNTERS].</font>
+        |  
+        |  do_start_metrics_subscriptions(Reporter, Interval, MetricPrefix) -&gt;
+<font color=red>     0..|      [subscribe_metric(Reporter, Metric, Interval)</font>
+<font color=red>     0..|       || Metric &lt;- exometer:find_entries(MetricPrefix)].</font>
+        |  
+        |  subscribe_metric(Reporter, {Name, counter, _}, Interval) -&gt;
+<font color=red>     0..|      exometer_report:subscribe(Reporter, Name, [value], Interval);</font>
+        |  subscribe_metric(Reporter, {Name, histogram, _}, Interval) -&gt;
+<font color=red>     0..|      exometer_report:subscribe(Reporter, Name, [min, mean, max, median, 95, 99, 999], Interval);</font>
+        |  subscribe_metric(Reporter, {Name, _, _}, Interval) -&gt;
+<font color=red>     0..|      exometer_report:subscribe(Reporter, Name, default, Interval).</font>
+        |  
+        |  subscribe_to_all(Reporter, Interval) -&gt;
+<font color=red>     0..|      start_global_metrics_subscriptions(Reporter, Interval),</font>
+<font color=red>     0..|      start_backend_metrics_subscriptions(Reporter, Interval),</font>
+<font color=red>     0..|      start_data_metrics_subscriptions(Reporter, Interval),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(Host) -&gt;
+<font color=red>     0..|                start_host_metrics_subscriptions(Reporter, Host, Interval)</font>
+        |        end, ?MYHOSTS).
+</pre>
+</body>
+</html>

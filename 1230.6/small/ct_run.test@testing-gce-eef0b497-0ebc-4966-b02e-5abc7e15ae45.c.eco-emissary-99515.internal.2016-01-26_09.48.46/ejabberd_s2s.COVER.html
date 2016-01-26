@@ -1,0 +1,621 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/ejabberd_s2s.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_s2s.erl by COVER 2016-01-26 at 09:49:24
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_s2s.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : S2S connections manager
+        |  %%% Created :  7 Dec 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_s2s).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  -behaviour(xmpp_router).
+        |  
+        |  %% API
+        |  -export([start_link/0,
+        |           route/3,
+        |           have_connection/1,
+        |           has_key/2,
+        |           get_connections_pids/1,
+        |           try_register/1,
+        |           remove_connection/3,
+        |           find_connection/2,
+        |           dirty_get_connections/0,
+        |           allow_host/2,
+        |           incoming_s2s_number/0,
+        |           outgoing_s2s_number/0,
+        |           domain_utf8_to_ascii/1
+        |          ]).
+        |  
+        |  %% Hooks callbacks
+        |  -export([node_cleanup/1]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  %% xmpp_router callback
+        |  -export([do_route/3]).
+        |  
+        |  %% ejabberd API
+        |  -export([get_info_s2s_connections/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  
+        |  -define(DEFAULT_MAX_S2S_CONNECTIONS_NUMBER, 1).
+        |  -define(DEFAULT_MAX_S2S_CONNECTIONS_NUMBER_PER_NODE, 1).
+        |  
+        |  -type fromto() :: {'global' | ejabberd:server(), ejabberd:server()}.
+        |  -record(s2s, {
+        |            fromto,
+        |            pid,
+        |            key
+        |           }).
+        |  -type s2s() :: #s2s{
+        |                    fromto :: fromto(),
+        |                    pid :: pid()
+        |                   }.
+        |  -record(state, {}).
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  %%--------------------------------------------------------------------
+        |  %% Description: Starts the server
+        |  %%--------------------------------------------------------------------
+        |  -spec start_link() -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link() -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).</font>
+        |  
+        |  -spec route(From :: ejabberd:jid(),
+        |              To :: ejabberd:jid(),
+        |              Packet :: jlib:xmlel()) -&gt; 'ok' | {'error','lager_not_running'}.
+        |  route(From, To, Packet) -&gt;
+<font color=red>     0..|      xmpp_router:route(?MODULE, From, To, Packet).</font>
+        |  
+        |  -spec remove_connection(_, pid(), _) -&gt; 'ok' | {'aborted',_} | {'atomic',_}.
+        |  remove_connection(FromTo, Pid, Key) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_match_object(s2s, #s2s{fromto = FromTo,</font>
+        |                                                     pid = Pid,
+        |                                                     _ = '_'}) of
+        |          [#s2s{pid = Pid, key = Key}] -&gt;
+<font color=red>     0..|              F = fun() -&gt;</font>
+<font color=red>     0..|                          mnesia:delete_object(#s2s{fromto = FromTo,</font>
+        |                                                    pid = Pid,
+        |                                                    key = Key})
+        |                  end,
+<font color=red>     0..|              mnesia:transaction(F);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  have_connection(FromTo) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(s2s, FromTo) of</font>
+        |          [_] -&gt;
+<font color=red>     0..|              true;</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  has_key(FromTo, Key) -&gt;
+<font color=red>     0..|      case mnesia:dirty_select(s2s,</font>
+        |                               [{#s2s{fromto = FromTo, key = Key, _ = '_'},
+        |                                 [],
+        |                                 ['$_']}]) of
+        |          [] -&gt;
+<font color=red>     0..|              false;</font>
+        |          _ -&gt;
+<font color=red>     0..|              true</font>
+        |      end.
+        |  
+        |  -spec get_connections_pids(_) -&gt; ['undefined' | pid()].
+        |  get_connections_pids(FromTo) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(s2s, FromTo) of</font>
+        |          L when is_list(L) -&gt;
+<font color=red>     0..|              [Connection#s2s.pid || Connection &lt;- L];</font>
+        |          _ -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  -spec try_register(fromto()) -&gt; any().
+        |  try_register(FromTo) -&gt;
+<font color=red>     0..|      Key = list_to_binary(randoms:get_string()),</font>
+<font color=red>     0..|      MaxS2SConnectionsNumber = max_s2s_connections_number(FromTo),</font>
+<font color=red>     0..|      MaxS2SConnectionsNumberPerNode =</font>
+        |          max_s2s_connections_number_per_node(FromTo),
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  L = mnesia:read({s2s, FromTo}),</font>
+<font color=red>     0..|                  NeededConnections = needed_connections_number(</font>
+        |                                        L, MaxS2SConnectionsNumber,
+        |                                        MaxS2SConnectionsNumberPerNode),
+<font color=red>     0..|                  if</font>
+        |                      NeededConnections &gt; 0 -&gt;
+<font color=red>     0..|                          mnesia:write(#s2s{fromto = FromTo,</font>
+        |                                            pid = self(),
+        |                                            key = Key}),
+<font color=red>     0..|                          {key, Key};</font>
+        |                      true -&gt;
+<font color=red>     0..|                          false</font>
+        |                  end
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, Res} -&gt;
+<font color=red>     0..|              Res;</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  dirty_get_connections() -&gt;
+<font color=red>     0..|      mnesia:dirty_all_keys(s2s).</font>
+        |  
+        |  %%====================================================================
+        |  %% Hooks callbacks
+        |  %%====================================================================
+        |  
+        |  node_cleanup(Node) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  Es = mnesia:select(</font>
+        |                         s2s,
+        |                         [{#s2s{pid = '$1', _ = '_'},
+        |                           [{'==', {node, '$1'}, Node}],
+        |                           ['$_']}]),
+<font color=red>     0..|                  lists:foreach(fun(E) -&gt;</font>
+<font color=red>     0..|                                        mnesia:delete_object(E)</font>
+        |                                end, Es)
+        |          end,
+<font color=red>     0..|      mnesia:async_dirty(F).</font>
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  init([]) -&gt;
+<font color=red>     0..|      update_tables(),</font>
+<font color=red>     0..|      mnesia:create_table(s2s, [{ram_copies, [node()]}, {type, bag},</font>
+        |                                {attributes, record_info(fields, s2s)}]),
+<font color=red>     0..|      mnesia:add_table_copy(s2s, node(), ram_copies),</font>
+<font color=red>     0..|      ejabberd_commands:register_commands(commands()),</font>
+<font color=red>     0..|      ejabberd_hooks:add(node_cleanup, global, ?MODULE, node_cleanup, 50),</font>
+<font color=red>     0..|      {ok, #state{}}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info({route, From, To, Packet}, State) -&gt;
+<font color=red>     0..|      route(From, To, Packet),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(node_cleanup, global, ?MODULE, node_cleanup, 50),</font>
+<font color=red>     0..|      ejabberd_commands:unregister_commands(commands()),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec do_route(From :: ejabberd:jid(),
+        |                 To :: ejabberd:jid(),
+        |                 Packet :: jlib:xmlel()) -&gt; 'false' | 'ok'.
+        |  do_route(From, To, Packet) -&gt;
+<font color=red>     0..|      ?DEBUG("s2s manager~n\tfrom ~p~n\tto ~p~n\tpacket ~P~n",</font>
+        |             [From, To, Packet, 8]),
+<font color=red>     0..|      case find_connection(From, To) of</font>
+        |          {atomic, Pid} when is_pid(Pid) -&gt;
+<font color=red>     0..|              ?DEBUG("sending to process ~p~n", [Pid]),</font>
+<font color=red>     0..|              #xmlel{attrs = Attrs} = Packet,</font>
+<font color=red>     0..|              NewAttrs = jlib:replace_from_to_attrs(jid:to_binary(From),</font>
+        |                                                    jid:to_binary(To),
+        |                                                    Attrs),
+<font color=red>     0..|              #jid{lserver = MyServer} = From,</font>
+<font color=red>     0..|              ejabberd_hooks:run(</font>
+        |                s2s_send_packet,
+        |                MyServer,
+        |                [From, To, Packet]),
+<font color=red>     0..|              send_element(Pid, Packet#xmlel{attrs = NewAttrs}),</font>
+<font color=red>     0..|              ok;</font>
+        |          {aborted, _Reason} -&gt;
+<font color=red>     0..|              case xml:get_tag_attr_s(&lt;&lt;"type"&gt;&gt;, Packet) of</font>
+<font color=red>     0..|                  &lt;&lt;"error"&gt;&gt; -&gt; ok;</font>
+<font color=red>     0..|                  &lt;&lt;"result"&gt;&gt; -&gt; ok;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      Err = jlib:make_error_reply(</font>
+        |                              Packet, ?ERR_SERVICE_UNAVAILABLE),
+<font color=red>     0..|                      ejabberd_router:route(To, From, Err)</font>
+        |              end,
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  -spec find_connection(From :: ejabberd:jid(),
+        |                        To :: ejabberd:jid()) -&gt; {'aborted',_} | {'atomic',_}.
+        |  find_connection(From, To) -&gt;
+<font color=red>     0..|      #jid{lserver = MyServer} = From,</font>
+<font color=red>     0..|      #jid{lserver = Server} = To,</font>
+<font color=red>     0..|      FromTo = {MyServer, Server},</font>
+<font color=red>     0..|      MaxS2SConnectionsNumber = max_s2s_connections_number(FromTo),</font>
+<font color=red>     0..|      MaxS2SConnectionsNumberPerNode =</font>
+        |          max_s2s_connections_number_per_node(FromTo),
+<font color=red>     0..|      ?DEBUG("Finding connection for ~p~n", [FromTo]),</font>
+<font color=red>     0..|      case catch mnesia:dirty_read(s2s, FromTo) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              {aborted, Reason};</font>
+        |          [] -&gt;
+        |              %% We try to establish all the connections if the host is not a
+        |              %% service and if the s2s host is not blacklisted or
+        |              %% is in whitelist:
+<font color=red>     0..|              case not is_service(From, To) andalso allow_host(MyServer, Server) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      NeededConnections = needed_connections_number(</font>
+        |                                            [], MaxS2SConnectionsNumber,
+        |                                            MaxS2SConnectionsNumberPerNode),
+<font color=red>     0..|                      open_several_connections(</font>
+        |                        NeededConnections, MyServer,
+        |                        Server, From, FromTo,
+        |                        MaxS2SConnectionsNumber, MaxS2SConnectionsNumberPerNode);
+        |                  false -&gt;
+<font color=red>     0..|                      {aborted, error}</font>
+        |              end;
+        |          L when is_list(L) -&gt;
+<font color=red>     0..|              NeededConnections = needed_connections_number(</font>
+        |                                    L, MaxS2SConnectionsNumber,
+        |                                    MaxS2SConnectionsNumberPerNode),
+<font color=red>     0..|              if</font>
+        |                  NeededConnections &gt; 0 -&gt;
+        |                      %% We establish the missing connections for this pair.
+<font color=red>     0..|                      open_several_connections(</font>
+        |                        NeededConnections, MyServer,
+        |                        Server, From, FromTo,
+        |                        MaxS2SConnectionsNumber, MaxS2SConnectionsNumberPerNode);
+        |                  true -&gt;
+        |                      %% We choose a connexion from the pool of opened ones.
+<font color=red>     0..|                      {atomic, choose_connection(From, L)}</font>
+        |              end
+        |      end.
+        |  
+        |  -spec choose_connection(From :: ejabberd:jid(),
+        |                          Connections :: [s2s()]) -&gt; any().
+        |  choose_connection(From, Connections) -&gt;
+<font color=red>     0..|      choose_pid(From, [C#s2s.pid || C &lt;- Connections]).</font>
+        |  
+        |  -spec choose_pid(From :: ejabberd:jid(), Pids :: [pid()]) -&gt; pid().
+        |  choose_pid(From, Pids) -&gt;
+<font color=red>     0..|      Pids1 = case [P || P &lt;- Pids, node(P) == node()] of</font>
+<font color=red>     0..|                  [] -&gt; Pids;</font>
+<font color=red>     0..|                  Ps -&gt; Ps</font>
+        |              end,
+        |      % Use sticky connections based on the JID of the sender (whithout
+        |      % the resource to ensure that a muc room always uses the same
+        |      % connection)
+<font color=red>     0..|      Pid = lists:nth(erlang:phash(jid:to_bare(From), length(Pids1)),</font>
+        |                      Pids1),
+<font color=red>     0..|      ?DEBUG("Using ejabberd_s2s_out ~p~n", [Pid]),</font>
+<font color=red>     0..|      Pid.</font>
+        |  
+        |  -spec open_several_connections(N :: pos_integer(), MyServer :: ejabberd:server(),
+        |      Server :: ejabberd:server(), From :: ejabberd:jid(), FromTo :: fromto(),
+        |      MaxS2S :: pos_integer(), MaxS2SPerNode :: pos_integer())
+        |        -&gt; {'aborted',_} | {'atomic',_}.
+        |  open_several_connections(N, MyServer, Server, From, FromTo,
+        |                           MaxS2SConnectionsNumber,
+        |                           MaxS2SConnectionsNumberPerNode) -&gt;
+<font color=red>     0..|      ConnectionsResult =</font>
+<font color=red>     0..|          [new_connection(MyServer, Server, From, FromTo,</font>
+        |                          MaxS2SConnectionsNumber, MaxS2SConnectionsNumberPerNode)
+<font color=red>     0..|           || _N &lt;- lists:seq(1, N)],</font>
+<font color=red>     0..|      case [PID || {atomic, PID} &lt;- ConnectionsResult] of</font>
+        |          [] -&gt;
+<font color=red>     0..|              hd(ConnectionsResult);</font>
+        |          PIDs -&gt;
+<font color=red>     0..|              {atomic, choose_pid(From, PIDs)}</font>
+        |      end.
+        |  
+        |  -spec new_connection(MyServer :: ejabberd:server(), Server :: ejabberd:server(),
+        |      From :: ejabberd:jid(), FromTo :: fromto(), MaxS2S :: pos_integer(),
+        |      MaxS2SPerNode :: pos_integer()) -&gt; {'aborted',_} | {'atomic',_}.
+        |  new_connection(MyServer, Server, From, FromTo,
+        |                 MaxS2SConnectionsNumber, MaxS2SConnectionsNumberPerNode) -&gt;
+<font color=red>     0..|      Key = list_to_binary(randoms:get_string()),</font>
+<font color=red>     0..|      {ok, Pid} = ejabberd_s2s_out:start(</font>
+        |                    MyServer, Server, {new, Key}),
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  L = mnesia:read({s2s, FromTo}),</font>
+<font color=red>     0..|                  NeededConnections = needed_connections_number(</font>
+        |                                        L, MaxS2SConnectionsNumber,
+        |                                        MaxS2SConnectionsNumberPerNode),
+<font color=red>     0..|                  if</font>
+        |                      NeededConnections &gt; 0 -&gt;
+<font color=red>     0..|                          mnesia:write(#s2s{fromto = FromTo,</font>
+        |                                            pid = Pid,
+        |                                            key = Key}),
+<font color=red>     0..|                          ?INFO_MSG("New s2s connection started ~p", [Pid]),</font>
+<font color=red>     0..|                          Pid;</font>
+        |                      true -&gt;
+<font color=red>     0..|                          choose_connection(From, L)</font>
+        |                  end
+        |          end,
+<font color=red>     0..|      TRes = mnesia:transaction(F),</font>
+<font color=red>     0..|      case TRes of</font>
+        |          {atomic, Pid} -&gt;
+<font color=red>     0..|              ejabberd_s2s_out:start_connection(Pid);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ejabberd_s2s_out:stop_connection(Pid)</font>
+        |      end,
+<font color=red>     0..|      TRes.</font>
+        |  
+        |  -spec max_s2s_connections_number(fromto()) -&gt; pos_integer().
+        |  max_s2s_connections_number({From, To}) -&gt;
+<font color=red>     0..|      case acl:match_rule(</font>
+        |             From, max_s2s_connections, jid:make(&lt;&lt;""&gt;&gt;, To, &lt;&lt;""&gt;&gt;)) of
+<font color=red>     0..|          Max when is_integer(Max) -&gt; Max;</font>
+<font color=red>     0..|          _ -&gt; ?DEFAULT_MAX_S2S_CONNECTIONS_NUMBER</font>
+        |      end.
+        |  
+        |  -spec max_s2s_connections_number_per_node(fromto()) -&gt; pos_integer().
+        |  max_s2s_connections_number_per_node({From, To}) -&gt;
+<font color=red>     0..|      case acl:match_rule(</font>
+        |             From, max_s2s_connections_per_node, jid:make(&lt;&lt;""&gt;&gt;, To, &lt;&lt;""&gt;&gt;)) of
+<font color=red>     0..|          Max when is_integer(Max) -&gt; Max;</font>
+<font color=red>     0..|          _ -&gt; ?DEFAULT_MAX_S2S_CONNECTIONS_NUMBER_PER_NODE</font>
+        |      end.
+        |  
+        |  -spec needed_connections_number([any()], pos_integer(), pos_integer()) -&gt; integer().
+        |  needed_connections_number(Ls, MaxS2SConnectionsNumber,
+        |                            MaxS2SConnectionsNumberPerNode) -&gt;
+<font color=red>     0..|      LocalLs = [L || L &lt;- Ls, node(L#s2s.pid) == node()],</font>
+<font color=red>     0..|      lists:min([MaxS2SConnectionsNumber - length(Ls),</font>
+        |                 MaxS2SConnectionsNumberPerNode - length(LocalLs)]).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: is_service(From, To) -&gt; true | false
+        |  %% Description: Return true if the destination must be considered as a
+        |  %% service.
+        |  %% --------------------------------------------------------------------
+        |  -spec is_service(ejabberd:jid(), ejabberd:jid()) -&gt; boolean().
+        |  is_service(From, To) -&gt;
+<font color=red>     0..|      LFromDomain = From#jid.lserver,</font>
+<font color=red>     0..|      case ejabberd_config:get_local_option({route_subdomains, LFromDomain}) of</font>
+        |          s2s -&gt; % bypass RFC 3920 10.3
+<font color=red>     0..|              false;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Hosts = ?MYHOSTS,</font>
+<font color=red>     0..|              P = fun(ParentDomain) -&gt; lists:member(ParentDomain, Hosts) end,</font>
+<font color=red>     0..|              lists:any(P, parent_domains(To#jid.lserver))</font>
+        |      end.
+        |  
+        |  -spec parent_domains(binary()) -&gt; [binary(),...].
+        |  parent_domains(Domain) -&gt;
+<font color=red>     0..|      parent_domains(Domain, [Domain]).</font>
+        |  
+        |  -spec parent_domains(binary(),[binary(),...]) -&gt; [binary(),...].
+        |  parent_domains(&lt;&lt;&gt;&gt;, Acc) -&gt;
+<font color=red>     0..|      lists:reverse(Acc);</font>
+        |  parent_domains(&lt;&lt;$., Rest/binary&gt;&gt;, Acc) -&gt;
+<font color=red>     0..|      parent_domains(Rest, [Rest | Acc]);</font>
+        |  parent_domains(&lt;&lt;_, Rest/binary&gt;&gt;, Acc) -&gt;
+<font color=red>     0..|      parent_domains(Rest, Acc).</font>
+        |  
+        |  -spec send_element(pid(), jlib:xmlel()) -&gt; {'send_element', jlib:xmlel()}.
+        |  send_element(Pid, El) -&gt;
+<font color=red>     0..|      Pid ! {send_element, El}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: domain_utf8_to_ascii(Domain) -&gt; binary() | false
+        |  %% Description: Converts a UTF-8 domain to ASCII (IDNA)
+        |  %% --------------------------------------------------------------------
+        |  -spec domain_utf8_to_ascii(binary() | string()) -&gt; binary() | false.
+        |  domain_utf8_to_ascii(Domain) -&gt;
+<font color=red>     0..|      case catch idna:utf8_to_ascii(Domain) of</font>
+        |          {'EXIT', _} -&gt;
+<font color=red>     0..|              false;</font>
+        |          AsciiDomain -&gt;
+<font color=red>     0..|              list_to_binary(AsciiDomain)</font>
+        |      end.
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% ejabberd commands
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |       #ejabberd_commands{name = incoming_s2s_number,
+        |                         tags = [stats, s2s],
+        |                         desc = "Number of incoming s2s connections on the node",
+        |                         module = ?MODULE, function = incoming_s2s_number,
+        |                         args = [],
+        |                         result = {s2s_incoming, integer}},
+        |       #ejabberd_commands{name = outgoing_s2s_number,
+        |                         tags = [stats, s2s],
+        |                         desc = "Number of outgoing s2s connections on the node",
+        |                         module = ?MODULE, function = outgoing_s2s_number,
+        |                         args = [],
+        |                         result = {s2s_outgoing, integer}}
+        |      ].
+        |  
+        |  -spec incoming_s2s_number() -&gt; non_neg_integer().
+        |  incoming_s2s_number() -&gt;
+<font color=red>     0..|      length(supervisor:which_children(ejabberd_s2s_in_sup)).</font>
+        |  
+        |  -spec outgoing_s2s_number() -&gt; non_neg_integer().
+        |  outgoing_s2s_number() -&gt;
+<font color=red>     0..|      length(supervisor:which_children(ejabberd_s2s_out_sup)).</font>
+        |  
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Update Mnesia tables
+        |  
+        |  update_tables() -&gt;
+<font color=red>     0..|      case catch mnesia:table_info(s2s, type) of</font>
+        |          bag -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {'EXIT', _} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+        |              % XXX TODO convert it ?
+<font color=red>     0..|              mnesia:delete_table(s2s)</font>
+        |      end,
+<font color=red>     0..|      case catch mnesia:table_info(s2s, attributes) of</font>
+        |          [fromto, node, key] -&gt;
+<font color=red>     0..|              mnesia:transform_table(s2s, ignore, [fromto, pid, key]),</font>
+<font color=red>     0..|              mnesia:clear_table(s2s);</font>
+        |          [fromto, pid, key] -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {'EXIT', _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case lists:member(local_s2s, mnesia:system_info(tables)) of</font>
+        |          true -&gt;
+<font color=red>     0..|              mnesia:delete_table(local_s2s);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  %% Check if host is in blacklist or white list
+        |  allow_host(MyServer, S2SHost) -&gt;
+<font color=red>     0..|      Hosts = ?MYHOSTS,</font>
+<font color=red>     0..|      case lists:dropwhile(</font>
+        |             fun(ParentDomain) -&gt;
+<font color=red>     0..|                     not lists:member(ParentDomain, Hosts)</font>
+        |             end, parent_domains(MyServer)) of
+        |          [MyHost|_] -&gt;
+<font color=red>     0..|              allow_host1(MyHost, S2SHost);</font>
+        |          [] -&gt;
+<font color=red>     0..|              allow_host1(MyServer, S2SHost)</font>
+        |      end.
+        |  
+        |  allow_host1(MyHost, S2SHost) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option({{s2s_host, S2SHost}, MyHost}) of</font>
+<font color=red>     0..|          deny -&gt; false;</font>
+<font color=red>     0..|          allow -&gt; true;</font>
+        |          _ -&gt;
+<font color=red>     0..|              case ejabberd_config:get_local_option({s2s_default_policy, MyHost}) of</font>
+<font color=red>     0..|                  deny -&gt; false;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      case ejabberd_hooks:run_fold(s2s_allow_host, MyHost,</font>
+        |                                                   allow, [MyHost, S2SHost]) of
+<font color=red>     0..|                          deny -&gt; false;</font>
+<font color=red>     0..|                          allow -&gt; true;</font>
+<font color=red>     0..|                          _ -&gt; true</font>
+        |                      end
+        |              end
+        |      end.
+        |  
+        |  %% @doc Get information about S2S connections of the specified type.
+        |  -spec get_info_s2s_connections('in' | 'out') -&gt; [[{atom(), any()}, ...]].
+        |  get_info_s2s_connections(Type) -&gt;
+<font color=red>     0..|      ChildType = case Type of</font>
+<font color=red>     0..|                      in -&gt; ejabberd_s2s_in_sup;</font>
+<font color=red>     0..|                      out -&gt; ejabberd_s2s_out_sup</font>
+        |                  end,
+<font color=red>     0..|      Connections = supervisor:which_children(ChildType),</font>
+<font color=red>     0..|      get_s2s_info(Connections,Type).</font>
+        |  
+        |  -type connstate() :: 'restarting' | 'undefined' | pid().
+        |  -type conn() :: { any(), connstate(), 'supervisor' | 'worker', 'dynamic' | [_] }.
+        |  -spec get_s2s_info(Connections :: [conn()],
+        |                    Type :: 'in' | 'out'
+        |                    ) -&gt; [[{any(), any()},...]]. % list of lists
+        |  get_s2s_info(Connections,Type)-&gt;
+<font color=red>     0..|      complete_s2s_info(Connections,Type,[]).</font>
+        |  
+        |  -spec complete_s2s_info(Connections :: [conn()],
+        |                          Type :: 'in' | 'out',
+        |                          Result :: [[{any(), any()},...]] % list of lists
+        |                          ) -&gt; [[{any(), any()},...]]. % list of lists
+        |  complete_s2s_info([],_,Result)-&gt;
+<font color=red>     0..|      Result;</font>
+        |  complete_s2s_info([Connection|T],Type,Result)-&gt;
+<font color=red>     0..|      {_,PID,_,_}=Connection,</font>
+<font color=red>     0..|      State = get_s2s_state(PID),</font>
+<font color=red>     0..|      complete_s2s_info(T,Type,[State|Result]).</font>
+        |  
+        |  -spec get_s2s_state(connstate()) -&gt; [{atom(), any()},...].
+        |  get_s2s_state(S2sPid)-&gt;
+<font color=red>     0..|      Infos = case gen_fsm:sync_send_all_state_event(S2sPid,get_state_infos) of</font>
+<font color=red>     0..|                  {state_infos, Is} -&gt; [{status, open} | Is];</font>
+<font color=red>     0..|                  {noproc,_} -&gt; [{status, closed}]; %% Connection closed</font>
+<font color=red>     0..|                  {badrpc,_} -&gt; [{status, error}]</font>
+        |              end,
+<font color=red>     0..|      [{s2s_pid, S2sPid} | Infos].</font>
+        |  
+</pre>
+</body>
+</html>

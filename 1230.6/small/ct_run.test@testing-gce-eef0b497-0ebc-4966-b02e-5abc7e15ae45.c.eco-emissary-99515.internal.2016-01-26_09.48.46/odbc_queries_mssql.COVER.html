@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/odbc_queries_mssql.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/odbc_queries_mssql.erl by COVER 2016-01-26 at 09:49:16
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : odbc_queries_mssql.erl
+        |  %%% Purpose : MSSQL specific queries
+        |  %%% Created :  17 Sep 2014
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2014   Erlang Solutions Ltd.
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  -module(odbc_queries_mssql).
+        |  -author("michal.piotrowski").
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% API
+        |  -export([begin_trans/0,
+        |           query_archive_id/3,
+        |           search_vcard/3,
+        |           count_offline_messages/4]).
+        |  
+        |  
+        |  begin_trans() -&gt;
+<font color=red>     0..|      [&lt;&lt;"BEGIN TRANSACTION;"&gt;&gt;].</font>
+        |  
+        |  search_vcard(LServer, RestrictionSQL, infinity) -&gt;
+<font color=red>     0..|      do_search_vcard(LServer, RestrictionSQL, &lt;&lt;""&gt;&gt;);</font>
+        |  search_vcard(LServer, RestrictionSQL, Limit) when is_integer(Limit) -&gt;
+<font color=red>     0..|      LimitBin = integer_to_binary(Limit),</font>
+<font color=red>     0..|      do_search_vcard(LServer, RestrictionSQL, &lt;&lt;" TOP ", LimitBin/binary," "&gt;&gt;).</font>
+        |  
+        |  do_search_vcard(LServer, RestrictionSQL, Limit) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |      LServer,
+        |      [&lt;&lt;"select", Limit/binary, "username, server, fn, family, given, middle, "
+        |       "nickname, bday, ctry, locality, "
+        |       "email, orgname, orgunit from vcard_search "&gt;&gt;,
+        |       RestrictionSQL, ";"]).
+        |  
+        |  query_archive_id(Host, SServer, SUserName) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |          Host,
+        |          ["SELECT TOP 1 id "
+        |          "FROM mam_server_user "
+        |          "WHERE server='",SServer, "' AND user_name='", SUserName, "'"]).
+        |  
+        |  count_offline_messages(LServer, SUser, SServer, Limit) -&gt;
+<font color=red>     0..|      ejabberd_odbc:sql_query(</font>
+        |          LServer,
+        |          [&lt;&lt;"select top "&gt;&gt;, integer_to_list(Limit),
+        |           &lt;&lt;"count(*) from offline_message "
+        |           "where server = '"&gt;&gt;, SServer, &lt;&lt;"' and "
+        |           "username = '"&gt;&gt;, SUser, &lt;&lt;"'"&gt;&gt;]).
+</pre>
+</body>
+</html>

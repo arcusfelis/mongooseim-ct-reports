@@ -1,0 +1,201 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_amp.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_amp.erl by COVER 2016-01-26 at 09:49:20
+
+****************************************************************************
+
+        |  -module(mod_amp).
+        |  %% @doc MongooseIM/Ejabberd module for (a subset of) XEP-0079 support.
+        |  %% @reference &lt;a href="http://xmpp.org/extensions/xep-0079.html"&gt;XEP-0079&lt;/a&gt;
+        |  %% @author &lt;mongooseim@erlang-solutions.com&gt;
+        |  %% @copyright 2014 Erlang Solutions, Ltd.
+        |  %% This work was sponsored by Grindr LLC
+        |  
+        |  -behavior(gen_mod).
+        |  -xep([{xep, 79}, {version, "1.2"}, {comment, "partially implemented."}]).
+        |  -export([start/2, stop/1]).
+        |  -export([add_local_features/5,
+        |           add_stream_feature/2,
+        |           amp_check_packet/1
+        |          ]).
+        |  
+        |  -include_lib("ejabberd/include/amp.hrl").
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -include_lib("ejabberd/include/jlib.hrl").
+        |  
+        |  -type hook_data() :: {jid(),#xmlel{}} | drop.
+        |  
+        |  -define(AMP_FEATURE,
+        |          #xmlel{name = &lt;&lt;"amp"&gt;&gt;, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_AMP_FEATURE}]}).
+        |  -define(AMP_RESOLVER, amp_resolver).
+        |  -define(AMP_STRATEGY, amp_strategy).
+        |  
+        |  start(Host, _Opts) -&gt;
+<font color=red>     0..|      mod_disco:register_feature(Host, ?NS_AMP),</font>
+<font color=red>     0..|      ejabberd_hooks:add(c2s_stream_features, Host, ?MODULE, add_stream_feature, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_features, Host, ?MODULE, add_local_features, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:add(amp_check_packet, Host, ?MODULE, amp_check_packet, 10),</font>
+<font color=red>     0..|      ejabberd_hooks:add(amp_verify_support, Host, ?AMP_RESOLVER, verify_support, 10),</font>
+<font color=red>     0..|      ejabberd_hooks:add(amp_check_condition, Host, ?AMP_RESOLVER, check_condition, 10),</font>
+<font color=red>     0..|      ejabberd_hooks:add(amp_determine_strategy, Host, ?AMP_STRATEGY, determine_strategy, 10).</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(amp_determine_strategy, Host, ?AMP_STRATEGY, determine_strategy, 10),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(amp_check_condition, Host, ?AMP_RESOLVER, check_condition, 10),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(amp_verify_support, Host, ?AMP_RESOLVER, verify_support, 10),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(amp_check_packet, Host, ?MODULE, amp_check_packet, 10),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_features, Host, ?MODULE, add_local_features, 99),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(c2s_stream_features, Host, ?MODULE, add_stream_feature, 50),</font>
+<font color=red>     0..|      mod_disco:unregister_feature(Host, ?NS_AMP).</font>
+        |  
+        |  %% Business API
+        |  add_local_features(Acc, _From, _To, ?NS_AMP, _Lang) -&gt;
+<font color=red>     0..|      Features = result_or(Acc, []) ++ amp_features(),</font>
+<font color=red>     0..|      {result, Features};</font>
+        |  add_local_features(Acc, _From, _To, _NS, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  add_stream_feature(Acc, _Host) -&gt;
+<font color=red>     0..|      lists:keystore(&lt;&lt;"amp"&gt;&gt;, #xmlel.name, Acc, ?AMP_FEATURE).</font>
+        |  
+        |  
+        |  -spec amp_check_packet(hook_data()) -&gt; hook_data().
+<font color=red>     0..|  amp_check_packet(drop) -&gt; drop;</font>
+        |  amp_check_packet({From, #xmlel{name = &lt;&lt;"message"&gt;&gt;} = Packet} = HookData) -&gt;
+<font color=red>     0..|      ?DEBUG("checking packet ~p from ~p", [Packet, From]),</font>
+<font color=red>     0..|      case amp:extract_requested_rules(Packet) of</font>
+<font color=red>     0..|          none                    -&gt; HookData;</font>
+<font color=red>     0..|          {rules, Rules}          -&gt; process_amp_rules(HookData, Rules);</font>
+<font color=red>     0..|          {errors, Errors}        -&gt; send_errors_and_drop(HookData, Errors)</font>
+        |      end;
+<font color=red>     0..|  amp_check_packet(HookData) -&gt; HookData.</font>
+        |  
+        |  %% @doc This may eventually be configurable, but for now we return a constant list.
+        |  amp_features() -&gt;
+<font color=red>     0..|      [&lt;&lt;"http://jabber.org/protocol/amp"&gt;&gt;</font>
+        |      ,&lt;&lt;"http://jabber.org/protocol/amp?action=notify"&gt;&gt;
+        |      ,&lt;&lt;"http://jabber.org/protocol/amp?action=error"&gt;&gt;
+        |      ,&lt;&lt;"http://jabber.org/protocol/amp?condition=deliver"&gt;&gt;
+        |      ,&lt;&lt;"http://jabber.org/protocol/amp?condition=match-resource"&gt;&gt;
+        |      ].
+        |  
+        |  -spec process_amp_rules(hook_data(), amp_rules()) -&gt; hook_data().
+        |  process_amp_rules(HookData, Rules) -&gt;
+<font color=red>     0..|      VerifiedRules = verify_support(hd_host(HookData), Rules),</font>
+<font color=red>     0..|      {Good,Bad} = lists:partition(fun is_supported_rule/1, VerifiedRules),</font>
+<font color=red>     0..|      ValidRules = [ Rule || {supported, Rule} &lt;- Good ],</font>
+<font color=red>     0..|      case Bad of</font>
+        |          [{error, ValidationError, InvalidRule} | _] -&gt;
+<font color=red>     0..|              send_error_and_drop(HookData, ValidationError, InvalidRule);</font>
+        |          [] -&gt;
+<font color=red>     0..|              Strategy = determine_strategy(HookData),</font>
+<font color=red>     0..|              process_one_by_one(HookData, Strategy, ValidRules)</font>
+        |      end.
+        |  
+        |  %% @doc ejabberd_hooks helpers
+        |  -spec verify_support(binary(), amp_rules()) -&gt; [amp_rule_support()].
+        |  verify_support(Host, Rules) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(amp_verify_support, Host, [], [Rules]).</font>
+        |  
+        |  -spec determine_strategy(hook_data()) -&gt; amp_strategy().
+        |  determine_strategy(HookData) -&gt;
+<font color=red>     0..|      TargetJid = message_target(HookData),</font>
+<font color=red>     0..|      ejabberd_hooks:run_fold(amp_determine_strategy, hd_host(HookData),</font>
+        |                              amp_strategy:null_strategy(), [TargetJid]).
+        |  
+        |  -spec resolve_condition(hook_data(), amp_strategy(),
+        |                          amp_condition(), amp_value())
+        |                         -&gt; boolean().
+        |  resolve_condition(HookData, Strategy, Condition, Value) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold</font>
+        |        (amp_check_condition, hd_host(HookData), false,
+        |         [Strategy, Condition, Value]).
+        |  
+        |  -spec process_one_by_one(hook_data(), amp_strategy(), amp_rules()) -&gt; hook_data().
+        |  process_one_by_one(HookData, Strategy, ValidRules) -&gt;
+<font color=red>     0..|      case fold_apply_rules(HookData, Strategy, ValidRules) of</font>
+        |          'no_match' -&gt;
+<font color=red>     0..|              HookData;</font>
+        |          {match, #amp_rule{action='error'} = Rule} -&gt;
+<font color=red>     0..|              send_error_and_drop(HookData, 'undefined-condition', Rule);</font>
+        |          {match, Rule} -&gt;
+<font color=red>     0..|              take_action(HookData, Rule)</font>
+        |      end.
+        |  
+        |  -spec fold_apply_rules(hook_data(), amp_strategy(), amp_rules())
+        |                        -&gt; amp_rule_match().
+<font color=red>     0..|  fold_apply_rules(_, _, []) -&gt; 'no_match';</font>
+        |  fold_apply_rules(HookData, Strategy, [Rule|Rest]) -&gt;
+<font color=red>     0..|      #amp_rule{condition = C, value = V} = Rule,</font>
+<font color=red>     0..|      case resolve_condition(HookData, Strategy, C, V) of</font>
+<font color=red>     0..|          true  -&gt; {match, Rule};</font>
+<font color=red>     0..|          false -&gt; fold_apply_rules(HookData, Strategy, Rest)</font>
+        |      end.
+        |  
+        |  -spec send_error_and_drop(hook_data(), amp_error(), amp_rule()) -&gt; drop.
+        |  send_error_and_drop(HookData, AmpError, MatchedRule) -&gt;
+<font color=red>     0..|      send_errors_and_drop(HookData, [{AmpError, MatchedRule}]).</font>
+        |  
+        |  -spec send_errors_and_drop(hook_data(), [{amp_error(),amp_rule()}]) -&gt; drop.
+        |  send_errors_and_drop(HookData, []) -&gt;
+<font color=red>     0..|      ?ERROR_MSG("~p generated an empty list of errors. This shouldn't happen!",</font>
+        |                   HookData),
+<font color=red>     0..|      update_metric_and_drop(HookData);</font>
+        |  send_errors_and_drop({From, Packet} = HookData, ErrorRules) -&gt;
+<font color=red>     0..|      Host = hd_host(HookData),</font>
+<font color=red>     0..|      {Errors,Rules} = lists:unzip(ErrorRules),</font>
+<font color=red>     0..|      ErrorResponse = amp:make_error_response(Errors, Rules, From, Packet),</font>
+<font color=red>     0..|      ejabberd_router:route(server_jid(From), From, ErrorResponse),</font>
+<font color=red>     0..|      ejabberd_hooks:run(amp_error_action_triggered, Host, [Host]),</font>
+<font color=red>     0..|      update_metric_and_drop(HookData).</font>
+        |  
+        |  -spec take_action(hook_data(), amp_rule()) -&gt; hook_data().
+        |  take_action({From, Packet} = HookData, #amp_rule{action=Action} = Rule) -&gt;
+<font color=red>     0..|      Host = hd_host(HookData),</font>
+<font color=red>     0..|      case Action of</font>
+<font color=red>     0..|          'notify' -&gt; reply_to_sender(Rule, server_jid(From), From, Packet),</font>
+<font color=red>     0..|                      ejabberd_hooks:run(amp_notify_action_triggered, Host, [Host]),</font>
+<font color=red>     0..|                      {From, amp:strip_amp_el(Packet)};</font>
+<font color=red>     0..|          _        -&gt; update_metric_and_drop(HookData)</font>
+        |      end.
+        |  
+        |  -spec reply_to_sender(amp_rule(), jid(), jid(), #xmlel{}) -&gt; ok.
+        |  reply_to_sender(MatchedRule, ServerJid, OriginalSender, OriginalPacket) -&gt;
+<font color=red>     0..|      Response = amp:make_response(MatchedRule, OriginalSender, OriginalPacket),</font>
+<font color=red>     0..|      ejabberd_router:route(ServerJid, OriginalSender, Response).</font>
+        |  
+        |  
+        |  -spec update_metric_and_drop(hook_data()) -&gt; drop.
+        |  update_metric_and_drop({From, Packet} = HookData) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run(xmpp_stanza_dropped, hd_host(HookData),</font>
+        |                         [From, message_target(HookData), Packet]),
+<font color=red>     0..|      drop.</font>
+        |  
+        |  %% Internal
+<font color=red>     0..|  result_or({result, I},_) -&gt; I;</font>
+<font color=red>     0..|  result_or(_, Or)         -&gt; Or.</font>
+        |  
+        |  -spec is_supported_rule(amp_rule_support()) -&gt; boolean().
+<font color=red>     0..|  is_supported_rule({supported, _}) -&gt; true;</font>
+<font color=red>     0..|  is_supported_rule(_)              -&gt; false.</font>
+        |  
+        |  -spec hd_host(hook_data()) -&gt; binary().
+<font color=red>     0..|  hd_host({#jid{lserver=Host}, _}) -&gt; Host.</font>
+        |  
+        |  server_jid(#jid{lserver = Host}) -&gt;
+<font color=red>     0..|      jid:from_binary(Host).</font>
+        |  
+        |  -spec message_target(hook_data()) -&gt; jid() | undefined.
+        |  message_target({_,El}) -&gt;
+<font color=red>     0..|      case exml_query:attr(El, &lt;&lt;"to"&gt;&gt;) of</font>
+<font color=red>     0..|          undefined -&gt; undefined;</font>
+<font color=red>     0..|          J -&gt; jid:from_binary(J)</font>
+        |      end.
+</pre>
+</body>
+</html>

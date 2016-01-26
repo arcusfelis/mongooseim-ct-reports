@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-eef0b497-0ebc-4966-b02e-5abc7e15ae45.c.eco-emissary-99515.internal.2016-01-26_09.48.46/mod_admin_extra_stanza.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_stanza.erl by COVER 2016-01-26 at 09:49:15
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_stanza.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_stanza).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([
+        |      commands/0,
+        |  
+        |      send_message_headline/4,
+        |      send_message_chat/3,
+        |      send_stanza_c2s/4
+        |      ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = send_message_chat, tags = [stanza],
+        |                             desc = "Send a chat message to a local or remote bare of full JID",
+        |                             module = ?MODULE, function = send_message_chat,
+        |                             args = [{from, binary}, {to, binary}, {body, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = send_message_headline, tags = [stanza],
+        |                             desc = "Send a headline message to a local or remote bare of full JID",
+        |                             module = ?MODULE, function = send_message_headline,
+        |                             args = [{from, binary}, {to, binary},
+        |                                     {subject, binary}, {body, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = send_stanza_c2s, tags = [stanza],
+        |                             desc = "Send a stanza as if sent from a c2s session",
+        |                             module = ?MODULE, function = send_stanza_c2s,
+        |                             args = [{user, binary}, {host, binary}, {resource, binary}, {stanza, binary}],
+        |                             result = {res, restuple}}
+        |          ].
+        |  
+        |  %%%
+        |  %%% Stanza
+        |  %%%
+        |  
+        |  %% @doc Send a chat message to a Jabber account.
+        |  -spec send_message_chat(From :: binary(), To :: binary(),
+        |                          Body :: binary() | string()) -&gt; {Res, string()} when
+        |      Res :: bad_jid | ok.
+        |  send_message_chat(From, To, Body) -&gt;
+<font color=red>     0..|      Packet = build_packet(message_chat, [Body]),</font>
+<font color=red>     0..|      send_packet_all_resources(From, To, Packet).</font>
+        |  
+        |  
+        |  %% @doc Send a headline message to a Jabber account.
+        |  -spec send_message_headline(From :: binary(), To :: binary(),
+        |                              Subject:: binary() | string(),
+        |                              Body :: binary() | string()) -&gt;  {Res, string()} when
+        |      Res :: ok | bad_jid.
+        |  send_message_headline(From, To, Subject, Body) -&gt;
+<font color=red>     0..|      Packet = build_packet(message_headline, [Subject, Body]),</font>
+<font color=red>     0..|      send_packet_all_resources(From, To, Packet).</font>
+        |  
+        |  
+        |  %% @doc Send a packet to a Jabber account.
+        |  %% If a resource was specified in the JID, the packet is sent only to that
+        |  %%      specific resource.
+        |  %% If no resource was specified in the JID, and the user is remote or local but
+        |  %%      offline, the packet is sent to the bare JID.
+        |  %% If the user is local and is online in several resources, the packet is sent
+        |  %%      to all its resources.
+        |  -spec send_packet_all_resources(FromJIDStr :: binary(), ToJIDString :: binary(),
+        |                                  jlib:xmlel()) -&gt; {Res, string()} when
+        |      Res :: bad_jid | ok.
+        |  send_packet_all_resources(FromJIDString, ToJIDString, Packet) -&gt;
+<font color=red>     0..|      FromJID = jid:from_binary(FromJIDString),</font>
+<font color=red>     0..|      case FromJID of</font>
+        |          error -&gt;
+<font color=red>     0..|              {bad_jid, "Sender JID is invalid"};</font>
+        |          _ -&gt;
+<font color=red>     0..|              ToJID = jid:from_binary(ToJIDString),</font>
+<font color=red>     0..|              ToUser = ToJID#jid.user,</font>
+<font color=red>     0..|              ToServer = ToJID#jid.server,</font>
+<font color=red>     0..|              case ToJID#jid.resource of</font>
+        |                  &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                      send_packet_all_resources(FromJID, ToUser, ToServer, Packet);</font>
+        |                  Res -&gt;
+<font color=red>     0..|                      send_packet_all_resources(FromJID, ToUser, ToServer, Res, Packet)</font>
+        |              end,
+<font color=red>     0..|              {ok,""}</font>
+        |      end.
+        |  
+        |  
+        |  
+        |  -spec send_packet_all_resources(FromJID :: 'error' | ejabberd:jid(),
+        |                                  ToUser :: ejabberd:user(),
+        |                                  ToServer :: ejabberd:server(),
+        |                                  jlib:xmlel()) -&gt; 'ok'.
+        |  send_packet_all_resources(FromJID, ToUser, ToServer, Packet) -&gt;
+<font color=red>     0..|      case ejabberd_sm:get_user_resources(ToUser, ToServer) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              send_packet_all_resources(FromJID, ToUser, ToServer, &lt;&lt;""&gt;&gt;, Packet);</font>
+        |          ToResources -&gt;
+<font color=red>     0..|              lists:foreach(</font>
+        |                  fun(ToResource) -&gt;
+<font color=red>     0..|                          send_packet_all_resources(FromJID, ToUser, ToServer,</font>
+        |                                                    ToResource, Packet)
+        |                  end,
+        |                  ToResources)
+        |      end.
+        |  
+        |  
+        |  -spec send_packet_all_resources(ejabberd:jid(), ToU :: binary(), ToS :: binary(),
+        |                                  ToR :: binary(), jlib:xmlel()) -&gt; 'ok'.
+        |  send_packet_all_resources(FromJID, ToU, ToS, ToR, Packet) -&gt;
+<font color=red>     0..|      ToJID = jid:make(ToU, ToS, ToR),</font>
+<font color=red>     0..|      ejabberd_router:route(FromJID, ToJID, Packet).</font>
+        |  
+        |  
+        |  -spec build_packet('message_chat' | 'message_headline',
+        |                    Subject_Body :: [binary() | string(),...]) -&gt; jlib:xmlel().
+        |  build_packet(message_chat, [Body]) -&gt;
+<font color=red>     0..|      #xmlel{ name = &lt;&lt;"message"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"chat"&gt;&gt;}, {&lt;&lt;"id"&gt;&gt;, list_to_binary(randoms:get_string())}],
+        |             children = [#xmlel{ name = &lt;&lt;"body"&gt;&gt;, children = [#xmlcdata{content = Body}]}]
+        |            };
+        |  build_packet(message_headline, [Subject, Body]) -&gt;
+<font color=red>     0..|      #xmlel{ name = &lt;&lt;"message"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"headline"&gt;&gt;}, {&lt;&lt;"id"&gt;&gt;, list_to_binary(randoms:get_string())}],
+        |             children = [#xmlel{ name = &lt;&lt;"subject"&gt;&gt;, children = [#xmlcdata{content = Subject}]},
+        |                         #xmlel{ name = &lt;&lt;"body"&gt;&gt;, children = [#xmlcdata{content = Body}]}
+        |                        ]
+        |            }.
+        |  
+        |  
+        |  -spec send_stanza_c2s(ejabberd:user(), ejabberd:server(), ejabberd:resource(),
+        |                        Stanza :: binary()) -&gt; {Res, string()} when
+        |      Res :: user_does_not_exist | bad_stanza | ok.
+        |  send_stanza_c2s(Username, Host, Resource, Stanza) -&gt;
+<font color=red>     0..|      C2sPid = ejabberd_sm:get_session_pid(Username, Host, Resource),</font>
+<font color=red>     0..|      case C2sPid of</font>
+        |          none -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("User ~s@~s/~s does not exist",[Username, Host, Resource])};</font>
+        |          _ -&gt;
+<font color=red>     0..|              case exml:parse(Stanza) of</font>
+        |                  {ok, XmlEl} -&gt;
+<font color=red>     0..|                      p1_fsm_old:send_event(C2sPid, {xmlstreamelement, XmlEl}),</font>
+<font color=red>     0..|                      {ok, "Stanza has been sent"};</font>
+        |                  {error, _} -&gt;
+<font color=red>     0..|                      {bad_stanza, "Stanza is incorrect"}</font>
+        |              end
+        |      end.
+        |  
+</pre>
+</body>
+</html>
