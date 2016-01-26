@@ -1,0 +1,461 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/eldap_utils.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/eldap_utils.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : eldap_utils.erl
+        |  %%% Author  : Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%% Purpose : ejabberd LDAP helper functions
+        |  %%% Created : 12 Oct 2006 by Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(eldap_utils).
+        |  -author('mremond@process-one.net').
+        |  
+        |  -export([generate_subfilter/1,
+        |           find_ldap_attrs/2,
+        |           get_ldap_attr/2,
+        |           get_user_part/2,
+        |           make_filter/2,
+        |           make_filter/3,
+        |           get_state/2,
+        |           case_insensitive_match/2,
+        |           get_opt/3,
+        |           get_opt/4,
+        |           get_mod_opt/3,
+        |           get_mod_opt/4,
+        |           get_config/2,
+        |           decode_octet_string/3,
+        |           uids_domain_subst/2,
+        |           singleton_value/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("eldap.hrl").
+        |  
+        |  %% @doc Generate an 'or' LDAP query on one or several attributes
+        |  %% If there is only one attribute
+        |  -spec generate_subfilter([{binary()} | {binary(),binary()}]) -&gt; binary().
+        |  generate_subfilter([UID]) -&gt;
+<font color=red>     0..|      subfilter(UID);</font>
+        |  %% If there is several attributes
+        |  generate_subfilter(UIDs) -&gt;
+<font color=red>     0..|      iolist_to_binary(["(|", [subfilter(UID) || UID &lt;- UIDs], ")"]).</font>
+        |  
+        |  
+        |  %% @doc Subfilter for a single attribute
+        |  -spec subfilter({binary()} | {binary(),binary()}) -&gt; binary().
+        |  subfilter({UIDAttr, UIDAttrFormat}) -&gt;
+        |      %% The default UiDAttrFormat is %u
+<font color=red>     0..|      &lt;&lt;$(, UIDAttr/binary, $=, UIDAttrFormat/binary, $)&gt;&gt;;</font>
+        |  subfilter({UIDAttr}) -&gt;
+        |      %% The default UiDAttrFormat is &lt;&lt;"%u"&gt;&gt;
+<font color=red>     0..|      &lt;&lt;$(, UIDAttr/binary, $=, "%u)"&gt;&gt;.</font>
+        |  
+        |  
+        |  %% @doc Not tail-recursive, but it is not very terribly.
+        |  %% It stops finding on the first not empty value.
+        |  -spec find_ldap_attrs([{binary()} | {binary(), binary()}],
+        |                        [{binary(), [binary()]}]) -&gt; &lt;&lt;&gt;&gt; | {binary(), binary()}.
+        |  find_ldap_attrs([{Attr} | Rest], Attributes) -&gt;
+<font color=red>     0..|      find_ldap_attrs([{Attr, &lt;&lt;"%u"&gt;&gt;} | Rest], Attributes);</font>
+        |  find_ldap_attrs([{Attr, Format} | Rest], Attributes) -&gt;
+<font color=red>     0..|      case get_ldap_attr(Attr, Attributes) of</font>
+        |          Value when is_binary(Value), Value /= &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|              {Value, Format};</font>
+        |          _ -&gt;
+<font color=red>     0..|              find_ldap_attrs(Rest, Attributes)</font>
+        |      end;
+        |  find_ldap_attrs([], _) -&gt;
+<font color=red>     0..|      &lt;&lt;&gt;&gt;.</font>
+        |  
+        |  
+        |  -spec get_ldap_attr(binary(), [{binary(), [binary()]}]) -&gt; binary().
+        |  get_ldap_attr(LDAPAttr, Attributes) -&gt;
+<font color=red>     0..|      Res = lists:filter(</font>
+        |              fun({Name, _}) -&gt;
+<font color=red>     0..|                      case_insensitive_match(Name, LDAPAttr)</font>
+        |              end, Attributes),
+<font color=red>     0..|      case singleton_value(Res) of</font>
+<font color=red>     0..|          {_, Value} -&gt; Value;</font>
+<font color=red>     0..|          _ -&gt; &lt;&lt;&gt;&gt;</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_user_part(binary(), binary()) -&gt; {ok, binary()} | {error, badmatch}.
+        |  get_user_part(String, Pattern) -&gt;
+<font color=red>     0..|      F = fun(S, P) -&gt;</font>
+<font color=red>     0..|          {First,_} = binary:match(P,&lt;&lt;"%u"&gt;&gt;),</font>
+<font color=red>     0..|                  TailLength = byte_size(P) - (First+1),</font>
+<font color=red>     0..|          binary:part(S,First,byte_size(S)-TailLength-First+1)</font>
+        |          end,
+<font color=red>     0..|      case catch F(String, Pattern) of</font>
+        |              {'EXIT', _} -&gt;
+<font color=red>     0..|                  {error, badmatch};</font>
+        |          Result -&gt;
+<font color=red>     0..|              case catch re:replace(Pattern, &lt;&lt;"%u"&gt;&gt;, Result, [global, {return, binary}]) of</font>
+        |                  {'EXIT', _} -&gt;
+<font color=red>     0..|                      {error, badmatch};</font>
+        |                  StringRes -&gt;
+<font color=red>     0..|                      case case_insensitive_match(StringRes, String) of</font>
+        |                          true -&gt;
+<font color=red>     0..|                              {ok, Result};</font>
+        |                          false -&gt;
+<font color=red>     0..|                              {error, badmatch}</font>
+        |                      end
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec generate_substring_list(binary())
+        |        -&gt; [{'any',binary()} | {'final',binary()} | {'initial',binary()}].
+        |  generate_substring_list(Value)-&gt;
+<font color=red>     0..|      Splits = binary:split(Value,&lt;&lt;"*"&gt;&gt;,[global]),</font>
+<font color=red>     0..|      {Acc,S}=case Splits of</font>
+<font color=red>     0..|          [&lt;&lt;""&gt;&gt;|T]-&gt;{[],T};</font>
+<font color=red>     0..|          [H|T]-&gt; {[{initial,H}],T}</font>
+        |      end,
+<font color=red>     0..|      lists:reverse(generate_substring_list(S,Acc)).</font>
+        |  generate_substring_list([&lt;&lt;""&gt;&gt;],Acc)-&gt;
+<font color=red>     0..|      Acc;</font>
+        |  generate_substring_list([Last],Acc)-&gt;
+<font color=red>     0..|      [{final,Last}|Acc];</font>
+        |  generate_substring_list([H|T],Acc)-&gt;
+<font color=red>     0..|      generate_substring_list(T,[{any,H}|Acc]).</font>
+        |  
+        |  
+        |  -spec make_filter([{binary(), [binary()]}], [{binary(), binary()}]) -&gt; any().
+        |  make_filter(Data, UIDs) -&gt;
+<font color=red>     0..|      make_filter(Data, UIDs, 'and').</font>
+        |  
+        |  -spec make_filter([{binary(), [binary()]}], [{binary(), binary()}],
+        |                    'or' | 'and') -&gt; any().
+        |  make_filter(Data, UIDs, Op) -&gt;
+<font color=red>     0..|      NewUIDs = [{U, eldap_filter:do_sub(</font>
+<font color=red>     0..|                       UF, [{&lt;&lt;"%u"&gt;&gt;, &lt;&lt;"*%u*"&gt;&gt;, 1}])} || {U, UF} &lt;- UIDs],</font>
+<font color=red>     0..|      Filter = lists:flatmap(</font>
+        |                 fun({Name, [Value | _]}) -&gt;
+<font color=red>     0..|                         case Name of</font>
+        |                             &lt;&lt;"%u"&gt;&gt; when Value /= &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                                 case eldap_filter:parse(</font>
+        |                                        generate_subfilter(NewUIDs),
+        |                                        [{&lt;&lt;"%u"&gt;&gt;, Value}]) of
+<font color=red>     0..|                                     {ok, F} -&gt; [F];</font>
+<font color=red>     0..|                                     _ -&gt; []</font>
+        |                                 end;
+        |                             _ when Value /= &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                      case binary:match(Value,&lt;&lt;"*"&gt;&gt;) of</font>
+<font color=red>     0..|                          nomatch -&gt; [eldap:equalityMatch(Name,Value)];</font>
+<font color=red>     0..|                          _ -&gt; [eldap:substrings(Name,generate_substring_list(Value))]</font>
+        |                      end;
+        |                             _ -&gt;
+<font color=red>     0..|                                 []</font>
+        |                         end
+        |                 end, Data),
+<font color=red>     0..|      case Filter of</font>
+        |          [F] -&gt;
+<font color=red>     0..|              F;</font>
+        |          _ -&gt;
+<font color=red>     0..|              eldap:Op(Filter)</font>
+        |      end.
+        |  
+        |  
+        |  -spec case_insensitive_match(binary(), binary()) -&gt; boolean().
+        |  case_insensitive_match(X, Y) -&gt;
+<font color=red>     0..|      X1 = string:to_lower(binary_to_list(X)),</font>
+<font color=red>     0..|      Y1 = string:to_lower(binary_to_list(Y)),</font>
+<font color=red>     0..|      if</font>
+<font color=red>     0..|          X1 == Y1 -&gt; true;</font>
+<font color=red>     0..|          true -&gt; false</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_state(binary() | string(),atom()) -&gt; any().
+        |  get_state(Server, Module) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Server, Module),</font>
+<font color=red>     0..|      gen_server:call(Proc, get_state).</font>
+        |  
+        |  
+        |  %% @doc From the list of uids attribute: we look from alias domain (%d) and make
+        |  %% the substitution with the actual host domain. This helps when you need to
+        |  %% configure many virtual domains.
+        |  -spec uids_domain_subst(binary(), [{binary(), binary()}]) -&gt;
+        |                                 [{binary(), binary()}].
+        |  uids_domain_subst(Host, UIDs) -&gt;
+<font color=red>     0..|      lists:map(fun({U,V}) -&gt;</font>
+<font color=red>     0..|                        {U, eldap_filter:do_sub(V,[{&lt;&lt;"%d"&gt;&gt;, Host}])};</font>
+<font color=red>     0..|                    (A) -&gt; A</font>
+        |                end,
+        |                UIDs).
+        |  
+        |  
+        |  -spec get_opt({atom(), binary()}, list(), fun()) -&gt; any().
+        |  get_opt({Key, Host}, Opts, F) -&gt;
+<font color=red>     0..|      get_opt({Key, Host}, Opts, F, undefined).</font>
+        |  
+        |  
+        |  -spec get_opt({atom(), binary()}, list(), fun(), any()) -&gt; any().
+        |  get_opt({Key, Host}, Opts, F, Default) -&gt;
+<font color=red>     0..|      case gen_mod:get_opt(Key, Opts, undefined) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              case ejabberd_config:get_local_option({Key,Host}) of</font>
+        |                  undefined -&gt;
+<font color=red>     0..|                      Default;</font>
+        |                  Val -&gt;
+<font color=red>     0..|                      prepare_opt_val(Key, Val, F,Default)</font>
+        |              end;
+        |          Val -&gt;
+<font color=red>     0..|              prepare_opt_val(Key, Val, F, Default)</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_mod_opt(atom(), list(), fun()) -&gt; any().
+        |  get_mod_opt(Key, Opts, F) -&gt;
+<font color=red>     0..|      get_mod_opt(Key,Opts,F,undefined).</font>
+        |  
+        |  
+        |  -spec get_mod_opt(atom(), list(), fun(), any()) -&gt; any().
+        |  get_mod_opt(Key, Opts, F, Default) -&gt;
+<font color=red>     0..|      case gen_mod:get_opt(Key, Opts, Default) of</font>
+        |          Default -&gt;
+<font color=red>     0..|              Default;</font>
+        |          Val -&gt;
+<font color=red>     0..|              prepare_opt_val(Key, Val, F, Default)</font>
+        |      end.
+        |  
+        |  
+        |  -type check_fun() :: fun((any()) -&gt; any()) | {module(), atom()}.
+        |  -spec prepare_opt_val(any(), any(), check_fun(), any()) -&gt; any().
+        |  prepare_opt_val(Opt, Val, F, Default) -&gt;
+<font color=red>     0..|      Res = case F of</font>
+        |                {Mod, Fun} -&gt;
+<font color=red>     0..|                    catch Mod:Fun(Val);</font>
+        |                _ -&gt;
+<font color=red>     0..|                    catch F(Val)</font>
+        |            end,
+<font color=red>     0..|      case Res of</font>
+        |          {'EXIT', _} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Configuration problem:~n"</font>
+        |                        "** Option: ~p~n"
+        |                        "** Invalid value: ~p~n"
+        |                        "** Using as fallback: ~p",
+        |                        [ Opt,
+        |                          Val,
+        |                          Default]),
+<font color=red>     0..|              Default;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Res</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_config(binary(), list()) -&gt; eldap:eldap_config().
+        |  get_config(Host, Opts) -&gt;
+<font color=red>     0..|      Servers = get_opt({ldap_servers, Host}, Opts,</font>
+        |                        fun(L) -&gt;
+<font color=red>     0..|                                [iolist_to_binary(H) || H &lt;- L]</font>
+        |                        end, [&lt;&lt;"localhost"&gt;&gt;]),
+<font color=red>     0..|      Backups = get_opt({ldap_backups, Host}, Opts,</font>
+        |                        fun(L) -&gt;
+<font color=red>     0..|                                [iolist_to_binary(H) || H &lt;- L]</font>
+        |                        end, []),
+<font color=red>     0..|      Encrypt = get_opt({ldap_encrypt, Host}, Opts,</font>
+<font color=red>     0..|                        fun(tls) -&gt; tls;</font>
+<font color=red>     0..|                           (starttls) -&gt; starttls;</font>
+<font color=red>     0..|                           (none) -&gt; none</font>
+        |                        end, none),
+<font color=red>     0..|      TLSVerify = get_opt({ldap_tls_verify, Host}, Opts,</font>
+<font color=red>     0..|                          fun(hard) -&gt; hard;</font>
+<font color=red>     0..|                             (soft) -&gt; soft;</font>
+<font color=red>     0..|                             (false) -&gt; false</font>
+        |                          end, false),
+<font color=red>     0..|      TLSCAFile = get_opt({ldap_tls_cacertfile, Host}, Opts,</font>
+        |                          fun iolist_to_binary/1),
+<font color=red>     0..|      TLSDepth = get_opt({ldap_tls_depth, Host}, Opts,</font>
+<font color=red>     0..|                         fun(I) when is_integer(I), I&gt;=0 -&gt; I end),</font>
+<font color=red>     0..|      Port = get_opt({ldap_port, Host}, Opts,</font>
+<font color=red>     0..|                     fun(I) when is_integer(I), I&gt;0 -&gt; I end,</font>
+        |                     case Encrypt of
+<font color=red>     0..|                         tls -&gt; ?LDAPS_PORT;</font>
+<font color=red>     0..|                         starttls -&gt; ?LDAP_PORT;</font>
+<font color=red>     0..|                         _ -&gt; ?LDAP_PORT</font>
+        |                     end),
+<font color=red>     0..|      RootDN = get_opt({ldap_rootdn, Host}, Opts,</font>
+        |                       fun iolist_to_binary/1,
+        |                       &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      Password = get_opt({ldap_password, Host}, Opts,</font>
+        |                   fun iolist_to_binary/1,
+        |                   &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      Base = get_opt({ldap_base, Host}, Opts,</font>
+        |                     fun iolist_to_binary/1,
+        |                     &lt;&lt;""&gt;&gt;),
+<font color=red>     0..|      DerefAliases = get_opt({deref_aliases, Host}, Opts,</font>
+<font color=red>     0..|                             fun(never) -&gt; never;</font>
+<font color=red>     0..|                                (searching) -&gt; searching;</font>
+<font color=red>     0..|                                (finding) -&gt; finding;</font>
+<font color=red>     0..|                                (always) -&gt; always</font>
+        |                             end, never),
+<font color=red>     0..|      #eldap_config{servers = Servers,</font>
+        |                    backups = Backups,
+        |                    tls_options = [{encrypt, Encrypt},
+        |                                   {tls_verify, TLSVerify},
+        |                                   {tls_cacertfile, TLSCAFile},
+        |                                   {tls_depth, TLSDepth}],
+        |                    port = Port,
+        |                    dn = RootDN,
+        |                    password = Password,
+        |                    base = Base,
+        |                    deref_aliases = DerefAliases}.
+        |  
+        |  -spec singleton_value(list()) -&gt; {binary(), binary()} | false.
+        |  singleton_value([{K, [V]}]) -&gt;
+<font color=red>     0..|      {K, V};</font>
+        |  singleton_value([{_K, _V} = I]) -&gt;
+<font color=red>     0..|      I;</font>
+        |  singleton_value(_) -&gt;
+<font color=red>     0..|      false.</font>
+        |  %%----------------------------------------
+        |  %% Borrowed from asn1rt_ber_bin_v2.erl
+        |  %%----------------------------------------
+        |  
+        |  %%% The tag-number for universal types
+        |  -define(N_BOOLEAN, 1).
+        |  -define(N_INTEGER, 2).
+        |  -define(N_BIT_STRING, 3).
+        |  -define(N_OCTET_STRING, 4).
+        |  -define(N_NULL, 5).
+        |  -define(N_OBJECT_IDENTIFIER, 6).
+        |  -define(N_OBJECT_DESCRIPTOR, 7).
+        |  -define(N_EXTERNAL, 8).
+        |  -define(N_REAL, 9).
+        |  -define(N_ENUMERATED, 10).
+        |  -define(N_EMBEDDED_PDV, 11).
+        |  -define(N_SEQUENCE, 16).
+        |  -define(N_SET, 17).
+        |  -define(N_NumericString, 18).
+        |  -define(N_PrintableString, 19).
+        |  -define(N_TeletexString, 20).
+        |  -define(N_VideotexString, 21).
+        |  -define(N_IA5String, 22).
+        |  -define(N_UTCTime, 23).
+        |  -define(N_GeneralizedTime, 24).
+        |  -define(N_GraphicString, 25).
+        |  -define(N_VisibleString, 26).
+        |  -define(N_GeneralString, 27).
+        |  -define(N_UniversalString, 28).
+        |  -define(N_BMPString, 30).
+        |  
+        |  
+        |  -spec decode_octet_string(_,_,list()) -&gt; binary().
+        |  decode_octet_string(Buffer, Range, Tags) -&gt;
+        |  %    NewTags = new_tags(HasTag,#tag{class=?UNIVERSAL,number=?N_OCTET_STRING}),
+<font color=red>     0..|      decode_restricted_string(Buffer, Range, Tags).</font>
+        |  
+        |  
+        |  -spec decode_restricted_string(_,_,list()) -&gt; binary().
+        |  decode_restricted_string(Tlv, Range, TagsIn) -&gt;
+<font color=red>     0..|      Val = match_tags(Tlv, TagsIn),</font>
+<font color=red>     0..|      Val2 =</font>
+        |          case Val of
+        |              PartList = [_H|_T] -&gt; % constructed val
+<font color=red>     0..|                  collect_parts(PartList);</font>
+        |              Bin -&gt;
+<font color=red>     0..|                  Bin</font>
+        |          end,
+<font color=red>     0..|      check_and_convert_restricted_string(Val2, Range).</font>
+        |  
+        |  
+        |  -spec check_and_convert_restricted_string(iolist(),_) -&gt; binary().
+        |  check_and_convert_restricted_string(Val, Range) -&gt;
+<font color=red>     0..|      {StrLen,NewVal} = if is_binary(Val) -&gt;</font>
+<font color=red>     0..|                                {size(Val), Val};</font>
+        |                           true -&gt;
+<font color=red>     0..|                                {length(Val), list_to_binary(Val)}</font>
+        |                        end,
+<font color=red>     0..|      case Range of</font>
+        |          [] -&gt; % No length constraint
+<font color=red>     0..|              NewVal;</font>
+        |          {Lb,Ub} when StrLen &gt;= Lb, Ub &gt;= StrLen -&gt; % variable length constraint
+<font color=red>     0..|              NewVal;</font>
+        |          {{Lb,_Ub},[]} when StrLen &gt;= Lb -&gt;
+<font color=red>     0..|              NewVal;</font>
+        |          {{Lb,_Ub},_Ext=[Min|_]} when StrLen &gt;= Lb; StrLen &gt;= Min -&gt;
+<font color=red>     0..|              NewVal;</font>
+        |          {{Lb1,Ub1},{Lb2,Ub2}} when StrLen &gt;= Lb1, StrLen =&lt; Ub1;
+        |                                     StrLen =&lt; Ub2, StrLen &gt;= Lb2 -&gt;
+<font color=red>     0..|              NewVal;</font>
+        |          StrLen -&gt; % fixed length constraint
+<font color=red>     0..|              NewVal;</font>
+        |          {_,_} -&gt;
+<font color=red>     0..|              exit({error,{asn1,{length,Range,Val}}});</font>
+        |          _Len when is_integer(_Len) -&gt;
+<font color=red>     0..|              exit({error,{asn1,{length,Range,Val}}});</font>
+        |          _ -&gt; % some strange constraint that we don't support yet
+<font color=red>     0..|              NewVal</font>
+        |      end.
+        |  
+        |  %%----------------------------------------
+        |  %% Decode the in buffer to bits
+        |  %%----------------------------------------
+        |  match_tags({T,V},[T]) -&gt;
+<font color=red>     0..|      V;</font>
+        |  match_tags({T,V}, [T|Tt]) -&gt;
+<font color=red>     0..|      match_tags(V,Tt);</font>
+        |  match_tags([{T,V}],[T|Tt]) -&gt;
+<font color=red>     0..|      match_tags(V, Tt);</font>
+        |  match_tags(Vlist = [{T,_V}|_], [T]) -&gt;
+<font color=red>     0..|      Vlist;</font>
+        |  match_tags(Tlv, []) -&gt;
+<font color=red>     0..|      Tlv;</font>
+        |  match_tags({Tag,_V},[T|_Tt]) -&gt;
+<font color=red>     0..|      {error,{asn1,{wrong_tag,{Tag,T}}}}.</font>
+        |  
+        |  
+        |  -spec collect_parts([{_,_}]) -&gt; binary().
+        |  collect_parts(TlvList) -&gt;
+<font color=red>     0..|      collect_parts(TlvList,[]).</font>
+        |  
+        |  
+        |  -spec collect_parts([{_,_}],[any()]) -&gt; binary().
+        |  collect_parts([{_,L}|Rest],Acc) when is_list(L) -&gt;
+<font color=red>     0..|      collect_parts(Rest,[collect_parts(L)|Acc]);</font>
+        |  collect_parts([{?N_BIT_STRING,&lt;&lt;Unused,Bits/binary&gt;&gt;}|Rest],_Acc) -&gt;
+<font color=red>     0..|      collect_parts_bit(Rest,[Bits],Unused);</font>
+        |  collect_parts([{_T,V}|Rest],Acc) -&gt;
+<font color=red>     0..|      collect_parts(Rest,[V|Acc]);</font>
+        |  collect_parts([],Acc) -&gt;
+<font color=red>     0..|      list_to_binary(lists:reverse(Acc)).</font>
+        |  
+        |  
+        |  -spec collect_parts_bit([{3,binary()}],[binary(),...],non_neg_integer()) -&gt; binary().
+        |  collect_parts_bit([{?N_BIT_STRING,&lt;&lt;Unused,Bits/binary&gt;&gt;}|Rest],Acc,Uacc) -&gt;
+<font color=red>     0..|      collect_parts_bit(Rest,[Bits|Acc],Unused+Uacc);</font>
+        |  collect_parts_bit([],Acc,Uacc) -&gt;
+<font color=red>     0..|      list_to_binary([Uacc|lists:reverse(Acc)]).</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/ejabberd_loglevel.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_loglevel.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_loglevel.erl
+        |  %%% Author  : Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Loglevel switcher.
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2012   ProcessOne, Erlang Solutions Ltd.
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_loglevel).
+        |  -author('mongoose-im@erlang-solutions.com').
+        |  
+        |  -export([init/0,
+        |           set/1,
+        |           get/0,
+        |           set_custom/2,
+        |           clear_custom/0, clear_custom/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -export_type([loglevel/0]).
+        |  -type loglevel() :: none | critical | error | warning | info | debug.
+        |  
+        |  -define(LOG_LEVELS,
+        |          [{0, none},
+        |           {1, critical},
+        |           {2, error},
+        |           {3, warning},
+        |           {4, info},
+        |           {5, debug}]).
+        |  
+        |  -define(ETS_TRACE_TAB, ejabberd_lager_traces).
+        |  
+        |  -spec init() -&gt; atom() | ets:tid().
+        |  init() -&gt;
+<font color=red>     0..|      lager:start(),</font>
+<font color=red>     0..|      ets:new(?ETS_TRACE_TAB, [bag, named_table, public]).</font>
+        |  
+        |  -spec get() -&gt; [{{atom(), term()} | atom(), {non_neg_integer(), loglevel()}}].
+        |  get() -&gt;
+<font color=red>     0..|      Backends = gen_event:which_handlers(lager_event),</font>
+<font color=red>     0..|      [ {Backend, lists:keyfind(lager:get_loglevel(Backend), 2, ?LOG_LEVELS)}</font>
+<font color=red>     0..|        || Backend &lt;- Backends, Backend /= lager_backend_throttle ].</font>
+        |  
+        |  -spec set(loglevel() | integer()) -&gt; [Result] when
+        |        Result :: { LagerBackend, ok | {error, Reason} },
+        |        %% Yes, these are two different errors!
+        |        Reason :: bad_log_level | bad_loglevel,
+        |        LagerBackend :: lager_console_backend | {lager_file_backend, Path},
+        |        Path :: string().
+        |  set(Level) when is_integer(Level) -&gt;
+<font color=red>     0..|      {_, Name} = lists:keyfind(Level, 1, ?LOG_LEVELS),</font>
+<font color=red>     0..|      set(Name);</font>
+        |  set(Level) -&gt;
+<font color=red>     0..|      Backends = gen_event:which_handlers(lager_event),</font>
+<font color=red>     0..|      Files = [ { B, lager:set_loglevel(lager_file_backend, File, Level) }</font>
+<font color=red>     0..|                || B = {lager_file_backend, File} &lt;- Backends ],</font>
+<font color=red>     0..|      Consoles = [ { B, lager:set_loglevel(lager_console_backend, Level) }</font>
+<font color=red>     0..|                   || B = lager_console_backend &lt;- Backends ],</font>
+<font color=red>     0..|      Files ++ Consoles.</font>
+        |  
+        |  -spec set_custom(Module :: atom(), loglevel() | integer()) -&gt; [Result] when
+        |        Result :: {lager_console_backend | {lager_file_backend, string()},
+        |                   ok | {error, any()}}.
+        |  set_custom(Module, Level) when is_integer(Level) -&gt;
+<font color=red>     0..|      {_, Name} = lists:keyfind(Level, 1, ?LOG_LEVELS),</font>
+<font color=red>     0..|      set_custom(Module, Name);</font>
+        |  set_custom(Module, Level) when is_atom(Level) -&gt;
+<font color=red>     0..|      clear_custom(Module),</font>
+<font color=red>     0..|      Backends = gen_event:which_handlers(lager_event),</font>
+<font color=red>     0..|      [ {Backend, set_trace(Backend, Module, Level)}</font>
+<font color=red>     0..|        || Backend &lt;- Backends,</font>
+<font color=red>     0..|           Backend /= lager_backend_throttle ].</font>
+        |  
+        |  set_trace(Backend, Module, Level) -&gt;
+<font color=red>     0..|      case lager:trace(Backend, [{module, Module}], Level) of</font>
+<font color=red>     0..|          {error, _} = E -&gt; E;</font>
+        |          {ok, Trace} -&gt;
+<font color=red>     0..|              true = ets:insert(?ETS_TRACE_TAB, {Module, Trace}),</font>
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec clear_custom() -&gt; ok.
+        |  clear_custom() -&gt;
+<font color=red>     0..|      ets:safe_fixtable(?ETS_TRACE_TAB, true),</font>
+<font color=red>     0..|      ets:foldl(fun clear_trace/2, ok, ?ETS_TRACE_TAB),</font>
+<font color=red>     0..|      ets:delete_all_objects(?ETS_TRACE_TAB),</font>
+<font color=red>     0..|      ets:safe_fixtable(?ETS_TRACE_TAB, false),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  clear_trace({_Module, Trace}, ok) -&gt;
+<font color=red>     0..|      lager:stop_trace(Trace).</font>
+        |  
+        |  -spec clear_custom(Module :: atom()) -&gt; ok.
+        |  clear_custom(Module) when is_atom(Module) -&gt;
+<font color=red>     0..|      case ets:lookup(?ETS_TRACE_TAB, Module) of</font>
+<font color=red>     0..|          [] -&gt; ok;</font>
+        |          [_|_] = Traces -&gt;
+<font color=red>     0..|              ets:delete(?ETS_TRACE_TAB, Module),</font>
+<font color=red>     0..|              [ lager:stop_trace(Trace) || {_, Trace} &lt;- Traces ],</font>
+<font color=red>     0..|              ok</font>
+        |      end.
+</pre>
+</body>
+</html>

@@ -1,0 +1,582 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mod_admin_extra_roster.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_roster.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_roster.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_roster).
+        |  -author('badlop@process-one.net').
+        |  -export([
+        |      commands/0,
+        |  
+        |      add_rosteritem/7,
+        |      delete_rosteritem/4,
+        |      process_rosteritems/5,
+        |      get_roster/2,
+        |      push_roster/3,
+        |      push_roster_all/1,
+        |      push_alltoall/2
+        |      ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  -include("mod_roster.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  -type simple_roster() :: {User :: ejabberd:user(),
+        |                           Server :: ejabberd:server(),
+        |                           Group :: binary(),
+        |                           Nick :: binary()}.
+        |  -type jids_nick_subs_ask_grp() :: {Jids :: list(),
+        |                                     Nick :: binary(),
+        |                                     Subs :: subs(),
+        |                                     _Ask,
+        |                                     _Group}.
+        |  -type subs() :: atom() | binary().
+        |  -type push_action() :: remove
+        |                       | none
+        |                       | {add, Nick :: binary(), Subs :: subs(),
+        |                          Group :: binary() | string()}.
+        |  
+        |  -type delete_action() :: {'delete', Subs :: [atom()], Asks :: [atom()],
+        |                                      [ejabberd:user()], Contacts :: [binary()]}.
+        |  -type list_action() :: {'list', Subs :: [atom()], Asks :: [atom()],
+        |                                  [ejabberd:user()], Contacts :: [binary()]}.
+        |  
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = add_rosteritem, tags = [roster],
+        |                             desc = "Add an item to a user's roster (supports ODBC)",
+        |                             module = ?MODULE, function = add_rosteritem,
+        |                             args = [{localuser, binary}, {localserver, binary},
+        |                                     {user, binary}, {server, binary},
+        |                                     {nick, binary}, {group, binary},
+        |                                     {subs, binary}],
+        |                             result = {res, restuple}},
+        |          %%{"", "subs= none, from, to or both"},
+        |          %%{"", "example: add-roster peter localhost mike server.com MiKe Employees both"},
+        |          %%{"", "will add mike@server.com to peter@localhost roster"},
+        |          #ejabberd_commands{name = delete_rosteritem, tags = [roster],
+        |                             desc = "Delete an item from a user's roster (supports ODBC)",
+        |                             module = ?MODULE, function = delete_rosteritem,
+        |                             args = [{localuser, binary}, {localserver, binary},
+        |                                     {user, binary}, {server, binary}],
+        |                             result = {res, restuple}},
+        |          #ejabberd_commands{name = process_rosteritems, tags = [roster],
+        |                             desc = "List or delete rosteritems that match filtering options (Mnesia only!)",
+        |                             longdesc = "Explanation of each argument:\n"
+        |                             " - action: what to do with each rosteritem that "
+        |                             "matches all the filtering options\n"
+        |                             " - subs: subscription type\n"
+        |                             " - asks: pending subscription\n"
+        |                             " - users: the JIDs of the local user\n"
+        |                             " - contacts: the JIDs of the contact in the roster\n"
+        |                             "\n"
+        |                             "Allowed values in the arguments:\n"
+        |                             "  ACTION = list | delete\n"
+        |                             "  SUBS = SUB[:SUB]* | any\n"
+        |                             "  SUB = none | from | to | both\n"
+        |                             "  ASKS = ASK[:ASK]* | any\n"
+        |                             "  ASK = none | out | in\n"
+        |                             "  USERS = JID[:JID]* | any\n"
+        |                             "  CONTACTS = JID[:JID]* | any\n"
+        |                             "  JID = characters valid in a JID, and can use the "
+        |                             "Regular expression syntax: http://www.erlang.org/doc/man/re.html#id212737\n"
+        |                             "\n"
+        |                             "This example will list roster items with subscription "
+        |                             "'none', 'from' or 'to' that have any ask property, of "
+        |                             "local users which JID is in the virtual host "
+        |                             "'example.org' and that the contact JID is either a "
+        |                             "bare server name (without user part) or that has a "
+        |                             "user part and the server part contains the word 'icq'"
+        |                             ":\n  list none:from:to any *@example.org *:*@*icq*",
+        |                             module = ?MODULE, function = process_rosteritems,
+        |                             args = [{action, string}, {subs, string},
+        |                                     {asks, string}, {users, string},
+        |                                     {contacts, string}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = get_roster, tags = [roster],
+        |                             desc = "Get roster of a local user",
+        |                             module = ?MODULE, function = get_roster,
+        |                             args = [{user, binary}, {host, binary}],
+        |                             result = {contacts, {list, {contact, {tuple, [
+        |                                  {jid, binary},
+        |                                  {nick, binary},
+        |                                  {subscription, binary},
+        |                                  {ask, binary},
+        |                                  {group, binary}
+        |                                  ]}}}}},
+        |          #ejabberd_commands{name = push_roster, tags = [roster],
+        |                             desc = "Push template roster from file to a user",
+        |                             module = ?MODULE, function = push_roster,
+        |                             args = [{file, string}, {user, binary}, {host, binary}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = push_roster_all, tags = [roster],
+        |                             desc = "Push template roster from file to all those users",
+        |                             module = ?MODULE, function = push_roster_all,
+        |                             args = [{file, string}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = push_roster_alltoall, tags = [roster],
+        |                             desc = "Add all the users to all the users of Host in Group",
+        |                             module = ?MODULE, function = push_alltoall,
+        |                             args = [{host, binary}, {group, binary}],
+        |                             result = {res, rescode}}
+        |          ].
+        |  
+        |  %%%
+        |  %%% Roster
+        |  %%%
+        |  
+        |  -spec add_rosteritem(LocalUser :: ejabberd:user(),
+        |                       LocalServer :: ejabberd:server(),
+        |                       User :: ejabberd:user(),
+        |                       Server :: ejabberd:server(),
+        |                       Nick :: binary(),
+        |                       Group :: binary() | string(),
+        |                       Subs :: subs()) -&gt; {Res, string()} when
+        |      Res :: user_doest_not_exist | error | bad_subs | ok.
+        |  add_rosteritem(LocalUser, LocalServer, User, Server, Nick, Group, Subs) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(LocalUser, LocalServer) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case subscribe(LocalUser, LocalServer, User, Server, Nick, Group, Subs, []) of</font>
+        |                  {atomic, ok} -&gt;
+<font color=red>     0..|                      do_add_rosteritem(LocalUser, LocalServer, User, Server, Nick, Group, Subs);</font>
+        |                  Other -&gt;
+<font color=red>     0..|                      {error, io_lib:format("~p", [Other])}</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("Cannot add the item because user ~s@~s does not exist",</font>
+        |                                                  [LocalUser, LocalServer])}
+        |      end.
+        |  
+        |  do_add_rosteritem(LocalUser, LocalServer, User, Server, Nick, Group, Subs) -&gt;
+<font color=red>     0..|      case lists:member(Subs, possible_subs_binary()) of</font>
+        |          true -&gt;
+<font color=red>     0..|              push_roster_item(LocalUser, LocalServer, User, Server, {add, Nick, Subs, Group}),</font>
+<font color=red>     0..|              {ok, io_lib:format("Added the item to the roster of ~s@~s", [LocalUser, LocalServer])};</font>
+        |          false -&gt;
+<font color=red>     0..|              {bad_subs, io_lib:format("Sub ~s is incorrect. Choose one of the following:~nnone~nfrom~nto~nboth",</font>
+        |                                       [binary_to_list(Subs)])}
+        |      end.
+        |  
+        |  
+        |  %% @doc returns result of mnesia or odbc transaction
+        |  -spec subscribe(LocalUser :: ejabberd:user(),
+        |                  LocalServer :: ejabberd:server(),
+        |                  User :: ejabberd:user(),
+        |                  Server :: ejabberd:server(),
+        |                  Nick :: binary(),
+        |                  Group :: binary() | string(),
+        |                  Subs :: subs(),
+        |                  _Xattrs :: [jlib:binary_pair()]) -&gt; any().
+        |   subscribe(LU, LS, User, Server, Nick, Group, SubscriptionS, _Xattrs) -&gt;
+<font color=red>     0..|      ItemEl = build_roster_item(User, Server, {add, Nick, SubscriptionS, Group}),</font>
+<font color=red>     0..|      case loaded_module(LS,[mod_roster_odbc,mod_roster]) of</font>
+        |          {ok, M} -&gt;
+<font color=red>     0..|              M:set_items(</font>
+        |                  LU, LS,
+        |                  #xmlel{ name = &lt;&lt;"query"&gt;&gt;,
+        |                          attrs = [{&lt;&lt;"xmlns"&gt;&gt;,&lt;&lt;"jabber:iq:roster"&gt;&gt;}],
+        |                          children = [ItemEl]});
+        |          {error, not_found} -&gt;
+<font color=red>     0..|              unknown_server;</font>
+        |          Other -&gt;
+<font color=red>     0..|              Other</font>
+        |      end.
+        |  
+        |  
+        |  
+        |  -spec delete_rosteritem(LocalUser :: ejabberd:user(),
+        |                          LocalServer :: ejabberd:server(),
+        |                          User :: ejabberd:user(),
+        |                          Server :: ejabberd:server()) -&gt; {Res, string()} when
+        |      Res :: ok | error | user_does_not_exist.
+        |  delete_rosteritem(LocalUser, LocalServer, User, Server) -&gt;
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(LocalUser, LocalServer) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case unsubscribe(LocalUser, LocalServer, User, Server) of</font>
+        |                  {atomic, ok} -&gt;
+<font color=red>     0..|                      push_roster_item(LocalUser, LocalServer, User, Server, remove),</font>
+<font color=red>     0..|                      {ok, io_lib:format("The item removed from roster of ~s@~s", [LocalUser, LocalServer])};</font>
+        |                  Other -&gt;
+<font color=red>     0..|                      {error, io_lib:format("~p", [Other])}</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              {user_does_not_exist, io_lib:format("Cannot delete the item because user ~s@~s doest not exist",</font>
+        |                                                  [LocalUser, LocalServer])}
+        |      end.
+        |  
+        |  
+        |  %% @doc returns result of mnesia or odbc transaction
+        |  -spec unsubscribe(LocalUser :: ejabberd:user(),
+        |                    LocalServer :: ejabberd:server(),
+        |                    User :: ejabberd:user(),
+        |                    Server :: ejabberd:server()) -&gt; any().
+        |  unsubscribe(LU, LS, User, Server) -&gt;
+<font color=red>     0..|      ItemEl = build_roster_item(User, Server, remove),</font>
+<font color=red>     0..|      case loaded_module(LS,[mod_roster_odbc,mod_roster]) of</font>
+        |          {ok, M} -&gt;
+<font color=red>     0..|              M:set_items(</font>
+        |                  LU, LS,
+        |                  #xmlel{ name = &lt;&lt;"query"&gt;&gt;,
+        |                          attrs = [{&lt;&lt;"xmlns"&gt;&gt;,&lt;&lt;"jabber:iq:roster"&gt;&gt;}],
+        |                          children = [ItemEl]});
+        |          {error, not_found} -&gt;
+<font color=red>     0..|              unknown_server;</font>
+        |          Other -&gt;
+<font color=red>     0..|              Other</font>
+        |      end.
+        |  
+        |  
+        |  
+        |  -spec loaded_module(Domain :: binary(),
+        |                      Options :: ['mod_roster' | 'mod_roster_odbc',...])
+        |              -&gt; {'error','not_found'} | {'ok','mod_roster' | 'mod_roster_odbc'}.
+        |  loaded_module(Domain,Options) -&gt;
+<font color=red>     0..|      LoadedModules = gen_mod:loaded_modules(Domain),</font>
+<font color=red>     0..|      case lists:filter(fun(Module) -&gt;</font>
+<font color=red>     0..|                      lists:member(Module, LoadedModules)</font>
+        |              end, Options) of
+<font color=red>     0..|          [M|_] -&gt; {ok, M};</font>
+<font color=red>     0..|          [] -&gt; {error,not_found}</font>
+        |      end.
+        |  
+        |  %% -----------------------------
+        |  %% Get Roster
+        |  %% -----------------------------
+        |  
+        |  -spec get_roster(ejabberd:user(), ejabberd:server()) -&gt; [jids_nick_subs_ask_grp()].
+        |  get_roster(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      Items = ejabberd_hooks:run_fold(roster_get, Server, [], [{LUser, LServer}]),</font>
+<font color=red>     0..|      make_roster(Items).</font>
+        |  
+        |  
+        |  %% @doc Note: if a contact is in several groups, the contact is returned
+        |  %% several times, each one in a different group.
+        |  -spec make_roster([mod_roster:roster()]) -&gt; [jids_nick_subs_ask_grp()].
+        |  make_roster(Roster) -&gt;
+<font color=red>     0..|      lists:foldl(</font>
+        |          fun(Item, Res) -&gt;
+<font color=red>     0..|                  JIDS = jid:to_binary(Item#roster.jid),</font>
+<font color=red>     0..|                  Nick = Item#roster.name,</font>
+<font color=red>     0..|                  Subs = atom_to_list(Item#roster.subscription),</font>
+<font color=red>     0..|                  Ask = atom_to_list(Item#roster.ask),</font>
+<font color=red>     0..|                  Groups = case Item#roster.groups of</font>
+<font color=red>     0..|                      [] -&gt; [""];</font>
+<font color=red>     0..|                      Gs -&gt; Gs</font>
+        |                  end,
+<font color=red>     0..|                  ItemsX = [{JIDS, Nick, Subs, Ask, Group}</font>
+<font color=red>     0..|                            || Group &lt;- Groups],</font>
+<font color=red>     0..|                  ItemsX ++ Res</font>
+        |          end,
+        |          [],
+        |          Roster).
+        |  
+        |  
+        |  %%-----------------------------
+        |  %% Push Roster from file
+        |  %%-----------------------------
+        |  
+        |  -spec push_roster(file:name(), ejabberd:user(), ejabberd:server()) -&gt; 'ok'.
+        |  push_roster(File, User, Server) -&gt;
+<font color=red>     0..|      {ok, [Roster]} = file:consult(File),</font>
+<font color=red>     0..|      subscribe_roster({User, Server, &lt;&lt;""&gt;&gt;, User}, roster_list_to_binary(Roster)).</font>
+        |  
+        |  
+        |  -spec push_roster_all(file:name()) -&gt; 'ok'.
+        |  push_roster_all(File) -&gt;
+<font color=red>     0..|      {ok, [Roster]} = file:consult(File),</font>
+<font color=red>     0..|      subscribe_all(roster_list_to_binary(Roster)).</font>
+        |  
+        |  
+        |  -spec roster_list_to_binary([mod_roster:roster()]) -&gt; [simple_roster()].
+        |  roster_list_to_binary(Roster) -&gt;
+<font color=red>     0..|      [{</font>
+        |          ejabberd_binary:string_to_binary(Usr),
+        |          ejabberd_binary:string_to_binary(Srv),
+        |          ejabberd_binary:string_to_binary(Grp),
+<font color=red>     0..|          ejabberd_binary:string_to_binary(Nick)} || {Usr, Srv, Grp, Nick} &lt;- Roster].</font>
+        |  
+        |  
+        |  -spec subscribe_all([simple_roster()]) -&gt; 'ok'.
+        |  subscribe_all(Roster) -&gt;
+<font color=red>     0..|      subscribe_all(Roster, Roster).</font>
+        |  subscribe_all([], _) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  subscribe_all([User1 | Users], Roster) -&gt;
+<font color=red>     0..|      subscribe_roster(User1, Roster),</font>
+<font color=red>     0..|      subscribe_all(Users, Roster).</font>
+        |  
+        |  
+        |  -spec subscribe_roster(simple_roster(), [simple_roster()]) -&gt; 'ok'.
+        |  subscribe_roster(_, []) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  %% Do not subscribe a user to itself
+        |  subscribe_roster({Name, Server, Group, Nick}, [{Name, Server, _, _} | Roster]) -&gt;
+<font color=red>     0..|      subscribe_roster({Name, Server, Group, Nick}, Roster);</font>
+        |  %% Subscribe Name2 to Name1
+        |  subscribe_roster({Name1, Server1, Group1, Nick1}, [{Name2, Server2, Group2, Nick2} | Roster]) -&gt;
+<font color=red>     0..|      subscribe(Name1, Server1, Name2, Server2, Nick2, Group2, &lt;&lt;"both"&gt;&gt;, []),</font>
+<font color=red>     0..|      subscribe_roster({Name1, Server1, Group1, Nick1}, Roster).</font>
+        |  
+        |  
+        |  -spec push_alltoall(ejabberd:server(), binary()) -&gt; 'ok'.
+        |  push_alltoall(S, G) -&gt;
+<font color=red>     0..|      Users = ejabberd_auth:get_vh_registered_users(S),</font>
+<font color=red>     0..|      Users2 = build_list_users(G, Users, []),</font>
+<font color=red>     0..|      subscribe_all(Users2),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec build_list_users(Group :: binary(),
+        |                         [ejabberd:simple_bare_jid()],
+        |                         Res :: [simple_roster()]) -&gt; [].
+        |  build_list_users(_Group, [], Res) -&gt;
+<font color=red>     0..|      Res;</font>
+        |  build_list_users(Group, [{User, Server}|Users], Res) -&gt;
+<font color=red>     0..|      build_list_users(Group, Users, [{User, Server, Group, User}|Res]).</font>
+        |  
+        |  
+        |  %% @spec(LU, LS, U, S, Action) -&gt; ok
+        |  %%       Action = {add, Nick, Subs, Group} | remove
+        |  %% @doc Push to the roster of account LU@LS the contact U@S.
+        |  %% The specific action to perform is defined in Action.
+        |  -spec push_roster_item(ejabberd:luser(), ejabberd:lserver(), ejabberd:user(),
+        |          ejabberd:server(), Action :: push_action()) -&gt; 'ok'.
+        |  push_roster_item(LU, LS, U, S, Action) -&gt;
+<font color=red>     0..|      lists:foreach(fun(R) -&gt;</font>
+<font color=red>     0..|                  push_roster_item(LU, LS, R, U, S, Action)</font>
+        |          end, ejabberd_sm:get_user_resources(LU, LS)).
+        |  
+        |  
+        |  -spec push_roster_item(ejabberd:luser(), ejabberd:lserver(), ejabberd:user(),
+        |          ejabberd:user(), ejabberd:server(), Action :: push_action()) -&gt; 'ok'.
+        |  push_roster_item(LU, LS, R, U, S, Action) -&gt;
+<font color=red>     0..|      LJID = jid:make(LU, LS, R),</font>
+<font color=red>     0..|      BroadcastEl = build_broadcast(U, S, Action),</font>
+<font color=red>     0..|      ejabberd_sm:route(LJID, LJID, BroadcastEl),</font>
+<font color=red>     0..|      Item = build_roster_item(U, S, Action),</font>
+<font color=red>     0..|      ResIQ = build_iq_roster_push(Item),</font>
+<font color=red>     0..|      ejabberd_router:route(LJID, LJID, ResIQ).</font>
+        |  
+        |  -spec build_roster_item(ejabberd:user(), ejabberd:server(), push_action()
+        |                         ) -&gt; jlib:xmlel().
+        |  build_roster_item(U, S, {add, Nick, Subs, Group}) -&gt;
+<font color=red>     0..|      #xmlel{ name = &lt;&lt;"item"&gt;&gt;,</font>
+        |         attrs = [{&lt;&lt;"jid"&gt;&gt;, jid:to_binary(jid:make(U, S, &lt;&lt;""&gt;&gt;))},
+        |                  {&lt;&lt;"name"&gt;&gt;, Nick},
+        |                  {&lt;&lt;"subscription"&gt;&gt;, Subs}],
+        |         children = [#xmlel{name = &lt;&lt;"group"&gt;&gt;, children = [#xmlcdata{content = Group}]}]
+        |        };
+        |  build_roster_item(U, S, remove) -&gt;
+<font color=red>     0..|      #xmlel{ name = &lt;&lt;"item"&gt;&gt;,</font>
+        |         attrs = [{&lt;&lt;"jid"&gt;&gt;, jid:to_binary(jid:make(U, S, &lt;&lt;""&gt;&gt;))},
+        |                  {&lt;&lt;"subscription"&gt;&gt;, &lt;&lt;"remove"&gt;&gt;}]}.
+        |  
+        |  
+        |  -spec build_iq_roster_push(jlib:xmlcdata() | jlib:xmlel()) -&gt; jlib:xmlel().
+        |  build_iq_roster_push(Item) -&gt;
+<font color=red>     0..|      #xmlel{ name = &lt;&lt;"iq"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"set"&gt;&gt;}, {&lt;&lt;"id"&gt;&gt;, &lt;&lt;"push"&gt;&gt;}],
+        |             children = [#xmlel{ name = &lt;&lt;"query"&gt;&gt;, attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_ROSTER}], children = [Item]}] }.
+        |  
+        |  -spec build_broadcast(U :: ejabberd:user(), S :: ejabberd:server(),
+        |                        push_action()) -&gt; ejabberd_c2s:broadcast().
+        |  build_broadcast(U, S, {add, _Nick, Subs, _Group}) -&gt;
+<font color=red>     0..|      build_broadcast(U, S, list_to_existing_atom(binary_to_list(Subs)));</font>
+        |  build_broadcast(U, S, remove) -&gt;
+<font color=red>     0..|      build_broadcast(U, S, none);</font>
+        |  %% Subs = both | from | to | none
+        |  build_broadcast(U, S, SubsAtom) when is_atom(SubsAtom) -&gt;
+<font color=red>     0..|      {broadcast, {item, {U, S, &lt;&lt;""&gt;&gt;}, SubsAtom}}.</font>
+        |  
+        |  %%-----------------------------
+        |  %% Purge roster items
+        |  %%-----------------------------
+        |  
+        |  -spec process_rosteritems(Act :: string(), SubsS :: string(), AsksS :: string(),
+        |          UsersS :: string(), ContactsS :: string()) -&gt; 'ok'.
+        |  process_rosteritems(ActionS, SubsS, AsksS, UsersS, ContactsS) -&gt;
+<font color=red>     0..|      Action = case ActionS of</font>
+<font color=red>     0..|          "list" -&gt; list;</font>
+<font color=red>     0..|          "delete" -&gt; delete</font>
+        |      end,
+        |  
+<font color=red>     0..|      Subs = lists:foldl(</font>
+<font color=red>     0..|              fun(any, _) -&gt; [none, from, to, both];</font>
+<font color=red>     0..|                  (Sub, Subs) -&gt; [Sub | Subs]</font>
+        |              end,
+        |              [],
+<font color=red>     0..|              [list_to_existing_atom(S) || S &lt;- string:tokens(SubsS, ":")]</font>
+        |              ),
+        |  
+<font color=red>     0..|      Asks = lists:foldl(</font>
+<font color=red>     0..|              fun(any, _) -&gt; [none, out, in];</font>
+<font color=red>     0..|                  (Ask, Asks) -&gt; [Ask | Asks]</font>
+        |              end,
+        |              [],
+<font color=red>     0..|              [list_to_existing_atom(S) || S &lt;- string:tokens(AsksS, ":")]</font>
+        |              ),
+        |  
+<font color=red>     0..|      Users = lists:foldl(</font>
+<font color=red>     0..|              fun(&lt;&lt;"any"&gt;&gt;, _) -&gt; [&lt;&lt;".*"&gt;&gt;, &lt;&lt;".*@.*"&gt;&gt;];</font>
+<font color=red>     0..|                  (U, Us) -&gt; [U | Us]</font>
+        |              end,
+        |              [],
+<font color=red>     0..|              [ejabberd_binary:string_to_binary(S) || S &lt;- string:tokens(UsersS, ":")]</font>
+        |              ),
+        |  
+<font color=red>     0..|      Contacts = lists:foldl(</font>
+<font color=red>     0..|              fun(&lt;&lt;"any"&gt;&gt;, _) -&gt; [&lt;&lt;".*"&gt;&gt;, &lt;&lt;".*@.*"&gt;&gt;];</font>
+<font color=red>     0..|                  (U, Us) -&gt; [U | Us]</font>
+        |              end,
+        |              [],
+<font color=red>     0..|              [ejabberd_binary:string_to_binary(S) || S &lt;- string:tokens(ContactsS, ":")]</font>
+        |              ),
+        |  
+<font color=red>     0..|      rosteritem_purge({Action, Subs, Asks, Users, Contacts}),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec rosteritem_purge(delete_action() | list_action()) -&gt; {'atomic','ok'}.
+        |  rosteritem_purge(Options) -&gt;
+<font color=red>     0..|      Num_rosteritems = mnesia:table_info(roster, size),</font>
+<font color=red>     0..|      case Num_rosteritems of</font>
+        |          0 -&gt;
+<font color=red>     0..|              io:format("Roster table is empty.~n");</font>
+        |          _ -&gt;
+<font color=red>     0..|              io:format("There are ~p roster items in total.~n", [Num_rosteritems]),</font>
+<font color=red>     0..|              Key = mnesia:dirty_first(roster),</font>
+<font color=red>     0..|              ok = rip(Key, Options, {0, Num_rosteritems, 0, 0})</font>
+        |      end,
+<font color=red>     0..|      {atomic, ok}.</font>
+        |  
+        |  
+        |  -spec rip('$end_of_table'  | any(), delete_action()  | list_action(),
+        |            {integer(), integer(), non_neg_integer(), non_neg_integer()}) -&gt;
+        |               ok.
+        |  rip('$end_of_table', _Options, Counters) -&gt;
+<font color=red>     0..|      print_progress_line(Counters),</font>
+<font color=red>     0..|      ok;</font>
+        |  rip(Key, Options, {Pr, NT, NV, ND}) -&gt;
+<font color=red>     0..|      Key_next = mnesia:dirty_next(roster, Key),</font>
+<font color=red>     0..|      {Action, _, _, _, _} = Options,</font>
+<font color=red>     0..|      ND2 = case decide_rip(Key, Options) of</font>
+        |          true -&gt;
+<font color=red>     0..|              apply_action(Action, Key),</font>
+<font color=red>     0..|              ND+1;</font>
+        |          false -&gt;
+<font color=red>     0..|              ND</font>
+        |      end,
+<font color=red>     0..|      NV2 = NV+1,</font>
+<font color=red>     0..|      Pr2 = print_progress_line({Pr, NT, NV2, ND2}),</font>
+<font color=red>     0..|      rip(Key_next, Options, {Pr2, NT, NV2, ND2}).</font>
+        |  
+        |  apply_action(list, Key) -&gt;
+<font color=red>     0..|      {User, Server, JID} = Key,</font>
+<font color=red>     0..|      {RUser, RServer, _} = JID,</font>
+<font color=red>     0..|      io:format("Matches: ~s@~s ~s@~s~n", [User, Server, RUser, RServer]);</font>
+        |  apply_action(delete, Key) -&gt;
+<font color=red>     0..|      apply_action(list, Key),</font>
+<font color=red>     0..|      mnesia:dirty_delete(roster, Key).</font>
+        |  
+        |  print_progress_line({Pr, NT, NV, ND}) -&gt;
+<font color=red>     0..|      Pr2 = NV * 100 div NT,</font>
+<font color=red>     0..|      case Pr == Pr2 of</font>
+        |          true -&gt;
+<font color=red>     0..|              ok;</font>
+        |          false -&gt;
+<font color=red>     0..|              io:format("Progress ~p% - visited ~p - deleted ~p~n", [Pr2, NV, ND])</font>
+        |      end,
+<font color=red>     0..|      Pr2.</font>
+        |  
+        |  decide_rip(Key, {_Action, Subs, Asks, User, Contact}) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(roster, Key) of</font>
+        |          [RI] -&gt;
+<font color=red>     0..|              lists:member(RI#roster.subscription, Subs)</font>
+<font color=red>     0..|              andalso lists:member(RI#roster.ask, Asks)</font>
+<font color=red>     0..|              andalso decide_rip_jid(RI#roster.us, User)</font>
+<font color=red>     0..|              andalso decide_rip_jid(RI#roster.jid, Contact);</font>
+        |          _ -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  %% Returns true if the server of the JID is included in the servers
+        |  decide_rip_jid({UName, UServer, _UResource}, MatchList) -&gt;
+<font color=red>     0..|      decide_rip_jid({UName, UServer}, MatchList);</font>
+        |  decide_rip_jid({UName, UServer}, MatchList) -&gt;
+<font color=red>     0..|      lists:any(</font>
+        |          fun(MatchString) -&gt;
+<font color=red>     0..|                  MJID = jid:from_binary(MatchString),</font>
+<font color=red>     0..|                  MName = MJID#jid.luser,</font>
+<font color=red>     0..|                  MServer = MJID#jid.lserver,</font>
+<font color=red>     0..|                  IsServer = is_regexp_match(UServer, MServer),</font>
+<font color=red>     0..|                  case {MName, UName} of</font>
+<font color=red>     0..|                      {&lt;&lt;&gt;&gt;, &lt;&lt;&gt;&gt;} -&gt; IsServer;</font>
+<font color=red>     0..|                      {&lt;&lt;&gt;&gt;, _} -&gt; false;</font>
+<font color=red>     0..|                      _ -&gt; IsServer andalso is_regexp_match(UName, MName)</font>
+        |                  end
+        |          end,
+        |          MatchList).
+        |  
+        |  is_regexp_match(String, RegExp) -&gt;
+<font color=red>     0..|      case catch re:run(String, RegExp) of</font>
+        |          nomatch -&gt;
+<font color=red>     0..|              false;</font>
+        |          {match, List} -&gt;
+<font color=red>     0..|              Size = length(binary_to_list(String)),</font>
+<font color=red>     0..|              case lists:member({0,Size}, List) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      true;</font>
+        |                  false -&gt;
+<font color=red>     0..|                      false</font>
+        |              end;
+        |          Error -&gt;
+<font color=red>     0..|              io:format("Wrong regexp ~p: ~p", [RegExp, Error]),</font>
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  possible_subs_binary() -&gt;
+<font color=red>     0..|      [&lt;&lt;"none"&gt;&gt;, &lt;&lt;"from"&gt;&gt;, &lt;&lt;"to"&gt;&gt;, &lt;&lt;"both"&gt;&gt;].</font>
+</pre>
+</body>
+</html>

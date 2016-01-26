@@ -1,0 +1,177 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/translate.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/translate.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : translate.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Localization helper
+        |  %%% Created :  6 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(translate).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([start/0,
+        |           translate/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %%
+        |  %% Public
+        |  %%
+        |  
+        |  -spec start() -&gt; 'ok'.
+        |  start() -&gt;
+<font color=red>     0..|      ets:new(translations, [named_table, public]),</font>
+<font color=red>     0..|      ok = load_translations_from_dir(lang_files_directory()),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec translate(ejabberd:lang(), binary()) -&gt; binary().
+        |  translate(Lang, Msg) -&gt;
+<font color=red>     0..|      LLang = to_lower(Lang),</font>
+<font color=red>     0..|      case get_translation(LLang, Msg) of</font>
+<font color=red>     0..|          {ok, Trans} -&gt; Trans;</font>
+<font color=red>     0..|          {error, not_found} -&gt; get_default_server_lang_translation(Msg)</font>
+        |      end.
+        |  
+        |  %%
+        |  %% Private
+        |  %%
+        |  
+        |  -spec lang_files_directory() -&gt;  file:filename().
+        |  lang_files_directory() -&gt;
+<font color=red>     0..|      case os:getenv("EJABBERD_MSGS_PATH") of</font>
+        |          false -&gt;
+<font color=red>     0..|              case code:priv_dir(ejabberd) of</font>
+<font color=red>     0..|                  {error, _} -&gt; ?MSGS_DIR;</font>
+<font color=red>     0..|                  Path -&gt; Path</font>
+        |              end;
+<font color=red>     0..|          Path -&gt; Path</font>
+        |      end.
+        |  
+        |  -spec load_translations_from_dir(file:filename()) -&gt; ok | {error, lager_not_running}.
+        |  load_translations_from_dir(Dir) -&gt;
+<font color=red>     0..|      case file:list_dir(Dir) of</font>
+        |          {ok, Files} -&gt;
+<font color=red>     0..|              MsgFiles = lists:filter(fun has_msg_extension/1, Files),</font>
+<font color=red>     0..|              load_translation_files(Dir, MsgFiles);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason])</font>
+        |      end.
+        |  
+        |  -spec load_translation_files(file:filename(), [file:filename()]) -&gt; ok.
+        |  load_translation_files(Dir, MsgFiles) -&gt;
+<font color=red>     0..|      lists:foreach(fun(Filename) -&gt;</font>
+<font color=red>     0..|                            Lang = lang_from_file_name(Filename),</font>
+<font color=red>     0..|                            load_file(Lang, Dir ++ "/" ++ Filename)</font>
+        |                    end, MsgFiles).
+        |  
+        |  -spec lang_from_file_name(file:filename()) -&gt; string().
+        |  lang_from_file_name(Filename) -&gt;
+<font color=red>     0..|      string:to_lower(filename:rootname(Filename)).</font>
+        |  
+        |  -spec has_msg_extension(file:filename()) -&gt; boolean().
+        |  has_msg_extension(FileName) -&gt;
+<font color=red>     0..|      filename:extension(FileName) == ".msg".</font>
+        |  
+        |  -spec load_file(string(), file:name()) -&gt; 'ok'.
+        |  load_file(Lang, File) -&gt;
+<font color=red>     0..|      BLang = list_to_binary(Lang),</font>
+<font color=red>     0..|      case file:consult(File) of</font>
+        |          {ok, Terms} -&gt;
+<font color=red>     0..|              lists:foreach(fun({Orig, Trans}) -&gt;</font>
+<font color=red>     0..|                                    insert_translation(BLang,</font>
+        |                                                       unicode:characters_to_binary(Orig),
+        |                                                       unicode:characters_to_binary(Trans))
+        |                            end, Terms);
+        |          %% Code copied from ejabberd_config.erl
+        |          {error, {_LineNumber, erl_parse, _ParseMessage} = Reason} -&gt;
+<font color=red>     0..|              ExitText = lists:flatten(File ++ " approximately in the line "</font>
+        |                                       ++ file:format_error(Reason)),
+<font color=red>     0..|              ?ERROR_MSG("Problem loading translation file ~n~s", [ExitText]),</font>
+<font color=red>     0..|              exit(ExitText);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ExitText = lists:flatten(File ++ ": " ++ file:format_error(Reason)),</font>
+<font color=red>     0..|              ?ERROR_MSG("Problem loading translation file ~n~s", [ExitText]),</font>
+<font color=red>     0..|              exit(ExitText)</font>
+        |      end.
+        |  
+        |  -spec insert_translation(ejabberd:lang(), binary(), binary()) -&gt; true.
+        |  insert_translation(Lang, Msg, &lt;&lt;""&gt;&gt;) -&gt;
+<font color=red>     0..|      insert_translation(Lang, Msg, Msg); %% use key if it is not defined</font>
+        |  insert_translation(Lang, Msg, Trans) -&gt;
+<font color=red>     0..|      ets:insert(translations, {{Lang, Msg}, Trans}).</font>
+        |  
+        |  -spec get_default_server_lang_translation(binary()) -&gt;  binary().
+        |  get_default_server_lang_translation(Msg) -&gt;
+<font color=red>     0..|      case get_translation(default_server_lang(), Msg) of</font>
+<font color=red>     0..|          {ok, DefaultTrans} -&gt; DefaultTrans;</font>
+<font color=red>     0..|          {error, not_found} -&gt; Msg</font>
+        |      end.
+        |  
+        |  -spec get_translation(ejabberd:lang(), binary()) -&gt; {ok, binary()} | {error, not_found}.
+        |  get_translation(LLang, Msg) -&gt;
+<font color=red>     0..|      case read_trans(LLang, Msg) of</font>
+        |          {error, not_found} -&gt;
+<font color=red>     0..|              read_trans(short_lang(LLang), Msg);</font>
+        |          {ok, Trans} -&gt;
+<font color=red>     0..|              {ok, Trans}</font>
+        |      end.
+        |  
+        |  -spec read_trans(ejabberd:lang(), binary()) -&gt; {ok, binary()} | {error, not_found}.
+        |  read_trans(&lt;&lt;"en"&gt;&gt;, Msg) -&gt;
+<font color=red>     0..|      {ok, Msg};</font>
+        |  read_trans(LLang, Msg) -&gt;
+<font color=red>     0..|      case ets:lookup(translations, {LLang, Msg}) of</font>
+<font color=red>     0..|          [{_, Trans}] -&gt; {ok, Trans};</font>
+<font color=red>     0..|          _ -&gt; {error, not_found}</font>
+        |      end.
+        |  
+        |  -spec short_lang(ejabberd:lang()) -&gt; ejabberd:lang().
+        |  short_lang(LLang) -&gt;
+<font color=red>     0..|      case string:tokens(binary_to_list(LLang), "-") of</font>
+<font color=red>     0..|          [] -&gt; LLang;</font>
+<font color=red>     0..|          [ShortLang | _] -&gt; list_to_binary(ShortLang)</font>
+        |      end.
+        |  
+        |  -spec default_server_lang() -&gt; ejabberd:lang().
+        |  default_server_lang() -&gt;
+<font color=red>     0..|      case ?MYLANG of</font>
+<font color=red>     0..|          undefined -&gt; &lt;&lt;"en"&gt;&gt;;</font>
+<font color=red>     0..|          &lt;&lt;"en"&gt;&gt; -&gt;  &lt;&lt;"en"&gt;&gt;;</font>
+<font color=red>     0..|          Lang -&gt; Lang</font>
+        |      end.
+        |  
+        |  -spec to_lower(binary()) -&gt; binary().
+        |  to_lower(Bin) -&gt;
+<font color=red>     0..|      list_to_binary(string:to_lower(binary_to_list(Bin))).</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/ejabberd_sup.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_sup.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_sup.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Erlang/OTP supervisor
+        |  %%% Created : 31 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_sup).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(supervisor).
+        |  
+        |  -export([start_link/0, init/1]).
+        |  
+        |  start_link() -&gt;
+<font color=red>     0..|      supervisor:start_link({local, ?MODULE}, ?MODULE, []).</font>
+        |  
+        |  init([]) -&gt;
+<font color=red>     0..|      Randoms =</font>
+        |          {randoms,
+        |           {randoms, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [randoms]},
+<font color=red>     0..|      Hooks =</font>
+        |          {ejabberd_hooks,
+        |           {ejabberd_hooks, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [ejabberd_hooks]},
+<font color=red>     0..|      Cleaner =</font>
+        |          {mongoose_cleaner,
+        |           {mongoose_cleaner, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [mongoose_cleaner]},
+<font color=red>     0..|      Router =</font>
+        |          {ejabberd_router,
+        |           {ejabberd_router, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [ejabberd_router]},
+<font color=red>     0..|      SM =</font>
+        |          {ejabberd_sm,
+        |           {ejabberd_sm, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [ejabberd_sm]},
+<font color=red>     0..|      S2S =</font>
+        |          {ejabberd_s2s,
+        |           {ejabberd_s2s, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [ejabberd_s2s]},
+<font color=red>     0..|      Local =</font>
+        |          {ejabberd_local,
+        |           {ejabberd_local, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [ejabberd_local]},
+<font color=red>     0..|      Listener =</font>
+        |          {ejabberd_listener,
+        |           {ejabberd_listener, start_link, []},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_listener]},
+<font color=red>     0..|      ReceiverSupervisor =</font>
+        |          {ejabberd_receiver_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_receiver_sup, ejabberd_receiver]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      C2SSupervisor =</font>
+        |          {ejabberd_c2s_sup,
+        |           {ejabberd_tmp_sup, start_link, [ejabberd_c2s_sup, ejabberd_c2s]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      S2SInSupervisor =</font>
+        |          {ejabberd_s2s_in_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_s2s_in_sup, ejabberd_s2s_in]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      S2SOutSupervisor =</font>
+        |          {ejabberd_s2s_out_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_s2s_out_sup, ejabberd_s2s_out]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      ServiceSupervisor =</font>
+        |          {ejabberd_service_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_service_sup, ejabberd_service]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      HTTPSupervisor =</font>
+        |          {ejabberd_http_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_http_sup, ejabberd_http]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      HTTPPollSupervisor =</font>
+        |          {ejabberd_http_poll_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_http_poll_sup, ejabberd_http_poll]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      IQSupervisor =</font>
+        |          {ejabberd_iq_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_iq_sup, gen_iq_handler]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      STUNSupervisor =</font>
+        |          {ejabberd_stun_sup,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ejabberd_stun_sup, ejabberd_stun]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      SMBackendSupervisor =</font>
+        |          {ejabberd_sm_backend_sup,
+        |           {ejabberd_sm_backend_sup, start_link, []},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_sm_backend_sup]},
+<font color=red>     0..|      MucIQ =</font>
+        |          {mod_muc_iq,
+        |           {mod_muc_iq, start_link, []},
+        |           permanent,
+        |           brutal_kill,
+        |           worker,
+        |           [mod_muc_iq]},
+<font color=red>     0..|      MAM =</font>
+        |          {mod_mam_sup,
+        |           {mod_mam_sup, start_link, []},
+        |           permanent, infinity, supervisor, [mod_mam_sup]},
+<font color=red>     0..|      ShaperSpecs = shaper_srv:child_specs(),</font>
+        |  
+<font color=red>     0..|      {ok, {{one_for_one, 10, 1},</font>
+        |            ShaperSpecs ++
+        |            [Randoms,
+        |             Hooks,
+        |             Cleaner,
+        |             SMBackendSupervisor,
+        |             Router,
+        |             SM,
+        |             S2S,
+        |             Local,
+        |             ReceiverSupervisor,
+        |             C2SSupervisor,
+        |             S2SInSupervisor,
+        |             S2SOutSupervisor,
+        |             ServiceSupervisor,
+        |             HTTPSupervisor,
+        |             HTTPPollSupervisor,
+        |             IQSupervisor,
+        |             STUNSupervisor,
+        |             Listener,
+        |             MucIQ,
+        |             MAM]}}.
+</pre>
+</body>
+</html>

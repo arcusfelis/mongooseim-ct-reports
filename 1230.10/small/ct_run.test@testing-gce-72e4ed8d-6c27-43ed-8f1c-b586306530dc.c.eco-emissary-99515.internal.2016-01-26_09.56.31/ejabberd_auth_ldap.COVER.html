@@ -1,0 +1,570 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/ejabberd_auth_ldap.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_auth_ldap.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_auth_ldap.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Authentification via LDAP
+        |  %%% Created : 12 Dec 2004 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_auth_ldap).
+        |  -author('alexey@process-one.net').
+        |  
+        |  %% gen_server callbacks
+        |  -behaviour(gen_server).
+        |  -export([init/1, handle_info/2, handle_call/3,
+        |           handle_cast/2, terminate/2, code_change/3]).
+        |  
+        |  %% External exports
+        |  -behaviour(ejabberd_gen_auth).
+        |  -export([start/1,
+        |      stop/1,
+        |      start_link/1,
+        |      set_password/3,
+        |      check_password/3,
+        |      check_password/5,
+        |      try_register/3,
+        |      dirty_get_registered_users/0,
+        |      get_vh_registered_users/1,
+        |      get_vh_registered_users/2,
+        |      get_vh_registered_users_number/1,
+        |      get_vh_registered_users_number/2,
+        |      get_password/2,
+        |      get_password_s/2,
+        |      does_user_exist/2,
+        |      remove_user/2,
+        |      remove_user/3,
+        |      store_type/1,
+        |      plain_password_required/0]).
+        |  
+        |  %% Exported for behaviour but not implemented
+        |  -export([login/2, get_password/3]).
+        |  
+        |  -export([config_change/4]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("eldap.hrl").
+        |  
+        |  -record(state,
+        |         {host = &lt;&lt;""&gt;&gt;          :: ejabberd:lserver(),
+        |          eldap_id = &lt;&lt;""&gt;&gt;      :: binary(),
+        |          bind_eldap_id = &lt;&lt;""&gt;&gt; :: binary(),
+        |          servers = []           :: [ejabberd:lserver()],
+        |          backups = []           :: [binary()],
+        |          port = ?LDAP_PORT      :: inet:port_number(),
+        |          tls_options = []       :: list(),
+        |          dn = &lt;&lt;""&gt;&gt;            :: binary(),
+        |          password = &lt;&lt;""&gt;&gt;      :: binary(),
+        |          base = &lt;&lt;""&gt;&gt;          :: binary(),
+        |          uids = []              :: [{binary()} | {binary(), binary()}],
+        |          ufilter = &lt;&lt;""&gt;&gt;       :: binary(),
+        |          sfilter = &lt;&lt;""&gt;&gt;       :: binary(),
+        |          lfilter                :: {any(), any()},
+        |          deref_aliases = never  :: never | searching | finding | always,
+        |          dn_filter              :: binary(),
+        |          dn_filter_attrs = []   :: [binary()]
+        |         }).
+        |  -type state() :: #state{}.
+        |  
+<font color=red>     0..|  handle_cast(_Request, State) -&gt; {noreply, State}.</font>
+        |  
+<font color=red>     0..|  code_change(_OldVsn, State, _Extra) -&gt; {ok, State}.</font>
+        |  
+<font color=red>     0..|  handle_info(_Info, State) -&gt; {noreply, State}.</font>
+        |  
+        |  -define(LDAP_SEARCH_TIMEOUT, 5).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec start(Host :: ejabberd:lserver()) -&gt; ok.
+        |  start(Host) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?MODULE),</font>
+<font color=red>     0..|      ChildSpec = {Proc, {?MODULE, start_link, [Host]},</font>
+        |                   transient, 1000, worker, [?MODULE]},
+<font color=red>     0..|      ejabberd_hooks:add(host_config_update, Host, ?MODULE, config_change, 50),</font>
+<font color=red>     0..|      {ok, _} = supervisor:start_child(ejabberd_sup, ChildSpec),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec stop(Host :: ejabberd:lserver()) -&gt; ok.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(host_config_update, Host, ?MODULE, config_change, 50),</font>
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?MODULE),</font>
+<font color=red>     0..|      gen_server:call(Proc, stop),</font>
+<font color=red>     0..|      supervisor:terminate_child(ejabberd_sup, Proc),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup, Proc),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  start_link(Host) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?MODULE),</font>
+<font color=red>     0..|      gen_server:start_link({local, Proc}, ?MODULE, Host, []).</font>
+        |  
+<font color=red>     0..|  terminate(_Reason, _State) -&gt; ok.</font>
+        |  
+        |  -spec init(Host :: ejabberd:lserver()) -&gt; {'ok', state()}.
+        |  init(Host) -&gt;
+<font color=red>     0..|      State = parse_options(Host),</font>
+<font color=red>     0..|      eldap_pool:start_link(State#state.eldap_id,</font>
+        |                            State#state.servers, State#state.backups,
+        |                            State#state.port, State#state.dn,
+        |                            State#state.password, State#state.tls_options),
+<font color=red>     0..|      eldap_pool:start_link(State#state.bind_eldap_id,</font>
+        |                            State#state.servers, State#state.backups,
+        |                            State#state.port, State#state.dn,
+        |                            State#state.password, State#state.tls_options),
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+<font color=red>     0..|  store_type(_) -&gt; external.</font>
+        |  
+<font color=red>     0..|  plain_password_required() -&gt; true.</font>
+        |  
+        |  
+        |  config_change(Acc, Host, ldap, _NewConfig) -&gt;
+<font color=red>     0..|      stop(Host),</font>
+<font color=red>     0..|      start(Host),</font>
+<font color=red>     0..|      Acc;</font>
+        |  config_change(Acc, _, _, _) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  -spec check_password(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver(),
+        |                       Password :: binary()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      if Password == &lt;&lt;""&gt;&gt; -&gt; false;</font>
+        |         true -&gt;
+<font color=red>     0..|             case catch check_password_ldap(LUser, LServer, Password)</font>
+        |                 of
+<font color=red>     0..|               {'EXIT', _} -&gt; false;</font>
+<font color=red>     0..|               Result -&gt; Result</font>
+        |             end
+        |      end.
+        |  
+        |  
+        |  -spec check_password(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver(),
+        |                       Password :: binary(),
+        |                       Digest :: binary(),
+        |                       DigestGen :: fun()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password, _Digest,
+        |                 _DigestGen) -&gt;
+<font color=red>     0..|      check_password(LUser, LServer, Password).</font>
+        |  
+        |  
+        |  -spec set_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     Password :: binary())
+        |        -&gt; ok | {error, not_allowed | invalid_jid}.
+        |  set_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(LServer, ?MODULE),</font>
+<font color=red>     0..|      case find_user_dn(LUser, State) of</font>
+<font color=red>     0..|        false -&gt; {error, user_not_found};</font>
+        |        DN -&gt;
+<font color=red>     0..|            eldap_pool:modify_passwd(State#state.eldap_id, DN,</font>
+        |                                     Password)
+        |      end.
+        |  
+        |  
+        |  -spec try_register(LUser :: ejabberd:luser(), LServer :: ejabberd:lserver(),
+        |                     Password :: binary()) -&gt; ok | {error, exists}.
+        |  try_register(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(LServer, ?MODULE),</font>
+<font color=red>     0..|      UserStr = binary_to_list(LUser),</font>
+<font color=red>     0..|      DN = "cn=" ++ UserStr ++ "," ++ binary_to_list(State#state.base),</font>
+<font color=red>     0..|      Attrs =   [{"objectclass", ["inetOrgPerson"]},</font>
+        |                {"cn", [UserStr]},
+        |                {"sn", [UserStr]},
+        |                {"userPassword",[binary_to_list(Password)]},
+        |                {"uid",[UserStr]}],
+<font color=red>     0..|      case eldap_pool:add(State#state.eldap_id,DN,Attrs) of</font>
+<font color=red>     0..|          ok -&gt; ok;</font>
+<font color=red>     0..|          _ -&gt; {error, exists}</font>
+        |      end.
+        |  
+        |  
+        |  -spec dirty_get_registered_users() -&gt; [ejabberd:simple_bare_jid()].
+        |  dirty_get_registered_users() -&gt;
+<font color=red>     0..|      LServers = ejabberd_config:get_vh_by_auth_method(ldap),</font>
+<font color=red>     0..|      lists:flatmap(fun (LServer) -&gt;</font>
+<font color=red>     0..|                            get_vh_registered_users(LServer)</font>
+        |                    end,
+        |                    LServers).
+        |  
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver()
+        |                               ) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer) -&gt;
+<font color=red>     0..|      case catch get_vh_registered_users_ldap(LServer) of</font>
+<font color=red>     0..|        {'EXIT', _} -&gt; [];</font>
+<font color=red>     0..|        Result -&gt; Result</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver(),
+        |                                Opts :: list()) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer, _) -&gt;
+<font color=red>     0..|      get_vh_registered_users(LServer).</font>
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(LServer :: ejabberd:lserver()) -&gt; integer().
+        |  get_vh_registered_users_number(LServer) -&gt;
+<font color=red>     0..|      length(get_vh_registered_users(LServer)).</font>
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(LServer :: ejabberd:lserver(),
+        |                                       Opts :: list()) -&gt; integer().
+        |  get_vh_registered_users_number(LServer, _) -&gt;
+<font color=red>     0..|      get_vh_registered_users_number(LServer).</font>
+        |  
+        |  
+        |  -spec get_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver()) -&gt; binary() | false.
+<font color=red>     0..|  get_password(_LUser, _LServer) -&gt; false.</font>
+        |  
+        |  
+        |  -spec get_password_s(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver()) -&gt; binary().
+<font color=red>     0..|  get_password_s(_LUser, _LServer) -&gt; &lt;&lt;""&gt;&gt;.</font>
+        |  
+        |  
+        |  -spec does_user_exist(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver()
+        |                       ) -&gt; boolean() | {error, atom()}.
+        |  does_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      case catch is_user_exists_ldap(LUser, LServer) of</font>
+<font color=red>     0..|        {'EXIT', Error} -&gt; {error, Error};</font>
+<font color=red>     0..|        Result -&gt; Result</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver()
+        |                    ) -&gt; ok | {error, not_allowed}.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(LServer, ?MODULE),</font>
+<font color=red>     0..|      case find_user_dn(LUser, State) of</font>
+<font color=red>     0..|        false -&gt; {error, not_allowed};</font>
+<font color=red>     0..|        DN -&gt; eldap_pool:delete(State#state.eldap_id,DN)</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver(),
+        |                    Password :: binary()
+        |                    ) -&gt; ok | {error, not_exists | not_allowed}.
+        |  remove_user(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(LServer, ?MODULE),</font>
+<font color=red>     0..|      case find_user_dn(LUser, State) of</font>
+<font color=red>     0..|        false -&gt; {error, not_exists};</font>
+        |        DN -&gt;
+<font color=red>     0..|              case eldap_pool:bind(State#state.bind_eldap_id, DN, Password) of</font>
+<font color=red>     0..|                  ok -&gt; ok = eldap_pool:delete(State#state.eldap_id, DN);</font>
+<font color=red>     0..|                  _ -&gt; {error, not_allowed}</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec check_password_ldap(LUser :: ejabberd:luser(),
+        |                            LServer :: ejabberd:lserver(),
+        |                            Password :: binary()) -&gt; boolean().
+        |  check_password_ldap(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(LServer, ?MODULE),</font>
+<font color=red>     0..|      case find_user_dn(LUser, State) of</font>
+<font color=red>     0..|        false -&gt; false;</font>
+        |        DN -&gt;
+<font color=red>     0..|            case eldap_pool:bind(State#state.bind_eldap_id, DN, Password) of</font>
+<font color=red>     0..|              ok -&gt; true;</font>
+<font color=red>     0..|              _ -&gt; false</font>
+        |            end
+        |      end.
+        |  
+        |  
+        |  -spec get_vh_registered_users_ldap(LServer :: ejabberd:lserver()
+        |                                    ) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users_ldap(LServer) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(LServer, ?MODULE),</font>
+<font color=red>     0..|      UIDs = State#state.uids,</font>
+<font color=red>     0..|      Eldap_ID = State#state.eldap_id,</font>
+<font color=red>     0..|      LServer = State#state.host,</font>
+<font color=red>     0..|      ResAttrs = result_attrs(State),</font>
+<font color=red>     0..|      case eldap_filter:parse(State#state.sfilter) of</font>
+        |        {ok, EldapFilter} -&gt;
+<font color=red>     0..|            case eldap_pool:search(Eldap_ID,</font>
+        |                                   [{base, State#state.base},
+        |                                    {filter, EldapFilter},
+        |                                    {timeout, ?LDAP_SEARCH_TIMEOUT},
+        |                                    {deref_aliases, State#state.deref_aliases},
+        |                                    {attributes, ResAttrs}])
+        |                of
+        |              #eldap_search_result{entries = Entries} -&gt;
+<font color=red>     0..|                  lists:flatmap(fun (#eldap_entry{attributes = Attrs,</font>
+        |                                                  object_name = DN}) -&gt;
+<font color=red>     0..|                                        case is_valid_dn(DN, Attrs, State) of</font>
+<font color=red>     0..|                                          false -&gt; [];</font>
+        |                                          _ -&gt;
+<font color=red>     0..|                                              case</font>
+        |                                                eldap_utils:find_ldap_attrs(UIDs,
+        |                                                                            Attrs)
+        |                                                  of
+<font color=red>     0..|                                                &lt;&lt;""&gt;&gt; -&gt; [];</font>
+        |                                                {User, UIDFormat} -&gt;
+<font color=red>     0..|                                                    case</font>
+        |                                                      eldap_utils:get_user_part(User,
+        |                                                                                UIDFormat)
+        |                                                        of
+        |                                                      {ok, U} -&gt;
+<font color=red>     0..|                                                          [{U, LServer}];</font>
+<font color=red>     0..|                                                      _ -&gt; []</font>
+        |                                                    end
+        |                                              end
+        |                                        end
+        |                                end,
+        |                                Entries);
+<font color=red>     0..|              _ -&gt; []</font>
+        |            end;
+<font color=red>     0..|        _ -&gt; []</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_user_exists_ldap(LUser :: ejabberd:luser(),
+        |                            LServer :: ejabberd:lserver()) -&gt; boolean().
+        |  is_user_exists_ldap(LUser, LServer) -&gt;
+<font color=red>     0..|      {ok, State} = eldap_utils:get_state(LServer, ?MODULE),</font>
+<font color=red>     0..|      case find_user_dn(LUser, State) of</font>
+<font color=red>     0..|        false -&gt; false;</font>
+<font color=red>     0..|        _DN -&gt; true</font>
+        |      end.
+        |  
+        |  handle_call(get_state, _From, State) -&gt;
+<font color=red>     0..|      {reply, {ok, State}, State};</font>
+        |  handle_call(stop, _From, State) -&gt;
+<font color=red>     0..|      eldap_pool:stop(State#state.eldap_id),</font>
+<font color=red>     0..|      eldap_pool:stop(State#state.bind_eldap_id),</font>
+<font color=red>     0..|      {stop, normal, ok, State};</font>
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      {reply, bad_request, State}.</font>
+        |  
+        |  
+        |  -spec find_user_dn(LUser :: ejabberd:luser(),
+        |                     State :: state()) -&gt; 'false' | binary().
+        |  find_user_dn(LUser, State) -&gt;
+<font color=red>     0..|      ResAttrs = result_attrs(State),</font>
+<font color=red>     0..|      case eldap_filter:parse(State#state.ufilter,</font>
+        |                              [{&lt;&lt;"%u"&gt;&gt;, LUser}])
+        |          of
+        |        {ok, Filter} -&gt;
+<font color=red>     0..|            case eldap_pool:search(State#state.eldap_id,</font>
+        |                                   [{base, State#state.base}, {filter, Filter},
+        |                                    {deref_aliases, State#state.deref_aliases},
+        |                                    {attributes, ResAttrs}])
+        |                of
+        |              #eldap_search_result{entries =
+        |                                       [#eldap_entry{attributes = Attrs,
+        |                                                     object_name = DN}
+        |                                        | _]} -&gt;
+<font color=red>     0..|                  dn_filter(DN, Attrs, State);</font>
+<font color=red>     0..|              _ -&gt; false</font>
+        |            end;
+<font color=red>     0..|        _ -&gt; false</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc apply the dn filter and the local filter:
+        |  -spec dn_filter(DN :: binary(),
+        |                  Attrs :: [{binary(),[any()]}],
+        |                  State :: state()) -&gt; 'false' | binary().
+        |  dn_filter(DN, Attrs, State) -&gt;
+<font color=red>     0..|      case check_local_filter(Attrs, State) of</font>
+<font color=red>     0..|        false -&gt; false;</font>
+<font color=red>     0..|        true -&gt; is_valid_dn(DN, Attrs, State)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Check that the DN is valid, based on the dn filter
+        |  -spec is_valid_dn(DN :: binary(),
+        |                    Attrs :: [{binary(),[any()]}],
+        |                    State :: state()) -&gt; 'false' | binary().
+<font color=red>     0..|  is_valid_dn(DN, _, #state{dn_filter = undefined}) -&gt; DN;</font>
+        |  is_valid_dn(DN, Attrs, State) -&gt;
+<font color=red>     0..|      DNAttrs = State#state.dn_filter_attrs,</font>
+<font color=red>     0..|      UIDs = State#state.uids,</font>
+<font color=red>     0..|      Values = [{&lt;&lt;"%s"&gt;&gt;,</font>
+        |                 eldap_utils:get_ldap_attr(Attr, Attrs), 1}
+<font color=red>     0..|                || Attr &lt;- DNAttrs],</font>
+<font color=red>     0..|      SubstValues = case eldap_utils:find_ldap_attrs(UIDs,</font>
+        |                                                     Attrs)
+        |                        of
+<font color=red>     0..|                      &lt;&lt;""&gt;&gt; -&gt; Values;</font>
+        |                      {S, UAF} -&gt;
+<font color=red>     0..|                          case eldap_utils:get_user_part(S, UAF) of</font>
+<font color=red>     0..|                            {ok, U} -&gt; [{&lt;&lt;"%u"&gt;&gt;, U} | Values];</font>
+<font color=red>     0..|                            _ -&gt; Values</font>
+        |                          end
+        |                    end
+        |                      ++ [{&lt;&lt;"%d"&gt;&gt;, State#state.host}, {&lt;&lt;"%D"&gt;&gt;, DN}],
+<font color=red>     0..|      case eldap_filter:parse(State#state.dn_filter,</font>
+        |                              SubstValues)
+        |          of
+        |        {ok, EldapFilter} -&gt;
+<font color=red>     0..|            case eldap_pool:search(State#state.eldap_id,</font>
+        |                                   [{base, State#state.base},
+        |                                    {filter, EldapFilter},
+        |                                    {deref_aliases, State#state.deref_aliases},
+        |                                    {attributes, [&lt;&lt;"dn"&gt;&gt;]}])
+        |                of
+<font color=red>     0..|              #eldap_search_result{entries = [_ | _]} -&gt; DN;</font>
+<font color=red>     0..|              _ -&gt; false</font>
+        |            end;
+<font color=red>     0..|        _ -&gt; false</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc The local filter is used to check an attribute in ejabberd
+        |  %% and not in LDAP to limit the load on the LDAP directory.
+        |  %% A local rule can be either:
+        |  %%    {equal, {"accountStatus",["active"]}}
+        |  %%    {notequal, {"accountStatus",["disabled"]}}
+        |  %% {ldap_local_filter, {notequal, {"accountStatus",["disabled"]}}}
+        |  -spec check_local_filter(Attrs :: [{binary(),[any()]}],
+        |                           State :: state()) -&gt; boolean().
+        |  check_local_filter(_Attrs,
+        |                     #state{lfilter = undefined}) -&gt;
+<font color=red>     0..|      true;</font>
+        |  check_local_filter(Attrs,
+        |                     #state{lfilter = LocalFilter}) -&gt;
+<font color=red>     0..|      {Operation, FilterMatch} = LocalFilter,</font>
+<font color=red>     0..|      local_filter(Operation, Attrs, FilterMatch).</font>
+        |  
+        |  
+        |  -spec local_filter('equal' | 'notequal',
+        |                     Attrs :: [{binary(),[any()]}],
+        |                     FilterMatch :: {_,_}) -&gt; boolean().
+        |  local_filter(equal, Attrs, FilterMatch) -&gt;
+<font color=red>     0..|      {Attr, Value} = FilterMatch,</font>
+<font color=red>     0..|      case lists:keysearch(Attr, 1, Attrs) of</font>
+<font color=red>     0..|        false -&gt; false;</font>
+<font color=red>     0..|        {value, {Attr, Value}} -&gt; true;</font>
+<font color=red>     0..|        _ -&gt; false</font>
+        |      end;
+        |  local_filter(notequal, Attrs, FilterMatch) -&gt;
+<font color=red>     0..|      not local_filter(equal, Attrs, FilterMatch).</font>
+        |  
+        |  
+        |  -spec result_attrs(state()) -&gt; maybe_improper_list().
+        |  result_attrs(#state{uids = UIDs,
+        |                      dn_filter_attrs = DNFilterAttrs}) -&gt;
+<font color=red>     0..|      lists:foldl(fun ({UID}, Acc) -&gt; [UID | Acc];</font>
+<font color=red>     0..|                      ({UID, _}, Acc) -&gt; [UID | Acc]</font>
+        |                  end,
+        |                  DNFilterAttrs, UIDs).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Auxiliary functions
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec parse_options(Host :: ejabberd:lserver()) -&gt; state().
+        |  parse_options(Host) -&gt;
+<font color=red>     0..|      Cfg = eldap_utils:get_config(Host, []),</font>
+<font color=red>     0..|      Eldap_ID = atom_to_binary(gen_mod:get_module_proc(Host, ?MODULE),utf8),</font>
+<font color=red>     0..|      Bind_Eldap_ID = atom_to_binary(</font>
+        |                        gen_mod:get_module_proc(Host, bind_ejabberd_auth_ldap),utf8),
+<font color=red>     0..|      UIDsTemp = eldap_utils:get_opt(</font>
+        |                   {ldap_uids, Host}, [],
+        |                   fun(Us) -&gt;
+<font color=red>     0..|                           lists:map(</font>
+        |                             fun({U, P}) -&gt;
+<font color=red>     0..|                                     {iolist_to_binary(U),</font>
+        |                                      iolist_to_binary(P)};
+        |                                ({U}) -&gt;
+<font color=red>     0..|                                     {iolist_to_binary(U)};</font>
+        |                                (U) -&gt;
+<font color=red>     0..|                                     {iolist_to_binary(U)}</font>
+        |                             end, lists:flatten(Us))
+        |                   end, [{&lt;&lt;"uid"&gt;&gt;, &lt;&lt;"%u"&gt;&gt;}]),
+<font color=red>     0..|      UIDs = eldap_utils:uids_domain_subst(Host, UIDsTemp),</font>
+<font color=red>     0..|      SubFilter = eldap_utils:generate_subfilter(UIDs),</font>
+<font color=red>     0..|      UserFilter = case eldap_utils:get_opt(</font>
+        |                          {ldap_filter, Host}, [],
+        |                          fun check_filter/1, &lt;&lt;""&gt;&gt;) of
+        |                       &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                           SubFilter;</font>
+        |                       F -&gt;
+<font color=red>     0..|                           &lt;&lt;"(&amp;", SubFilter/binary, F/binary, ")"&gt;&gt;</font>
+        |                   end,
+<font color=red>     0..|      SearchFilter = eldap_filter:do_sub(UserFilter,</font>
+        |                                         [{&lt;&lt;"%u"&gt;&gt;, &lt;&lt;"*"&gt;&gt;}]),
+<font color=red>     0..|      {DNFilter, DNFilterAttrs} =</font>
+        |          eldap_utils:get_opt({ldap_dn_filter, Host}, [],
+        |                              fun({DNF, DNFA}) -&gt;
+<font color=red>     0..|                                      NewDNFA = case DNFA of</font>
+        |                                                    undefined -&gt;
+<font color=red>     0..|                                                        [];</font>
+        |                                                    _ -&gt;
+<font color=red>     0..|                                                        [iolist_to_binary(A)</font>
+<font color=red>     0..|                                                         || A &lt;- DNFA]</font>
+        |                                                end,
+<font color=red>     0..|                                      NewDNF = check_filter(DNF),</font>
+<font color=red>     0..|                                      {NewDNF, NewDNFA}</font>
+        |                              end, {undefined, []}),
+<font color=red>     0..|      LocalFilter = eldap_utils:get_opt(</font>
+<font color=red>     0..|                      {ldap_local_filter, Host}, [], fun(V) -&gt; V end),</font>
+<font color=red>     0..|      #state{host = Host, eldap_id = Eldap_ID,</font>
+        |             bind_eldap_id = Bind_Eldap_ID,
+        |             servers = Cfg#eldap_config.servers,
+        |             backups = Cfg#eldap_config.backups,
+        |             port = Cfg#eldap_config.port,
+        |             tls_options = Cfg#eldap_config.tls_options,
+        |             dn = Cfg#eldap_config.dn,
+        |             password = Cfg#eldap_config.password,
+        |             base = Cfg#eldap_config.base,
+        |             deref_aliases = Cfg#eldap_config.deref_aliases,
+        |             uids = UIDs, ufilter = UserFilter,
+        |             sfilter = SearchFilter, lfilter = LocalFilter,
+        |             dn_filter = DNFilter, dn_filter_attrs = DNFilterAttrs}.
+        |  
+        |  
+        |  -spec check_filter(F :: iolist()) -&gt; binary().
+        |  check_filter(F) -&gt;
+<font color=red>     0..|      NewF = iolist_to_binary(F),</font>
+<font color=red>     0..|      {ok, _} = eldap_filter:parse(NewF),</font>
+<font color=red>     0..|      NewF.</font>
+        |  
+        |  
+        |  %% @doc gen_auth unimplemented callbacks
+<font color=red>     0..|  login(_LUser, _LServer) -&gt; erlang:error(not_implemented).</font>
+<font color=red>     0..|  get_password(_LUser, _LServer, _DefaultValue) -&gt; erlang:error(not_implemented).</font>
+</pre>
+</body>
+</html>

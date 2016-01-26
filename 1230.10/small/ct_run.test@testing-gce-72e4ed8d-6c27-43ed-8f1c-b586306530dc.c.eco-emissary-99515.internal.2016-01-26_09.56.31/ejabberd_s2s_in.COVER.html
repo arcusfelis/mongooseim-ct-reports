@@ -1,0 +1,837 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/ejabberd_s2s_in.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_s2s_in.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_s2s_in.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Serve incoming s2s connection
+        |  %%% Created :  6 Dec 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_s2s_in).
+        |  -author('alexey@process-one.net').
+        |  -behaviour(gen_fsm).
+        |  
+        |  %% External exports
+        |  -export([start/2,
+        |           start_link/2,
+        |           match_domain/2,
+        |           socket_type/0]).
+        |  
+        |  %% gen_fsm callbacks
+        |  -export([init/1,
+        |           wait_for_stream/2,
+        |           wait_for_feature_request/2,
+        |           stream_established/2,
+        |           handle_event/3,
+        |           handle_sync_event/4,
+        |           code_change/4,
+        |           handle_info/3,
+        |           terminate/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("public_key/include/public_key.hrl").
+        |  -define(PKIXEXPLICIT, 'OTP-PUB-KEY').
+        |  -define(PKIXIMPLICIT, 'OTP-PUB-KEY').
+        |  -include("XmppAddr.hrl").
+        |  
+        |  -define(DICT, dict).
+        |  
+        |  -record(state, {socket,
+        |                  sockmod               :: ejabberd:sockmod(),
+        |                  streamid              :: binary(),
+        |                  shaper,
+        |                  tls = false           :: boolean(),
+        |                  tls_enabled = false   :: boolean(),
+        |                  tls_required = false  :: boolean(),
+        |                  tls_certverify = false :: boolean(),
+        |                  tls_options = []      :: [{_,_}],
+        |                  server                :: ejabberd:server(),
+        |                  authenticated = false :: boolean(),
+        |                  auth_domain           :: binary(),
+        |                  connections = ?DICT:new(),
+        |                  timer                 :: reference()
+        |                }).
+        |  -type state() :: #state{}.
+        |  
+        |  -type statename() :: 'stream_established' | 'wait_for_feature_request'.
+        |  %% FSM handler return value
+        |  -type fsm_return() :: {'stop', Reason :: 'normal', state()}
+        |                      | {'next_state', statename(), state()}
+        |                      | {'next_state', statename(), state(), Timeout :: integer()}.
+        |  %-define(DBGFSM, true).
+        |  
+        |  -ifdef(DBGFSM).
+        |  -define(FSMOPTS, [{debug, [trace]}]).
+        |  -else.
+        |  -define(FSMOPTS, []).
+        |  -endif.
+        |  
+        |  %% Module start with or without supervisor:
+        |  -ifdef(NO_TRANSIENT_SUPERVISORS).
+        |  -define(SUPERVISOR_START, gen_fsm:start(ejabberd_s2s_in, [SockData, Opts],
+        |                                          ?FSMOPTS)).
+        |  -else.
+        |  -define(SUPERVISOR_START, supervisor:start_child(ejabberd_s2s_in_sup,
+        |                                                   [SockData, Opts])).
+        |  -endif.
+        |  
+        |  -define(STREAM_HEADER(Version),
+        |          (&lt;&lt;"&lt;?xml version='1.0'?&gt;"
+        |           "&lt;stream:stream "
+        |           "xmlns:stream='http://etherx.jabber.org/streams' "
+        |           "xmlns='jabber:server' "
+        |           "xmlns:db='jabber:server:dialback' "
+        |           "id='", (StateData#state.streamid)/binary, "'", Version/binary, "&gt;"&gt;&gt;)
+        |         ).
+        |  
+        |  -define(STREAM_TRAILER, &lt;&lt;"&lt;/stream:stream&gt;"&gt;&gt;).
+        |  
+        |  -define(INVALID_NAMESPACE_ERR,
+        |          exml:to_binary(?SERR_INVALID_NAMESPACE)).
+        |  
+        |  -define(HOST_UNKNOWN_ERR,
+        |          exml:to_binary(?SERR_HOST_UNKNOWN)).
+        |  
+        |  -define(INVALID_FROM_ERR,
+        |          exml:to_binary(?SERR_INVALID_FROM)).
+        |  
+        |  -define(INVALID_XML_ERR,
+        |          exml:to_binary(?SERR_XML_NOT_WELL_FORMED)).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  -spec start(_,_) -&gt; {'error',_}
+        |                    | {'ok','undefined' | pid()}
+        |                    | {'ok','undefined' | pid(),_}.
+        |  start(SockData, Opts) -&gt;
+<font color=red>     0..|      ?SUPERVISOR_START.</font>
+        |  
+        |  
+        |  -spec start_link(_,_) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(SockData, Opts) -&gt;
+<font color=red>     0..|      gen_fsm:start_link(ejabberd_s2s_in, [SockData, Opts], ?FSMOPTS).</font>
+        |  
+        |  
+        |  socket_type() -&gt;
+<font color=red>     0..|      xml_stream.</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Callback functions from gen_fsm
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: init/1
+        |  %% Returns: {ok, StateName, StateData}          |
+        |  %%          {ok, StateName, StateData, Timeout} |
+        |  %%          ignore                              |
+        |  %%          {stop, StopReason}
+        |  %%----------------------------------------------------------------------
+        |  -spec init(_) -&gt; {'ok','wait_for_stream',state()}.
+        |  init([{SockMod, Socket}, Opts]) -&gt;
+<font color=red>     0..|      ?DEBUG("started: ~p", [{SockMod, Socket}]),</font>
+<font color=red>     0..|      Shaper = case lists:keysearch(shaper, 1, Opts) of</font>
+<font color=red>     0..|                   {value, {_, S}} -&gt; S;</font>
+<font color=red>     0..|                   _ -&gt; none</font>
+        |               end,
+<font color=red>     0..|      {StartTLS, TLSRequired, TLSCertverify} = case ejabberd_config:get_local_option(s2s_use_starttls) of</font>
+        |               UseTls when (UseTls==undefined) or (UseTls==false) -&gt;
+<font color=red>     0..|                   {false, false, false};</font>
+        |               UseTls when (UseTls==true) or (UseTls==optional) -&gt;
+<font color=red>     0..|                   {true, false, false};</font>
+        |               required -&gt;
+<font color=red>     0..|                   {true, true, false};</font>
+        |               required_trusted -&gt;
+<font color=red>     0..|                   {true, true, true}</font>
+        |           end,
+<font color=red>     0..|      TLSOpts = case ejabberd_config:get_local_option(s2s_certfile) of</font>
+        |                    undefined -&gt;
+<font color=red>     0..|                        [];</font>
+        |                    CertFile -&gt;
+<font color=red>     0..|                        [{certfile, CertFile}]</font>
+        |                end,
+<font color=red>     0..|      Timer = erlang:start_timer(?S2STIMEOUT, self(), []),</font>
+<font color=red>     0..|      {ok, wait_for_stream,</font>
+        |       #state{socket = Socket,
+        |              sockmod = SockMod,
+        |              streamid = new_id(),
+        |              shaper = Shaper,
+        |              tls = StartTLS,
+        |              tls_enabled = false,
+        |              tls_required = TLSRequired,
+        |              tls_certverify = TLSCertverify,
+        |              tls_options = TLSOpts,
+        |              timer = Timer}}.
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: StateName/2
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  
+        |  -spec wait_for_stream(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  wait_for_stream({xmlstreamstart, _Name, Attrs}, StateData) -&gt;
+<font color=red>     0..|      case {xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs),</font>
+        |            xml:get_attr_s(&lt;&lt;"xmlns:db"&gt;&gt;, Attrs),
+        |            xml:get_attr_s(&lt;&lt;"to"&gt;&gt;, Attrs),
+        |            xml:get_attr_s(&lt;&lt;"version"&gt;&gt;, Attrs) == &lt;&lt;"1.0"&gt;&gt;} of
+        |          {&lt;&lt;"jabber:server"&gt;&gt;, _, Server, true} when
+        |                StateData#state.tls and (not StateData#state.authenticated) -&gt;
+<font color=red>     0..|              send_text(StateData, ?STREAM_HEADER(&lt;&lt;" version='1.0'"&gt;&gt;)),</font>
+<font color=red>     0..|              SASL =</font>
+        |                  if
+        |                      StateData#state.tls_enabled -&gt;
+<font color=red>     0..|                          case (StateData#state.sockmod):get_peer_certificate(</font>
+        |                                 StateData#state.socket) of
+        |                              {ok, Cert} -&gt;
+<font color=red>     0..|                                  case (StateData#state.sockmod):get_verify_result(StateData#state.socket) of</font>
+        |                                      0 -&gt;
+<font color=red>     0..|                                          [#xmlel{name = &lt;&lt;"mechanisms"&gt;&gt;,</font>
+        |                                                  attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_SASL}],
+        |                                                  children = [#xmlel{name = &lt;&lt;"mechanism"&gt;&gt;,
+        |                                                                     children = [#xmlcdata{content = &lt;&lt;"EXTERNAL"&gt;&gt;}]}]}];
+        |                                      CertVerifyRes -&gt;
+<font color=red>     0..|                                          case StateData#state.tls_certverify of</font>
+<font color=red>     0..|                                              true -&gt; {error_cert_verif, CertVerifyRes, Cert};</font>
+<font color=red>     0..|                                              false -&gt; []</font>
+        |                                          end
+        |                                  end;
+        |                              error -&gt;
+<font color=red>     0..|                                  []</font>
+        |                          end;
+        |                      true -&gt;
+<font color=red>     0..|                          []</font>
+        |                  end,
+<font color=red>     0..|              StartTLS = if</font>
+        |                             StateData#state.tls_enabled -&gt;
+<font color=red>     0..|                                 [];</font>
+        |                             (not StateData#state.tls_enabled) and (not StateData#state.tls_required) -&gt;
+<font color=red>     0..|                                [#xmlel{name = &lt;&lt;"starttls"&gt;&gt;,</font>
+        |                                        attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_TLS}]}];
+        |                             (not StateData#state.tls_enabled) and StateData#state.tls_required -&gt;
+<font color=red>     0..|                                [#xmlel{name = &lt;&lt;"starttls"&gt;&gt;,</font>
+        |                                        attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_TLS}],
+        |                                        children = [#xmlel{name = &lt;&lt;"required"&gt;&gt;}]}]
+        |                         end,
+<font color=red>     0..|              case SASL of</font>
+        |                  {error_cert_verif, CertVerifyResult, Certificate} -&gt;
+<font color=red>     0..|                      CertError = ejabberd_tls:get_cert_verify_string(CertVerifyResult, Certificate),</font>
+<font color=red>     0..|                      RemoteServer = xml:get_attr_s(&lt;&lt;"from"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|                      ?INFO_MSG("Closing s2s connection: ~s &lt;--&gt; ~s (~s)", [StateData#state.server, RemoteServer, CertError]),</font>
+<font color=red>     0..|                      send_text(StateData, exml:to_binary(?SERRT_POLICY_VIOLATION(&lt;&lt;"en"&gt;&gt;, CertError))),</font>
+<font color=red>     0..|                      {atomic, Pid} = ejabberd_s2s:find_connection(jid:make(&lt;&lt;""&gt;&gt;, Server, &lt;&lt;""&gt;&gt;), jid:make(&lt;&lt;""&gt;&gt;, RemoteServer, &lt;&lt;""&gt;&gt;)),</font>
+<font color=red>     0..|                      ejabberd_s2s_out:stop_connection(Pid),</font>
+        |  
+<font color=red>     0..|                      {stop, normal, StateData};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      send_element(StateData,</font>
+        |                                   #xmlel{name = &lt;&lt;"stream:features"&gt;&gt;,
+        |                                          children = SASL ++ StartTLS ++
+        |                                                     ejabberd_hooks:run_fold(
+        |                                                       s2s_stream_features,
+        |                                                       Server,
+        |                                                       [], [Server])}),
+<font color=red>     0..|                      {next_state, wait_for_feature_request, StateData#state{server = Server}}</font>
+        |              end;
+        |          {&lt;&lt;"jabber:server"&gt;&gt;, _, Server, true} when
+        |                StateData#state.authenticated -&gt;
+<font color=red>     0..|              send_text(StateData, ?STREAM_HEADER(&lt;&lt;" version='1.0'"&gt;&gt;)),</font>
+<font color=red>     0..|              send_element(StateData,</font>
+        |                           #xmlel{name = &lt;&lt;"stream:features"&gt;&gt;,
+        |                                  children = ejabberd_hooks:run_fold(
+        |                                               s2s_stream_features,
+        |                                               Server,
+        |                                               [], [Server])}),
+<font color=red>     0..|              {next_state, stream_established, StateData};</font>
+        |          {&lt;&lt;"jabber:server"&gt;&gt;, &lt;&lt;"jabber:server:dialback"&gt;&gt;, _Server, _} -&gt;
+<font color=red>     0..|              send_text(StateData, ?STREAM_HEADER(&lt;&lt;""&gt;&gt;)),</font>
+<font color=red>     0..|              {next_state, stream_established, StateData};</font>
+        |          _ -&gt;
+<font color=red>     0..|              send_text(StateData, ?INVALID_NAMESPACE_ERR),</font>
+<font color=red>     0..|              {stop, normal, StateData}</font>
+        |      end;
+        |  wait_for_stream({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?STREAM_HEADER(&lt;&lt;""&gt;&gt;))/binary, (?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_stream(timeout, StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_stream(closed, StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  -spec wait_for_feature_request(ejabberd:xml_stream_item(), state()
+        |                                ) -&gt; fsm_return().
+        |  wait_for_feature_request({xmlstreamelement, El}, StateData) -&gt;
+<font color=red>     0..|      #xmlel{name = Name, attrs = Attrs, children = Els} = El,</font>
+<font color=red>     0..|      TLS = StateData#state.tls,</font>
+<font color=red>     0..|      TLSEnabled = StateData#state.tls_enabled,</font>
+<font color=red>     0..|      SockMod = (StateData#state.sockmod):get_sockmod(StateData#state.socket),</font>
+<font color=red>     0..|      case {xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs), Name} of</font>
+        |          {?NS_TLS, &lt;&lt;"starttls"&gt;&gt;} when TLS == true,
+        |                                     TLSEnabled == false,
+        |                                     SockMod == gen_tcp -&gt;
+<font color=red>     0..|              ?DEBUG(&lt;&lt;"starttls"&gt;&gt;, []),</font>
+<font color=red>     0..|              Socket = StateData#state.socket,</font>
+<font color=red>     0..|              TLSOpts = case ejabberd_config:get_local_option(</font>
+        |                               {domain_certfile,
+        |                                StateData#state.server}) of
+        |                            undefined -&gt;
+<font color=red>     0..|                                StateData#state.tls_options;</font>
+        |                            CertFile -&gt;
+<font color=red>     0..|                                [{certfile, CertFile} |</font>
+        |                                 lists:keydelete(
+        |                                   certfile, 1,
+        |                                   StateData#state.tls_options)]
+        |                        end,
+<font color=red>     0..|              TLSSocket = (StateData#state.sockmod):starttls(</font>
+        |                            Socket, TLSOpts,
+        |                            exml:to_binary(
+        |                              #xmlel{name = &lt;&lt;"proceed"&gt;&gt;,
+        |                                     attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_TLS}]})),
+<font color=red>     0..|              {next_state, wait_for_stream,</font>
+        |               StateData#state{socket = TLSSocket,
+        |                               streamid = new_id(),
+        |                               tls_enabled = true,
+        |                               tls_options = TLSOpts
+        |                              }};
+        |          {?NS_SASL, &lt;&lt;"auth"&gt;&gt;} when TLSEnabled -&gt;
+<font color=red>     0..|              Mech = xml:get_attr_s(&lt;&lt;"mechanism"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|              case Mech of</font>
+        |                  &lt;&lt;"EXTERNAL"&gt;&gt; -&gt;
+<font color=red>     0..|                      Auth = jlib:decode_base64(xml:get_cdata(Els)),</font>
+<font color=red>     0..|                      AuthDomain = jid:nameprep(Auth),</font>
+<font color=red>     0..|                      AuthRes =</font>
+        |                          case (StateData#state.sockmod):get_peer_certificate(
+        |                                 StateData#state.socket) of
+        |                              {ok, Cert} -&gt;
+<font color=red>     0..|                                  case (StateData#state.sockmod):get_verify_result(</font>
+        |                                         StateData#state.socket) of
+        |                                      0 -&gt;
+<font color=red>     0..|                                          case AuthDomain of</font>
+        |                                              error -&gt;
+<font color=red>     0..|                                                  false;</font>
+        |                                              _ -&gt;
+<font color=red>     0..|                                                  case ejabberd_s2s:domain_utf8_to_ascii(AuthDomain) of</font>
+        |                                                      false -&gt;
+<font color=red>     0..|                                                          false;</font>
+        |                                                      PCAuthDomain -&gt;
+<font color=red>     0..|                                                          lists:any(</font>
+        |                                                            fun(D) -&gt;
+<font color=red>     0..|                                                                    match_domain(</font>
+        |                                                                      PCAuthDomain, D)
+        |                                                            end, get_cert_domains(Cert))
+        |                                                  end
+        |                                          end;
+        |                                      _ -&gt;
+<font color=red>     0..|                                          false</font>
+        |                                  end;
+        |                              error -&gt;
+<font color=red>     0..|                                  false</font>
+        |                          end,
+<font color=red>     0..|                      if</font>
+        |                          AuthRes -&gt;
+<font color=red>     0..|                              (StateData#state.sockmod):reset_stream(</font>
+        |                                StateData#state.socket),
+<font color=red>     0..|                              send_element(StateData,</font>
+        |                                            #xmlel{name = &lt;&lt;"success"&gt;&gt;,
+        |                                                   attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_SASL}]}),
+<font color=red>     0..|                               ?DEBUG("(~w) Accepted s2s authentication for ~s",</font>
+        |                                         [StateData#state.socket, AuthDomain]),
+<font color=red>     0..|                               {next_state, wait_for_stream,</font>
+        |                                StateData#state{streamid = new_id(),
+        |                                                authenticated = true,
+        |                                                auth_domain = AuthDomain
+        |                                               }};
+        |                          true -&gt;
+<font color=red>     0..|                              send_element(StateData,</font>
+        |                                           #xmlel{name = &lt;&lt;"failure"&gt;&gt;,
+        |                                                  attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_SASL}]}),
+<font color=red>     0..|                              send_text(StateData, ?STREAM_TRAILER),</font>
+<font color=red>     0..|                              {stop, normal, StateData}</font>
+        |                      end;
+        |                  _ -&gt;
+<font color=red>     0..|                      send_element(StateData,</font>
+        |                                   #xmlel{name = &lt;&lt;"failure"&gt;&gt;,
+        |                                          attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_SASL}],
+        |                                          children = [#xmlel{name = &lt;&lt;"invalid-mechanism"&gt;&gt;}]}),
+<font color=red>     0..|                      {stop, normal, StateData}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              stream_established({xmlstreamelement, El}, StateData)</font>
+        |      end;
+        |  wait_for_feature_request({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData, ?STREAM_TRAILER),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_feature_request({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData, &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),</font>
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  wait_for_feature_request(closed, StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  -spec stream_established(ejabberd:xml_stream_item(), state()) -&gt; fsm_return().
+        |  stream_established({xmlstreamelement, El}, StateData) -&gt;
+<font color=red>     0..|      cancel_timer(StateData#state.timer),</font>
+<font color=red>     0..|      Timer = erlang:start_timer(?S2STIMEOUT, self(), []),</font>
+<font color=red>     0..|      case is_key_packet(El) of</font>
+        |          {key, To, From, Id, Key} -&gt;
+<font color=red>     0..|              ?DEBUG("GET KEY: ~p", [{To, From, Id, Key}]),</font>
+<font color=red>     0..|              LTo = jid:nameprep(To),</font>
+<font color=red>     0..|              LFrom = jid:nameprep(From),</font>
+        |              %% Checks if the from domain is allowed and if the to
+        |              %% domain is handled by this server:
+<font color=red>     0..|              case {ejabberd_s2s:allow_host(LTo, LFrom),</font>
+        |                    lists:member(LTo, ejabberd_router:dirty_get_all_domains())} of
+        |                  {true, true} -&gt;
+<font color=red>     0..|                      ejabberd_s2s_out:terminate_if_waiting_delay(LTo, LFrom),</font>
+<font color=red>     0..|                      ejabberd_s2s_out:start(LTo, LFrom,</font>
+        |                                             {verify, self(),
+        |                                              Key, StateData#state.streamid}),
+<font color=red>     0..|                      Conns = ?DICT:store({LFrom, LTo}, wait_for_verification,</font>
+        |                                          StateData#state.connections),
+<font color=red>     0..|                      change_shaper(StateData, LTo, jid:make(&lt;&lt;""&gt;&gt;, LFrom, &lt;&lt;""&gt;&gt;)),</font>
+<font color=red>     0..|                      {next_state,</font>
+        |                       stream_established,
+        |                       StateData#state{connections = Conns,
+        |                                       timer = Timer}};
+        |                  {_, false} -&gt;
+<font color=red>     0..|                      send_text(StateData, ?HOST_UNKNOWN_ERR),</font>
+<font color=red>     0..|                      {stop, normal, StateData};</font>
+        |                  {false, _} -&gt;
+<font color=red>     0..|                      send_text(StateData, ?INVALID_FROM_ERR),</font>
+<font color=red>     0..|                      {stop, normal, StateData}</font>
+        |              end;
+        |          {verify, To, From, Id, Key} -&gt;
+<font color=red>     0..|              ?DEBUG("VERIFY KEY: ~p", [{To, From, Id, Key}]),</font>
+<font color=red>     0..|              LTo = jid:nameprep(To),</font>
+<font color=red>     0..|              LFrom = jid:nameprep(From),</font>
+<font color=red>     0..|              Type = case ejabberd_s2s:has_key({LTo, LFrom}, Key) of</font>
+<font color=red>     0..|                         true -&gt; &lt;&lt;"valid"&gt;&gt;;</font>
+<font color=red>     0..|                         _ -&gt; &lt;&lt;"invalid"&gt;&gt;</font>
+        |                     end,
+        |              %Type = if Key == Key1 -&gt; "valid";
+        |              % true -&gt; "invalid"
+        |              % end,
+<font color=red>     0..|              send_element(StateData,</font>
+        |                           #xmlel{name = &lt;&lt;"db:verify"&gt;&gt;,
+        |                                  attrs = [{&lt;&lt;"from"&gt;&gt;, To},
+        |                                           {&lt;&lt;"to"&gt;&gt;, From},
+        |                                           {&lt;&lt;"id"&gt;&gt;, Id},
+        |                                           {&lt;&lt;"type"&gt;&gt;, Type}]}),
+<font color=red>     0..|              {next_state, stream_established, StateData#state{timer = Timer}};</font>
+        |          _ -&gt;
+<font color=red>     0..|              NewEl = jlib:remove_attr(&lt;&lt;"xmlns"&gt;&gt;, El),</font>
+<font color=red>     0..|              #xmlel{name = Name, attrs = Attrs} = NewEl,</font>
+<font color=red>     0..|              From_s = xml:get_attr_s(&lt;&lt;"from"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|              From = jid:from_binary(From_s),</font>
+<font color=red>     0..|              To_s = xml:get_attr_s(&lt;&lt;"to"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|              To = jid:from_binary(To_s),</font>
+<font color=red>     0..|              if</font>
+        |                  (To /= error) and (From /= error) -&gt;
+<font color=red>     0..|                      LFrom = From#jid.lserver,</font>
+<font color=red>     0..|                      LTo = To#jid.lserver,</font>
+<font color=red>     0..|                      if</font>
+        |                          StateData#state.authenticated -&gt;
+<font color=red>     0..|                              case (LFrom == StateData#state.auth_domain)</font>
+        |                                  andalso
+<font color=red>     0..|                                  lists:member(</font>
+        |                                    LTo,
+        |                                    ejabberd_router:dirty_get_all_domains()) of
+        |                                  true -&gt;
+<font color=red>     0..|                                      if ((Name == &lt;&lt;"iq"&gt;&gt;) or</font>
+        |                                          (Name == &lt;&lt;"message"&gt;&gt;) or
+        |                                          (Name == &lt;&lt;"presence"&gt;&gt;)) -&gt;
+<font color=red>     0..|                                              ejabberd_hooks:run(</font>
+        |                                                s2s_receive_packet,
+        |                                                LTo,
+        |                                                [From, To, NewEl]),
+<font color=red>     0..|                                              ejabberd_router:route(</font>
+        |                                                From, To, NewEl);
+        |                                         true -&gt;
+<font color=red>     0..|                                              error</font>
+        |                                      end;
+        |                                  false -&gt;
+<font color=red>     0..|                                      error</font>
+        |                              end;
+        |                          true -&gt;
+<font color=red>     0..|                              case ?DICT:find({LFrom, LTo},</font>
+        |                                              StateData#state.connections) of
+        |                                  {ok, established} -&gt;
+<font color=red>     0..|                                      if ((Name == &lt;&lt;"iq"&gt;&gt;) or</font>
+        |                                          (Name == &lt;&lt;"message"&gt;&gt;) or
+        |                                          (Name == &lt;&lt;"presence"&gt;&gt;)) -&gt;
+<font color=red>     0..|                                              ejabberd_hooks:run(</font>
+        |                                                s2s_receive_packet,
+        |                                                LTo,
+        |                                                [From, To, NewEl]),
+<font color=red>     0..|                                              ejabberd_router:route(</font>
+        |                                                From, To, NewEl);
+        |                                         true -&gt;
+<font color=red>     0..|                                              error</font>
+        |                                      end;
+        |                                  _ -&gt;
+<font color=red>     0..|                                      error</font>
+        |                              end
+        |                      end;
+        |                  true -&gt;
+<font color=red>     0..|                      error</font>
+        |              end,
+<font color=red>     0..|              ejabberd_hooks:run(s2s_loop_debug, [{xmlstreamelement, El}]),</font>
+<font color=red>     0..|              {next_state, stream_established, StateData#state{timer = Timer}}</font>
+        |      end;
+        |  stream_established({valid, From, To}, StateData) -&gt;
+<font color=red>     0..|      send_element(StateData,</font>
+        |                   #xmlel{name = &lt;&lt;"db:result"&gt;&gt;,
+        |                          attrs = [{&lt;&lt;"from"&gt;&gt;, To},
+        |                                   {&lt;&lt;"to"&gt;&gt;, From},
+        |                                   {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"valid"&gt;&gt;}]}),
+<font color=red>     0..|      LFrom = jid:nameprep(From),</font>
+<font color=red>     0..|      LTo = jid:nameprep(To),</font>
+<font color=red>     0..|      NSD = StateData#state{</font>
+        |              connections = ?DICT:store({LFrom, LTo}, established,
+        |                                        StateData#state.connections)},
+<font color=red>     0..|      {next_state, stream_established, NSD};</font>
+        |  stream_established({invalid, From, To}, StateData) -&gt;
+<font color=red>     0..|      send_element(StateData,</font>
+        |                   #xmlel{name = &lt;&lt;"db:result"&gt;&gt;,
+        |                          attrs = [{&lt;&lt;"from"&gt;&gt;, To},
+        |                                   {&lt;&lt;"to"&gt;&gt;, From},
+        |                                   {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"invalid"&gt;&gt;}]}),
+<font color=red>     0..|      LFrom = jid:nameprep(From),</font>
+<font color=red>     0..|      LTo = jid:nameprep(To),</font>
+<font color=red>     0..|      NSD = StateData#state{</font>
+        |              connections = ?DICT:erase({LFrom, LTo},
+        |                                        StateData#state.connections)},
+<font color=red>     0..|      {next_state, stream_established, NSD};</font>
+        |  stream_established({xmlstreamend, _Name}, StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  stream_established({xmlstreamerror, _}, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData,</font>
+        |                &lt;&lt;(?INVALID_XML_ERR)/binary, (?STREAM_TRAILER)/binary&gt;&gt;),
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  stream_established(timeout, StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  stream_established(closed, StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData}.</font>
+        |  
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: StateName/3
+        |  %% Returns: {next_state, NextStateName, NextStateData}            |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout}   |
+        |  %%          {reply, Reply, NextStateName, NextStateData}          |
+        |  %%          {reply, Reply, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}                          |
+        |  %%          {stop, Reason, Reply, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  %state_name(Event, From, StateData) -&gt;
+        |  %    Reply = ok,
+        |  %    {reply, Reply, state_name, StateData}.
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_event/3
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  handle_event(_Event, StateName, StateData) -&gt;
+<font color=red>     0..|      {next_state, StateName, StateData}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_sync_event/4
+        |  %% Returns: The associated StateData for this connection
+        |  %%   {reply, Reply, NextStateName, NextStateData}
+        |  %%   Reply = {state_infos, [{InfoName::atom(), InfoValue::any()]
+        |  %%----------------------------------------------------------------------
+        |  -spec handle_sync_event(any(), any(), statename(), state()
+        |                         ) -&gt; {'reply','ok' | {'state_infos',[any(),...]}, atom(), state()}.
+        |  handle_sync_event(get_state_infos, _From, StateName, StateData) -&gt;
+<font color=red>     0..|      SockMod = StateData#state.sockmod,</font>
+<font color=red>     0..|      {Addr,Port} = try SockMod:peername(StateData#state.socket) of</font>
+<font color=red>     0..|                        {ok, {A,P}} -&gt;  {A,P};</font>
+<font color=red>     0..|                        {error, _} -&gt; {unknown,unknown}</font>
+        |                    catch
+<font color=red>     0..|                        _:_ -&gt; {unknown,unknown}</font>
+        |                    end,
+<font color=red>     0..|      Domains =   case StateData#state.authenticated of</font>
+        |                      true -&gt;
+<font color=red>     0..|                          [StateData#state.auth_domain];</font>
+        |                      false -&gt;
+<font color=red>     0..|                          Connections = StateData#state.connections,</font>
+<font color=red>     0..|                          [D || {{D, _}, established} &lt;-</font>
+<font color=red>     0..|                              dict:to_list(Connections)]</font>
+        |                  end,
+<font color=red>     0..|      Infos = [</font>
+        |               {direction, in},
+        |               {statename, StateName},
+        |               {addr, Addr},
+        |               {port, Port},
+        |               {streamid, StateData#state.streamid},
+        |               {tls, StateData#state.tls},
+        |               {tls_enabled, StateData#state.tls_enabled},
+        |               {tls_options, StateData#state.tls_options},
+        |               {authenticated, StateData#state.authenticated},
+        |               {shaper, StateData#state.shaper},
+        |               {sockmod, SockMod},
+        |               {domains, Domains}
+        |              ],
+<font color=red>     0..|      Reply = {state_infos, Infos},</font>
+<font color=red>     0..|      {reply,Reply,StateName,StateData};</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_sync_event/4
+        |  %% Returns: {next_state, NextStateName, NextStateData}            |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout}   |
+        |  %%          {reply, Reply, NextStateName, NextStateData}          |
+        |  %%          {reply, Reply, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}                          |
+        |  %%          {stop, Reason, Reply, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  handle_sync_event(_Event, _From, StateName, StateData) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, StateName, StateData}.</font>
+        |  
+        |  
+        |  code_change(_OldVsn, StateName, StateData, _Extra) -&gt;
+<font color=red>     0..|      {ok, StateName, StateData}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_info/3
+        |  %% Returns: {next_state, NextStateName, NextStateData}          |
+        |  %%          {next_state, NextStateName, NextStateData, Timeout} |
+        |  %%          {stop, Reason, NewStateData}
+        |  %%----------------------------------------------------------------------
+        |  -spec handle_info(_,_,_) -&gt; {next_state, atom(), state()} | {stop, normal, state()}.
+        |  handle_info({send_text, Text}, StateName, StateData) -&gt;
+<font color=red>     0..|      send_text(StateData, Text),</font>
+<font color=red>     0..|      {next_state, StateName, StateData};</font>
+        |  handle_info({timeout, Timer, _}, _StateName,
+        |              #state{timer = Timer} = StateData) -&gt;
+<font color=red>     0..|      {stop, normal, StateData};</font>
+        |  handle_info(_, StateName, StateData) -&gt;
+<font color=red>     0..|      {next_state, StateName, StateData}.</font>
+        |  
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: terminate/3
+        |  %% Purpose: Shutdown the fsm
+        |  %% Returns: any
+        |  %%----------------------------------------------------------------------
+        |  -spec terminate(any(), statename(), state()) -&gt; 'ok'.
+        |  terminate(Reason, _StateName, StateData) -&gt;
+<font color=red>     0..|      ?DEBUG("terminated: ~p", [Reason]),</font>
+<font color=red>     0..|      (StateData#state.sockmod):close(StateData#state.socket),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec send_text(state(), binary()) -&gt; binary().
+        |  send_text(StateData, Text) -&gt;
+<font color=red>     0..|      (StateData#state.sockmod):send(StateData#state.socket, Text).</font>
+        |  
+        |  
+        |  -spec send_element(state(), jlib:xmlel()) -&gt; binary().
+        |  send_element(StateData, El) -&gt;
+<font color=red>     0..|      send_text(StateData, exml:to_binary(El)).</font>
+        |  
+        |  
+        |  -spec change_shaper(state(), Host :: 'global' | binary(), ejabberd:jid()) -&gt; any().
+        |  change_shaper(StateData, Host, JID) -&gt;
+<font color=red>     0..|      Shaper = acl:match_rule(Host, StateData#state.shaper, JID),</font>
+<font color=red>     0..|      (StateData#state.sockmod):change_shaper(StateData#state.socket, Shaper).</font>
+        |  
+        |  
+        |  -spec new_id() -&gt; binary().
+        |  new_id() -&gt;
+<font color=red>     0..|      list_to_binary(randoms:get_string()).</font>
+        |  
+        |  
+        |  -spec cancel_timer(reference()) -&gt; 'ok'.
+        |  cancel_timer(Timer) -&gt;
+<font color=red>     0..|      erlang:cancel_timer(Timer),</font>
+<font color=red>     0..|      receive</font>
+        |          {timeout, Timer, _} -&gt;
+<font color=red>     0..|              ok</font>
+        |      after 0 -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_key_packet(jlib:xmlel()) -&gt; 'false' | {'key',_,_,_,binary()}
+        |                                    | {'verify',_,_,_,binary()}.
+        |  is_key_packet(#xmlel{name = Name, attrs = Attrs,
+        |                       children = Els}) when Name == &lt;&lt;"db:result"&gt;&gt; -&gt;
+<font color=red>     0..|      {key,</font>
+        |       xml:get_attr_s(&lt;&lt;"to"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"from"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"id"&gt;&gt;, Attrs),
+        |       xml:get_cdata(Els)};
+        |  is_key_packet(#xmlel{name = Name, attrs = Attrs,
+        |                       children = Els}) when Name == &lt;&lt;"db:verify"&gt;&gt; -&gt;
+<font color=red>     0..|      {verify,</font>
+        |       xml:get_attr_s(&lt;&lt;"to"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"from"&gt;&gt;, Attrs),
+        |       xml:get_attr_s(&lt;&lt;"id"&gt;&gt;, Attrs),
+        |       xml:get_cdata(Els)};
+        |  is_key_packet(_) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  
+        |  -spec get_cert_domains(#'Certificate'{}) -&gt;  [any()].
+        |  get_cert_domains(Cert) -&gt;
+<font color=red>     0..|      {rdnSequence, Subject} =</font>
+        |          (Cert#'Certificate'.tbsCertificate)#'TBSCertificate'.subject,
+<font color=red>     0..|      Extensions =</font>
+        |          (Cert#'Certificate'.tbsCertificate)#'TBSCertificate'.extensions,
+        |      lists:flatmap(
+        |        fun(#'AttributeTypeAndValue'{type = ?'id-at-commonName',
+        |                                     value = Val}) -&gt;
+<font color=red>     0..|                case ?PKIXEXPLICIT:decode('X520CommonName', Val) of</font>
+        |                    {ok, {_, D1}} -&gt;
+<font color=red>     0..|                        D = if</font>
+<font color=red>     0..|                                is_list(D1) -&gt; list_to_binary(D1);</font>
+<font color=red>     0..|                                is_binary(D1) -&gt; D1;</font>
+<font color=red>     0..|                                true -&gt; error</font>
+        |                            end,
+<font color=red>     0..|                        if</font>
+        |                            D /= error -&gt;
+<font color=red>     0..|                                case jid:from_binary(D) of</font>
+        |                                    #jid{luser = &lt;&lt;""&gt;&gt;,
+        |                                         lserver = LD,
+        |                                         lresource = &lt;&lt;""&gt;&gt;} -&gt;
+<font color=red>     0..|                                        [LD];</font>
+        |                                    _ -&gt;
+<font color=red>     0..|                                        []</font>
+        |                                end;
+        |                            true -&gt;
+<font color=red>     0..|                                []</font>
+        |                        end;
+        |                    _ -&gt;
+<font color=red>     0..|                        []</font>
+        |                end;
+        |           (_) -&gt;
+<font color=red>     0..|                []</font>
+<font color=red>     0..|        end, lists:flatten(Subject)) ++</font>
+        |          lists:flatmap(
+        |            fun(#'Extension'{extnID = ?'id-ce-subjectAltName',
+        |                             extnValue = Val}) -&gt;
+<font color=red>     0..|                    BVal = if</font>
+<font color=red>     0..|                               is_list(Val) -&gt; list_to_binary(Val);</font>
+<font color=red>     0..|                               is_binary(Val) -&gt; Val;</font>
+<font color=red>     0..|                               true -&gt; Val</font>
+        |                           end,
+<font color=red>     0..|                    case ?PKIXIMPLICIT:decode('SubjectAltName', BVal) of</font>
+        |                        {ok, SANs} -&gt;
+<font color=red>     0..|                            lists:flatmap(</font>
+        |                              fun({otherName,
+        |                                   #'AnotherName'{'type-id' = ?'id-on-xmppAddr',
+        |                                                  value = XmppAddr
+        |                                                 }}) -&gt;
+<font color=red>     0..|                                      case 'XmppAddr':decode(</font>
+        |                                             'XmppAddr', XmppAddr) of
+        |                                          {ok, D} when is_binary(D) -&gt;
+<font color=red>     0..|                                              case jid:from_binary(D) of</font>
+        |                                                  #jid{luser = &lt;&lt;""&gt;&gt;,
+        |                                                       lserver = LD,
+        |                                                       lresource = &lt;&lt;""&gt;&gt;} -&gt;
+<font color=red>     0..|                                                      case ejabberd_s2s:domain_utf8_to_ascii(LD) of</font>
+        |                                                          false -&gt;
+<font color=red>     0..|                                                              [];</font>
+        |                                                          PCLD -&gt;
+<font color=red>     0..|                                                              [PCLD]</font>
+        |                                                      end;
+        |                                                  _ -&gt;
+<font color=red>     0..|                                                      []</font>
+        |                                              end;
+        |                                          _ -&gt;
+<font color=red>     0..|                                              []</font>
+        |                                      end;
+        |                                 ({dNSName, D}) when is_list(D) -&gt;
+<font color=red>     0..|                                      case jid:from_binary(list_to_binary(D)) of</font>
+        |                                          #jid{luser = &lt;&lt;""&gt;&gt;,
+        |                                               lserver = LD,
+        |                                               lresource = &lt;&lt;""&gt;&gt;} -&gt;
+<font color=red>     0..|                                              [LD];</font>
+        |                                          _ -&gt;
+<font color=red>     0..|                                              []</font>
+        |                                      end;
+        |                                 (_) -&gt;
+<font color=red>     0..|                                      []</font>
+        |                              end, SANs);
+        |                        _ -&gt;
+<font color=red>     0..|                            []</font>
+        |                    end;
+        |               (_) -&gt;
+<font color=red>     0..|                    []</font>
+        |            end, Extensions).
+        |  
+        |  
+        |  -spec match_domain(binary(), binary()) -&gt; boolean().
+        |  match_domain(Domain, Domain) -&gt;
+<font color=red>     0..|      true;</font>
+        |  match_domain(Domain, Pattern) -&gt;
+<font color=red>     0..|      DLabels = binary:split(Domain, &lt;&lt;"."&gt;&gt;, [global]),</font>
+<font color=red>     0..|      PLabels = binary:split(Pattern, &lt;&lt;"."&gt;&gt;, [global]),</font>
+<font color=red>     0..|      match_labels(DLabels, PLabels).</font>
+        |  
+        |  
+        |  -spec match_labels([binary()],[binary()]) -&gt; boolean().
+        |  match_labels([], []) -&gt;
+<font color=red>     0..|      true;</font>
+        |  match_labels([], [_ | _]) -&gt;
+<font color=red>     0..|      false;</font>
+        |  match_labels([_ | _], []) -&gt;
+<font color=red>     0..|      false;</font>
+        |  match_labels([DL | DLabels], [PL | PLabels]) -&gt;
+<font color=red>     0..|      PLlist = binary_to_list(PL),</font>
+<font color=red>     0..|      case lists:all(fun(C) -&gt; (($a =&lt; C) andalso (C =&lt; $z))</font>
+<font color=red>     0..|                                   orelse (($0 =&lt; C) andalso (C =&lt; $9))</font>
+<font color=red>     0..|                                   orelse (C == $-) orelse (C == $*)</font>
+        |                     end, PLlist) of
+        |          true -&gt;
+<font color=red>     0..|              Regexp = xmerl_regexp:sh_to_awk(PLlist),</font>
+<font color=red>     0..|              case re:run(binary_to_list(DL), Regexp, [{capture, none}]) of</font>
+        |                  match -&gt;
+<font color=red>     0..|                      match_labels(DLabels, PLabels);</font>
+        |                  nomatch -&gt;
+<font color=red>     0..|                      false</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+</pre>
+</body>
+</html>

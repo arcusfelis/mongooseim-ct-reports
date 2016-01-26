@@ -1,0 +1,234 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/gen_iq_handler.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/gen_iq_handler.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : gen_iq_handler.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : IQ handler support
+        |  %%% Created : 22 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(gen_iq_handler).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  
+        |  %% API
+        |  -export([start_link/3,
+        |           add_iq_handler/6,
+        |           remove_iq_handler/3,
+        |           stop_iq_handler/3,
+        |           handle/7,
+        |           process_iq/6]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -record(state, {host     :: ejabberd:server(),
+        |                  module   :: module(),
+        |                  function :: atom()
+        |                 }).
+        |  -type state()     :: #state{}.
+        |  -type component() :: atom() | tuple().
+        |  -type ns()        :: binary().
+        |  -type type()      :: 'no_queue' | 'one_queue' | 'parallel' | {'queues',integer()}.
+        |  -type options()   :: atom() | {one_queue | queues, pid() | [pid()]}.
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  
+        |  %% @doc Starts the server
+        |  -spec start_link(ejabberd:server(), atom(), atom()
+        |                  ) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(Host, Module, Function) -&gt;
+<font color=red>     0..|      gen_server:start_link(?MODULE, [Host, Module, Function], []).</font>
+        |  
+        |  
+        |  -spec add_iq_handler(component(), Host :: ejabberd:server(), NS :: ns(),
+        |      Module :: atom(), Function :: atom(), Type :: type()) -&gt; any().
+        |  add_iq_handler(Component, Host, NS, Module, Function, Type) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          no_queue -&gt;
+<font color=red>     0..|              Component:register_iq_handler(Host, NS, Module, Function, no_queue);</font>
+        |          one_queue -&gt;
+<font color=red>     0..|              {ok, Pid} = supervisor:start_child(ejabberd_iq_sup,</font>
+        |                                                 [Host, Module, Function]),
+<font color=red>     0..|              Component:register_iq_handler(Host, NS, Module, Function,</font>
+        |                                            {one_queue, Pid});
+        |          {queues, N} -&gt;
+<font color=red>     0..|              Pids =</font>
+        |                  lists:map(
+        |                    fun(_) -&gt;
+<font color=red>     0..|                            {ok, Pid} = supervisor:start_child(</font>
+        |                                          ejabberd_iq_sup,
+        |                                          [Host, Module, Function]),
+<font color=red>     0..|                            Pid</font>
+        |                    end, lists:seq(1, N)),
+<font color=red>     0..|              Component:register_iq_handler(Host, NS, Module, Function,</font>
+        |                                            {queues, Pids});
+        |          parallel -&gt;
+<font color=red>     0..|              Component:register_iq_handler(Host, NS, Module, Function, parallel)</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_iq_handler(Component :: component(),
+        |                          Host :: ejabberd:server(),
+        |                          NS :: ns()) -&gt; any().
+        |  remove_iq_handler(Component, Host, NS) -&gt;
+<font color=red>     0..|      Component:unregister_iq_handler(Host, NS).</font>
+        |  
+        |  
+        |  -spec stop_iq_handler(M :: atom(), F :: atom(), Opts :: options()) -&gt; any().
+        |  stop_iq_handler(_Module, _Function, Opts) -&gt;
+<font color=red>     0..|      case Opts of</font>
+        |          {one_queue, Pid} -&gt;
+<font color=red>     0..|              gen_server:call(Pid, stop);</font>
+        |          {queues, Pids} -&gt;
+<font color=red>     0..|              lists:foreach(fun(Pid) -&gt;</font>
+<font color=red>     0..|                                    catch gen_server:call(Pid, stop)</font>
+        |                            end, Pids);
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec handle(Host :: ejabberd:server(), Module :: atom(), Function :: atom(),
+        |               Opts :: options(), From :: ejabberd:jid(), To :: ejabberd:jid(),
+        |               IQ :: ejabberd:iq()) -&gt; 'ok' | 'todo' | pid()
+        |                                    | {'error','lager_not_running'}
+        |                                    | {'process_iq',_,_,_}.
+        |  handle(Host, Module, Function, Opts, From, To, IQ) -&gt;
+<font color=red>     0..|      case Opts of</font>
+        |          no_queue -&gt;
+<font color=red>     0..|              process_iq(Host, Module, Function, From, To, IQ);</font>
+        |          {one_queue, Pid} -&gt;
+<font color=red>     0..|              Pid ! {process_iq, From, To, IQ};</font>
+        |          {queues, Pids} -&gt;
+<font color=red>     0..|              Pid = lists:nth(erlang:phash(now(), length(Pids)), Pids),</font>
+<font color=red>     0..|              Pid ! {process_iq, From, To, IQ};</font>
+        |          parallel -&gt;
+<font color=red>     0..|              spawn(?MODULE, process_iq, [Host, Module, Function, From, To, IQ]);</font>
+        |          _ -&gt;
+<font color=red>     0..|              todo</font>
+        |      end.
+        |  
+        |  
+        |  -spec process_iq(Host :: ejabberd:server(), Module :: atom(), Function :: atom(),
+        |                   From :: ejabberd:jid(), To :: ejabberd:jid(),
+        |                   IQ :: ejabberd:iq()) -&gt; 'ok' | {'error','lager_not_running'}.
+        |  process_iq(_Host, Module, Function, From, To, IQ) -&gt;
+<font color=red>     0..|      case catch Module:Function(From, To, IQ) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason]);</font>
+        |          ResIQ -&gt;
+<font color=red>     0..|              if</font>
+        |                  ResIQ /= ignore -&gt;
+<font color=red>     0..|                      ejabberd_router:route(To, From,</font>
+        |                                            jlib:iq_to_xml(ResIQ));
+        |                  true -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end
+        |      end.
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %% @doc Initiates the server
+        |  -spec init([atom() | binary(),...]) -&gt; {'ok', state()}.
+        |  init([Host, Module, Function]) -&gt;
+<font color=red>     0..|      {ok, #state{host = Host,</font>
+        |                  module = Module,
+        |                  function = Function}}.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call(stop, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {stop, normal, Reply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info({process_iq, From, To, IQ},
+        |              #state{host = Host,
+        |                     module = Module,
+        |                     function = Function} = State) -&gt;
+<font color=red>     0..|      process_iq(Host, Module, Function, From, To, IQ),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%--------------------------------------------------------------------
+</pre>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mongoose_api_json.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_api_json.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2014 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mongoose_api_json).
+        |  
+        |  -behaviour(mongoose_api_format).
+        |  
+        |  %% mongoose_api_format callbacks
+        |  -export([serialize/1,
+        |           deserialize/1]).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mongoose_api_format callbacks
+        |  %%--------------------------------------------------------------------
+        |  deserialize(Json) -&gt;
+<font color=red>     0..|      try mochijson2:decode(Json) of</font>
+        |          Data -&gt;
+<font color=red>     0..|              {ok, do_deserialize(Data)}</font>
+        |      catch _:_ -&gt;
+<font color=red>     0..|          {error, unprocessable}</font>
+        |      end.
+        |  
+        |  serialize(Data) -&gt;
+<font color=red>     0..|      do_serialize(Data).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% internal functions
+        |  %%--------------------------------------------------------------------
+        |  do_deserialize({ElementName, {struct, [{_Key, _Value}|_Rest]=Proplist}}) -&gt;
+<font color=red>     0..|      {ElementName, do_deserialize(Proplist)};</font>
+        |  do_deserialize({struct, Proplist}) -&gt;
+<font color=red>     0..|      [do_deserialize(Element) || Element &lt;- Proplist];</font>
+        |  do_deserialize(List) when is_list(List) -&gt;
+<font color=red>     0..|      [do_deserialize(Element) || Element &lt;- List];</font>
+        |  do_deserialize(Other) -&gt;
+<font color=red>     0..|      Other.</font>
+        |  
+        |  do_serialize(Data) -&gt;
+<font color=red>     0..|      mochijson2:encode(prepare_struct(Data)).</font>
+        |  
+        |  prepare_struct({Key, Value}) -&gt;
+<font color=red>     0..|      {struct, [{Key, prepare_struct(Value)}]};</font>
+        |  prepare_struct(List) when is_list(List) -&gt;
+<font color=red>     0..|      case is_proplist(List) of</font>
+        |          true  -&gt;
+<font color=red>     0..|              Fields = [{K, prepare_struct(V)} || {K, V} &lt;- List],</font>
+<font color=red>     0..|              {struct, Fields};</font>
+        |          false -&gt;
+<font color=red>     0..|              [prepare_struct(Element) || Element &lt;- List]</font>
+        |      end;
+        |  prepare_struct(Other) -&gt;
+<font color=red>     0..|      Other.</font>
+        |  
+        |  is_proplist(List) -&gt;
+<font color=red>     0..|      is_proplist(List, sets:new()).</font>
+        |  
+        |  is_proplist([], _Keys) -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_proplist([{Key, _}|Tail], Keys) -&gt;
+<font color=red>     0..|      case sets:is_element(Key, Keys) of</font>
+        |          true -&gt;
+<font color=red>     0..|              false;</font>
+        |          false -&gt;
+<font color=red>     0..|              is_proplist(Tail, sets:add_element(Key, Keys))</font>
+        |      end;
+        |  is_proplist(_Other, _Keys) -&gt;
+<font color=red>     0..|      false.</font>
+</pre>
+</body>
+</html>

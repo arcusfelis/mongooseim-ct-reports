@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mod_last_mnesia.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_last_mnesia.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_last.erl
+        |  %%% Author  : Michał Piotrowski &lt;michal.piotrowski@erlang-solutions.com&gt;
+        |  %%% Purpose : mod_last mnesia backend (XEP-0012)
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2014   ProcessOne
+        |  %%% MongooseIM, Copyright (C) 2014      Erlang Solutions Ltd.
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  
+        |  -module(mod_last_mnesia).
+        |  
+        |  -behaviour(mod_last).
+        |  
+        |  -include("mod_last.hrl").
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% API
+        |  -export([init/2,
+        |           get_last/2,
+        |           count_active_users/2,
+        |           set_last_info/4,
+        |           remove_user/2]).
+        |  
+        |  -spec init(ejabberd:server(), list()) -&gt; ok.
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(last_activity,</font>
+        |                          [{disc_copies, [node()]},
+        |                           {attributes,
+        |                            record_info(fields, last_activity)}]),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec get_last(ejabberd:luser(), ejabberd:lserver()) -&gt;
+        |      {ok, non_neg_integer(), binary()} | {error, term()} | not_found.
+        |  get_last(LUser, LServer) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(last_activity, {LUser, LServer}) of</font>
+<font color=red>     0..|          {'EXIT', Reason} -&gt; {error, Reason};</font>
+<font color=red>     0..|          [] -&gt; not_found;</font>
+        |          [#last_activity{timestamp = TimeStamp,
+        |              status = Status}] -&gt;
+<font color=red>     0..|              {ok, TimeStamp, Status}</font>
+        |      end.
+        |  
+        |  -spec count_active_users(ejabberd:lserver(), non_neg_integer()) -&gt; non_neg_integer().
+        |  count_active_users(LServer, TimeStamp) -&gt;
+<font color=red>     0..|      MS = [{{last_activity,{'_',LServer},'$1','_'},</font>
+        |          [{'&gt;','$1',TimeStamp}],
+        |          [true]}],
+<font color=red>     0..|      ets:select_count(last_activity, MS).</font>
+        |  
+        |  -spec set_last_info(ejabberd:luser(), ejabberd:lserver(),
+        |                      non_neg_integer(), binary()) -&gt; ok | {error, term()}.
+        |  set_last_info(LUser, LServer, TimeStamp, Status) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|          mnesia:write(#last_activity{us = US,</font>
+        |              timestamp = TimeStamp,
+        |              status = Status})
+        |      end,
+<font color=red>     0..|      wrap_transaction_result(mnesia:transaction(F)).</font>
+        |  
+        |  -spec remove_user(ejabberd:luser(), ejabberd:lserver()) -&gt; ok.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt; mnesia:delete({last_activity, US}) end,</font>
+<font color=red>     0..|      wrap_transaction_result(mnesia:transaction(F)).</font>
+        |  
+        |  -spec wrap_transaction_result({atomic, ok | term()} | term()) -&gt; ok | {error, term()}.
+<font color=red>     0..|  wrap_transaction_result({atomic, ok}) -&gt; ok;</font>
+<font color=red>     0..|  wrap_transaction_result({atomic, Error}) -&gt; {error, Error};</font>
+<font color=red>     0..|  wrap_transaction_result(Error) -&gt; {error, Error}.</font>
+        |  
+        |  
+</pre>
+</body>
+</html>

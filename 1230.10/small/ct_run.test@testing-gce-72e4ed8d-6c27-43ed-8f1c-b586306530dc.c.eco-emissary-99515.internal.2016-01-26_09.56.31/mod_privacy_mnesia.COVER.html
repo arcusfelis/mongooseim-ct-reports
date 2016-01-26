@@ -1,0 +1,201 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mod_privacy_mnesia.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_privacy_mnesia.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% Copyright notice from original mod_privacy
+        |  %%%
+        |  %%% File    : mod_privacy.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : jabber:iq:privacy support
+        |  %%% Created : 21 Jul 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_privacy_mnesia).
+        |  -author('alexey@process-one.net').
+        |  -author('arcusfelis@gmail.com').
+        |  -behaviour(mod_privacy).
+        |  
+        |  -export([init/2,
+        |           get_default_list/2,
+        |           get_list_names/2,
+        |           get_privacy_list/3,
+        |           forget_default_list/2,
+        |           set_default_list/3,
+        |           remove_privacy_list/3,
+        |           replace_privacy_list/4,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_privacy.hrl").
+        |  
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(privacy, [{disc_copies, [node()]},</font>
+        |                    {attributes, record_info(fields, privacy)}]),
+<font color=red>     0..|      mnesia:add_table_copy(privacy, node(), disc_copies),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  get_default_list(LUser, LServer) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(privacy, {LUser, LServer}) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              {error, not_found};</font>
+        |          [#privacy{default = Default, lists = Lists}] -&gt;
+<font color=red>     0..|              case lists:keysearch(Default, 1, Lists) of</font>
+        |                  {value, {_, List}} -&gt;
+<font color=red>     0..|                      {ok, {Default, List}};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {error, not_found}</font>
+        |              end;
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  get_list_names(LUser, LServer) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(privacy, {LUser, LServer}) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          [] -&gt;
+<font color=red>     0..|              {error, not_found};</font>
+        |          [#privacy{default = Default, lists = Lists}] -&gt;
+<font color=red>     0..|              Names = [Name || {Name, _} &lt;- Lists],</font>
+<font color=red>     0..|              {ok, {Default, Names}}</font>
+        |      end.
+        |  
+        |  get_privacy_list(LUser, LServer, Name) -&gt;
+<font color=red>     0..|      case catch mnesia:dirty_read(privacy, {LUser, LServer}) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          [] -&gt;
+<font color=red>     0..|              {error, not_found};</font>
+        |          [#privacy{lists = Lists}] -&gt;
+<font color=red>     0..|              case lists:keysearch(Name, 1, Lists) of</font>
+        |                  {value, {_, List}} -&gt;
+<font color=red>     0..|                      {ok, List};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {error, not_found}</font>
+        |              end
+        |      end.
+        |  
+        |  %% @doc Set no default list for user.
+        |  forget_default_list(LUser, LServer) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|              case mnesia:read({privacy, {LUser, LServer}}) of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      ok;</font>
+        |                  [R] -&gt;
+<font color=red>     0..|                      mnesia:write(R#privacy{default = none}),</font>
+<font color=red>     0..|                      ok</font>
+        |              end
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}}</font>
+        |      end.
+        |  
+        |  set_default_list(LUser, LServer, Name) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|              case mnesia:read({privacy, {LUser, LServer}}) of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      {error, not_found};</font>
+        |                  [#privacy{lists = Lists} = P] -&gt;
+<font color=red>     0..|                      case lists:keymember(Name, 1, Lists) of</font>
+        |                          true -&gt;
+<font color=red>     0..|                              mnesia:write(P#privacy{default = Name}),</font>
+<font color=red>     0..|                              ok;</font>
+        |                          false -&gt;
+<font color=red>     0..|                              {error, not_found}</font>
+        |                      end
+        |              end
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {atomic, {error, Reason}} -&gt;
+<font color=red>     0..|              {error, Reason};</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}}</font>
+        |      end.
+        |  
+        |  remove_privacy_list(LUser, LServer, Name) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|              case mnesia:read({privacy, {LUser, LServer}}) of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      ok;</font>
+        |                  [#privacy{default = Default, lists = Lists} = P] -&gt;
+<font color=red>     0..|                      if</font>
+        |                          Name == Default -&gt;
+<font color=red>     0..|                              {error, conflict};</font>
+        |                          true -&gt;
+<font color=red>     0..|                              NewLists = lists:keydelete(Name, 1, Lists),</font>
+<font color=red>     0..|                              mnesia:write(P#privacy{lists = NewLists}),</font>
+<font color=red>     0..|                              ok</font>
+        |                      end
+        |              end
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {atomic, {error, _} = Error} -&gt;
+<font color=red>     0..|              Error;</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}}</font>
+        |      end.
+        |  
+        |  replace_privacy_list(LUser, LServer, Name, List) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|              case mnesia:wread({privacy, US}) of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      NewLists = [{Name, List}],</font>
+<font color=red>     0..|                      mnesia:write(#privacy{us = US, lists = NewLists}),</font>
+<font color=red>     0..|                      ok;</font>
+        |                  [#privacy{lists = Lists} = P] -&gt;
+<font color=red>     0..|                      NewLists1 = lists:keydelete(Name, 1, Lists),</font>
+<font color=red>     0..|                      NewLists = [{Name, List} | NewLists1],</font>
+<font color=red>     0..|                      mnesia:write(P#privacy{lists = NewLists}),</font>
+<font color=red>     0..|                      ok</font>
+        |              end
+        |          end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, ok} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              {error, {aborted, Reason}}</font>
+        |      end.
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      F = fun() -&gt; mnesia:delete({privacy, {LUser, LServer}}) end,</font>
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+</pre>
+</body>
+</html>

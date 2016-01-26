@@ -1,0 +1,285 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mod_mam_mnesia_prefs.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_mam_mnesia_prefs.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc A backend for storing MAM preferencies using Mnesia.
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(mod_mam_mnesia_prefs).
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Exports
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2, stop/1]).
+        |  
+        |  %% MAM hook handlers
+        |  -export([get_behaviour/5,
+        |           get_prefs/4,
+        |           set_prefs/7,
+        |           remove_archive/3]).
+        |  
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -include_lib("ejabberd/include/jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  -record(mam_prefs_rule, {key,
+        |                          behaviour}).
+        |  -record(mam_prefs_user, {host_user,
+        |                          default_mode,
+        |                          always_rules :: [ejabberd:simple_jid() | ejabberd:simple_bare_jid()],
+        |                          never_rules :: [ejabberd:simple_jid() | ejabberd:simple_bare_jid()]}).
+        |  -type ls() :: ejabberd:lserver().
+        |  -type lu() :: ejabberd:luser().
+        |  -type lr() :: ejabberd:lresource().
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %% Starting and stopping functions for users' archives
+        |  
+        |  -spec start(Host :: ejabberd:server(), Opts :: list()) -&gt; any().
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      mnesia:create_table(mam_prefs_rule,</font>
+        |              [{disc_copies, [node()]},
+        |               {attributes, record_info(fields, mam_prefs_rule)}]),
+<font color=red>     0..|      mnesia:create_table(mam_prefs_user,</font>
+        |              [{disc_copies, [node()]},
+        |               {attributes, record_info(fields, mam_prefs_user)}]),
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_pm(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              start_muc(Host, Opts);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec stop(Host :: ejabberd:server()) -&gt; any().
+        |  stop(Host) -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, pm, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_pm(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      case gen_mod:get_module_opt(Host, ?MODULE, muc, false) of</font>
+        |          true -&gt;
+<font color=red>     0..|              stop_muc(Host);</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam
+        |  
+        |  -spec start_pm(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start_pm(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec stop_pm(ejabberd:server()) -&gt; 'ok'.
+        |  stop_pm(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Add hooks for mod_mam_muc_muc
+        |  
+        |  -spec start_muc(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start_muc(Host, _Opts) -&gt;
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(mam_muc_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec stop_muc(ejabberd:server()) -&gt; 'ok'.
+        |  stop_muc(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_get_behaviour, Host, ?MODULE, get_behaviour, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_get_prefs, Host, ?MODULE, get_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_set_prefs, Host, ?MODULE, set_prefs, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(mam_muc_remove_archive, Host, ?MODULE, remove_archive, 50),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Internal functions and callbacks
+        |  
+        |  -spec get_behaviour(DefaultBvr :: mod_mam:archive_behaviour(),
+        |          _Host :: ejabberd:server(), ArcId :: mod_mam:archive_id(),
+        |          LocJID :: ejabberd:jid(), RemJID :: ejabberd:jid())
+        |              -&gt; mod_mam:archive_behaviour().
+        |  get_behaviour(DefaultBehaviour, _Host, _ArcID,
+        |                LocJID=#jid{},
+        |                RemJID=#jid{}) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(mam_prefs_rule, key1(LocJID, RemJID)) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              case mnesia:dirty_read(mam_prefs_rule, key2(LocJID, RemJID)) of</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      case mnesia:dirty_read(mam_prefs_rule, key3(LocJID)) of</font>
+<font color=red>     0..|                          [] -&gt; DefaultBehaviour;</font>
+<font color=red>     0..|                          [#mam_prefs_rule{behaviour=B}] -&gt; B</font>
+        |                      end;
+<font color=red>     0..|                  [#mam_prefs_rule{behaviour=B}] -&gt; B</font>
+        |              end;
+<font color=red>     0..|          [#mam_prefs_rule{behaviour=B}] -&gt; B</font>
+        |      end.
+        |  
+        |  
+        |  -spec set_prefs(_, _Host :: ejabberd:server(), _ArcId :: mod_mam:archive_id(),
+        |          ArcJID :: ejabberd:jid(), DefaultMode :: mod_mam:archive_behaviour(),
+        |          AlwaysJIDs :: [ejabberd:literal_jid()],
+        |          NeverJIDs :: [ejabberd:literal_jid()]) -&gt; any().
+        |  set_prefs(Result, _Host, _ArcID, ArcJID, DefaultMode, AlwaysJIDs, NeverJIDs) -&gt;
+<font color=red>     0..|      NewARules = lists:usort(rules(AlwaysJIDs)),</font>
+<font color=red>     0..|      NewNRules = lists:usort(rules(NeverJIDs)),</font>
+<font color=red>     0..|      SU = su_key(ArcJID),</font>
+<font color=red>     0..|      {atomic, ok} = mnesia:transaction(fun() -&gt;</font>
+<font color=red>     0..|          case mnesia:read(mam_prefs_user, SU, write) of</font>
+        |              [] -&gt;
+<font color=red>     0..|                  mnesia:write(#mam_prefs_user{</font>
+        |                               host_user=SU, default_mode=DefaultMode,
+        |                               always_rules=NewARules, never_rules=NewNRules}),
+<font color=red>     0..|                  update_rules(always, ArcJID, [], NewARules),</font>
+<font color=red>     0..|                  update_rules(never, ArcJID, [], NewNRules),</font>
+<font color=red>     0..|                  ok;</font>
+        |              [#mam_prefs_user{default_mode=DefaultMode,
+        |                               always_rules=NewARules, never_rules=NewNRules}] -&gt;
+<font color=red>     0..|                  ok; %% same</font>
+        |              [#mam_prefs_user{always_rules=OldARules, never_rules=OldNRules}] -&gt;
+<font color=red>     0..|                  mnesia:write(#mam_prefs_user{</font>
+        |                               host_user=SU, default_mode=DefaultMode,
+        |                               always_rules=NewARules, never_rules=NewNRules}),
+<font color=red>     0..|                  update_rules(always, ArcJID, OldARules, NewARules),</font>
+<font color=red>     0..|                  update_rules(never, ArcJID, OldNRules, NewNRules),</font>
+<font color=red>     0..|                  ok</font>
+        |          end
+        |      end),
+<font color=red>     0..|      Result.</font>
+        |  
+        |  
+        |  -spec get_prefs(GlobalDeflt :: mod_mam:preference(), _Host :: ejabberd:server(),
+        |          _ArcID :: mod_mam:archive_id(), ArcJID :: ejabberd:jid()
+        |          ) -&gt; mod_mam:preference().
+        |  get_prefs({GlobalDefaultMode, _, _}, _Host, _ArcID, ArcJID) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(mam_prefs_user, su_key(ArcJID)) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              {GlobalDefaultMode, [], []};</font>
+        |          [#mam_prefs_user{default_mode=DefaultMode,
+        |                           always_rules=ARules, never_rules=NRules}] -&gt;
+<font color=red>     0..|              AlwaysJIDs = jids(ARules),</font>
+<font color=red>     0..|              NeverJIDs = jids(NRules),</font>
+<font color=red>     0..|              {DefaultMode, AlwaysJIDs, NeverJIDs}</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_archive(_Host :: ejabberd:server(), _ArcID :: mod_mam:archive_id(),
+        |                       ArcJID :: ejabberd:jid()) -&gt; 'ok'.
+        |  remove_archive(_Host, _ArcID, ArcJID) -&gt;
+<font color=red>     0..|      {atomic, ok} = mnesia:transaction(fun() -&gt;</font>
+<font color=red>     0..|          case mnesia:read(mam_prefs_user, su_key(ArcJID)) of</font>
+<font color=red>     0..|              [] -&gt; ok; %% already deleted</font>
+        |              [#mam_prefs_user{always_rules=ARules, never_rules=NRules}] -&gt;
+<font color=red>     0..|                  Rules = [key3(ArcJID)] ++ ARules ++ NRules,</font>
+<font color=red>     0..|                  Keys = [key(ArcJID, Rule) || Rule &lt;- Rules],</font>
+<font color=red>     0..|                  [mnesia:delete(mam_prefs_rule, Key, write) || Key &lt;- Keys],</font>
+<font color=red>     0..|                  ok</font>
+        |          end
+        |      end),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% ----------------------------------------------------------------------
+        |  %% Helpers
+        |  
+        |  -spec key1(ejabberd:jid(), ejabberd:jid()) -&gt; {ls(), lu(), lu(), ls(), lr()}.
+        |  key1(#jid{lserver=LocLServer, luser=LocLUser},
+        |       #jid{lserver=RemLUser, server=RemLServer, lresource=RemLResource}) -&gt;
+<font color=red>     0..|      {LocLServer, LocLUser, RemLUser, RemLServer, RemLResource}.</font>
+        |  
+        |  
+        |  -spec key2(ejabberd:jid(), ejabberd:jid()) -&gt; {ls(), lu(), lu(), ls()}.
+        |  key2(#jid{lserver=LocLServer, luser=LocLUser},
+        |       #jid{lserver=RemLUser, server=RemLServer}) -&gt;
+<font color=red>     0..|      {LocLServer, LocLUser, RemLUser, RemLServer}.</font>
+        |  
+        |  
+        |  -spec key3(ejabberd:jid()) -&gt; {ls(), lu()}.
+        |  key3(#jid{lserver=LocLServer, luser=LocLUser}) -&gt;
+<font color=red>     0..|      {LocLServer, LocLUser}.</font>
+        |  
+        |  
+        |  -spec su_key(ejabberd:jid()) -&gt; {ls(), lu()}.
+        |  su_key(#jid{lserver=LocLServer, luser=LocLUser}) -&gt;
+<font color=red>     0..|      {LocLServer, LocLUser}.</font>
+        |  
+        |  
+        |  %% @doc Expand short rule.
+        |  -spec key(ejabberd:jid(), {ls(), lu()} | {ls(), lu(), lr()})
+        |              -&gt; {ls(), lu(), ls(), lu()} | {ls(), lu(), ls(), lu(), lr()}.
+        |  key(#jid{lserver=LocLServer, luser=LocLUser}, {RemLServer, RemLUser}) -&gt;
+<font color=red>     0..|      {LocLServer, LocLUser, RemLServer, RemLUser}; %% key1</font>
+        |  key(#jid{lserver=LocLServer, luser=LocLUser}, {RemLServer, RemLUser, RemLResource}) -&gt;
+<font color=red>     0..|      {LocLServer, LocLUser, RemLServer, RemLUser, RemLResource}. %% key2</font>
+        |  
+        |  
+        |  -spec jids([{ls(),lu()} | {ls(),lu(),lr()}]) -&gt; [ejabberd:literal_jid()].
+        |  jids(Rules) -&gt;
+<font color=red>     0..|      [jid:to_binary(rule_to_jid(Rule)) || Rule &lt;- Rules].</font>
+        |  
+        |  
+        |  -spec rule_to_jid({ls(), lu()} | {ls(), lu(), lr()}) -&gt; {lu(), ls(), lr()}.
+        |  rule_to_jid({RemLServer, RemLUser, RemLResource}) -&gt;
+<font color=red>     0..|      {RemLUser, RemLServer, RemLResource};</font>
+        |  rule_to_jid({RemLServer, RemLUser}) -&gt;
+<font color=red>     0..|      {RemLUser, RemLServer, &lt;&lt;&gt;&gt;}.</font>
+        |  
+        |  
+        |  -spec rules([ejabberd:literal_jid()]) -&gt; [{ls(), lu()} | {ls(), lu(), lr()}].
+        |  rules(BinJIDs) -&gt;
+<font color=red>     0..|      [rule(jid:from_binary(BinJID)) || BinJID &lt;- BinJIDs].</font>
+        |  
+        |  
+        |  -spec rule(ejabberd:jid()) -&gt; {ls(), lu()} | {ls(), lu(), lr()}.
+        |  rule(#jid{lserver=RemLServer, luser=RemLUser, lresource = &lt;&lt;&gt;&gt;}) -&gt;
+<font color=red>     0..|      {RemLServer, RemLUser};</font>
+        |  rule(#jid{lserver=RemLServer, luser=RemLUser, lresource=RemLResource}) -&gt;
+<font color=red>     0..|      {RemLServer, RemLUser, RemLResource}.</font>
+        |  
+        |  
+        |  -spec update_rules(Mode :: 'always' | 'never', ArcJID :: ejabberd:jid(),
+        |          OldNRules :: [{ls(), lu()} | {ls(), lu(), lr()}],
+        |          NewNRules :: [{ls(), lu()} | {ls(), lu(), lr()}]) -&gt; 'ok'.
+        |  update_rules(Mode, ArcJID, OldNRules, NewNRules) -&gt;
+<font color=red>     0..|      DelRules = ordsets:subtract(OldNRules, NewNRules),</font>
+<font color=red>     0..|      InsRules = ordsets:subtract(NewNRules, OldNRules),</font>
+<font color=red>     0..|      DelKeys = [key(ArcJID, Rule) || Rule &lt;- DelRules],</font>
+<font color=red>     0..|      InsKeys = [key(ArcJID, Rule) || Rule &lt;- InsRules],</font>
+<font color=red>     0..|      [mnesia:delete(mam_prefs_rule, Key, write) || Key &lt;- DelKeys],</font>
+<font color=red>     0..|      [mnesia:write(#mam_prefs_rule{key=Key, behaviour=Mode}) || Key &lt;- InsKeys],</font>
+<font color=red>     0..|      ok.</font>
+</pre>
+</body>
+</html>

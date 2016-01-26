@@ -1,0 +1,512 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mod_bosh.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_bosh.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%===================================================================
+        |  %%% @copyright (C) 2013, Erlang Solutions Ltd.
+        |  %%% @doc Cowboy based BOSH support for MongooseIM
+        |  %%% @end
+        |  %%%===================================================================
+        |  -module(mod_bosh).
+        |  -behaviour(gen_mod).
+        |  -behaviour(cowboy_loop_handler).
+        |  -xep([{xep, 206}, {version, "1.4"}]).
+        |  -xep([{xep, 124}, {version, "1.11"}]).
+        |  %% API
+        |  -export([get_inactivity/0,
+        |           set_inactivity/1,
+        |           get_max_wait/0,
+        |           set_max_wait/1,
+        |           get_server_acks/0,
+        |           set_server_acks/1]).
+        |  
+        |  %% gen_mod callbacks
+        |  -export([start/2,
+        |           stop/1]).
+        |  
+        |  %% ejabberd independent listener callbacks
+        |  -export([socket_type/0,
+        |           start_listener/2]).
+        |  
+        |  %% cowboy_loop_handler callbacks
+        |  -export([init/3,
+        |           info/3,
+        |           terminate/3]).
+        |  
+        |  %% Hooks callbacks
+        |  -export([node_cleanup/1]).
+        |  
+        |  %% For testing and debugging
+        |  -export([get_session_socket/1, store_session/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml_stream.hrl").
+        |  -include("mod_bosh.hrl").
+        |  
+        |  -define(LISTENER, ?MODULE).
+        |  -define(DEFAULT_BACKEND, mnesia).
+        |  -define(DEFAULT_MAX_AGE, 1728000).  %% 20 days in seconds
+        |  -define(DEFAULT_INACTIVITY, 30).  %% seconds
+        |  -define(DEFAULT_MAX_WAIT, infinity).  %% seconds
+        |  -define(DEFAULT_SERVER_ACKS, false).
+        |  -define(DEFAULT_ALLOW_ORIGIN, &lt;&lt;"*"&gt;&gt;).
+        |  
+        |  -export_type([session/0,
+        |                sid/0,
+        |                event_type/0,
+        |                socket/0
+        |               ]).
+        |  
+        |  -type socket() :: #bosh_socket{}.
+        |  -type session() :: #bosh_session{
+        |                        sid :: mod_bosh:sid(),
+        |                        socket :: pid()
+        |                       }.
+        |  -type sid() :: binary().
+        |  -type event_type() :: streamstart
+        |                      | restart
+        |                      | normal
+        |                      | pause
+        |                      | streamend.
+        |  
+        |  %% Request State
+        |  -record(rstate, {}).
+        |  -type rstate() :: #rstate{}.
+        |  -type req() :: cowboy_req:req().
+        |  
+        |  -type info() :: 'accept_options'
+        |                | 'accept_get'
+        |                | 'item_not_found'
+        |                | 'no_body'
+        |                | 'policy_violation'
+        |                | {'bosh_reply', jlib:xmlel()}
+        |                | {'close',_}
+        |                | {'wrong_method',_}.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% API
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec get_inactivity() -&gt; pos_integer() | infinity.
+        |  get_inactivity() -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(?MYNAME, ?MODULE, inactivity, ?DEFAULT_INACTIVITY).</font>
+        |  
+        |  
+        |  %% @doc Return true if succeeded, false otherwise.
+        |  -spec set_inactivity(Seconds :: pos_integer() | infinity) -&gt; boolean().
+        |  set_inactivity(infinity) -&gt;
+<font color=red>     0..|      gen_mod:set_module_opt(?MYNAME, ?MODULE, inactivity, infinity);</font>
+        |  set_inactivity(Seconds) when is_integer(Seconds), Seconds &gt; 0 -&gt;
+<font color=red>     0..|      gen_mod:set_module_opt(?MYNAME, ?MODULE, inactivity, Seconds).</font>
+        |  
+        |  
+        |  -spec get_max_wait() -&gt; pos_integer() | infinity.
+        |  get_max_wait() -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(?MYNAME, ?MODULE, max_wait, ?DEFAULT_MAX_WAIT).</font>
+        |  
+        |  
+        |  %% @doc Return true if succeeded, false otherwise.
+        |  -spec set_max_wait(Seconds :: pos_integer() | infinity) -&gt; boolean().
+        |  set_max_wait(infinity) -&gt;
+<font color=red>     0..|      gen_mod:set_module_opt(?MYNAME, ?MODULE, max_wait, infinity);</font>
+        |  set_max_wait(Seconds) when is_integer(Seconds), Seconds &gt; 0 -&gt;
+<font color=red>     0..|      gen_mod:set_module_opt(?MYNAME, ?MODULE, max_wait, Seconds).</font>
+        |  
+        |  
+        |  -spec get_server_acks() -&gt; boolean().
+        |  get_server_acks() -&gt;
+<font color=red>     0..|      gen_mod:get_module_opt(?MYNAME, ?MODULE, server_acks, ?DEFAULT_SERVER_ACKS).</font>
+        |  
+        |  
+        |  -spec set_server_acks(EnableServerAcks :: boolean()) -&gt; boolean().
+        |  set_server_acks(EnableServerAcks) -&gt;
+<font color=red>     0..|      gen_mod:set_module_opt(?MYNAME, ?MODULE, server_acks, EnableServerAcks).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% gen_mod callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec start(ejabberd:server(), [option()]) -&gt; any().
+        |  start(_Host, Opts) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          case gen_mod:get_opt(port, Opts, undefined) of</font>
+        |              undefined -&gt;
+<font color=red>     0..|                  ok;</font>
+        |              Port -&gt;
+<font color=red>     0..|                  ok = start_cowboy(Port, Opts)</font>
+        |          end,
+<font color=red>     0..|          ok = start_backend(Opts),</font>
+<font color=red>     0..|          {ok, _Pid} = mod_bosh_socket:start_supervisor(),</font>
+<font color=red>     0..|          ejabberd_hooks:add(node_cleanup, global, ?MODULE, node_cleanup, 50)</font>
+        |      catch
+        |          error:{badmatch, ErrorReason} -&gt;
+<font color=red>     0..|              ErrorReason</font>
+        |      end.
+        |  
+        |  stop(_Host) -&gt;
+        |      %% TODO: stop backend and supervisor
+<font color=red>     0..|      cowboy:stop_listener(?LISTENER).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% ejabberd independent listener callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  socket_type() -&gt;
+<font color=red>     0..|      independent.</font>
+        |  
+        |  %% @doc Start the module. Called from `ejabberd_listener'.
+        |  %% If the option `ip' is undefined, then `InetAddr' is `{0,0,0,0}'.
+        |  -spec start_listener({Port :: inet:port_number(),
+        |                        InetAddr :: inet:ip_address(),
+        |                        tcp}, Opts :: proplists:proplist()) -&gt; any().
+        |  start_listener({Port, InetAddr, tcp}, Opts) -&gt;
+<font color=red>     0..|      OptsWPort = lists:keystore(port, 1, [{ip,InetAddr}|Opts], {port, Port}),</font>
+<font color=red>     0..|      gen_mod:start_module(?MYNAME, ?MODULE, OptsWPort).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Hooks handlers
+        |  %%--------------------------------------------------------------------
+        |  
+        |  node_cleanup(Node) -&gt;
+<font color=red>     0..|      ?BOSH_BACKEND:node_cleanup(Node).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% cowboy_loop_handler callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -type option() :: {atom(), any()}.
+        |  -spec init(_Transport, req(), _Opts :: [option()]) -&gt; {loop, req(), rstate()}.
+        |  init(_Transport, Req, _Opts) -&gt;
+<font color=red>     0..|      ?DEBUG("New request~n", []),</font>
+<font color=red>     0..|      {Msg, NewReq} = try</font>
+<font color=red>     0..|          {Method, Req2} = cowboy_req:method(Req),</font>
+<font color=red>     0..|          case Method of</font>
+        |              &lt;&lt;"OPTIONS"&gt;&gt; -&gt;
+<font color=red>     0..|                  {accept_options, Req2};</font>
+        |              &lt;&lt;"POST"&gt;&gt; -&gt;
+<font color=red>     0..|                  {has_body, true} = {has_body, cowboy_req:has_body(Req2)},</font>
+<font color=red>     0..|                  {forward_body, Req2};</font>
+        |              &lt;&lt;"GET"&gt;&gt; -&gt;
+<font color=red>     0..|                  {accept_get, Req2};</font>
+        |              _ -&gt;
+<font color=red>     0..|                  error({badmatch, {Method, Req2}})</font>
+        |          end
+        |      catch
+        |          %% In order to issue a reply, init() must accept the request for processing.
+        |          %% Hence, handling of these errors is forwarded to info().
+        |          error:{badmatch, {has_body, false}} -&gt;
+<font color=red>     0..|              {no_body, Req};</font>
+        |          error:{badmatch, {WrongMethod, NReq}} when is_binary(WrongMethod) -&gt;
+<font color=red>     0..|              {{wrong_method, WrongMethod}, NReq}</font>
+        |      end,
+<font color=red>     0..|      self() ! Msg,</font>
+<font color=red>     0..|      {loop, NewReq, #rstate{}}.</font>
+        |  
+        |  
+        |  -spec info(info(), req(), rstate()) -&gt; {'ok',req(),_}.
+        |  info(accept_options, Req, State) -&gt;
+<font color=red>     0..|      {Origin, Req2} = cowboy_req:header(&lt;&lt;"origin"&gt;&gt;, Req),</font>
+<font color=red>     0..|      Headers = ac_all(Origin),</font>
+<font color=red>     0..|      ?DEBUG("OPTIONS response: ~p~n", [Headers]),</font>
+<font color=red>     0..|      {ok, strip_ok(cowboy_req:reply(200, Headers, &lt;&lt;&gt;&gt;, Req2)), State};</font>
+        |  info(accept_get, Req, State) -&gt;
+<font color=red>     0..|      Headers = [content_type(),</font>
+        |                 ac_allow_methods(),
+        |                 ac_allow_headers(),
+        |                 ac_max_age()],
+<font color=red>     0..|      {ok,</font>
+        |       strip_ok(cowboy_req:reply(200, Headers, &lt;&lt;"MongooseIM bosh endpoint"&gt;&gt;, Req)),
+        |       State};
+        |  info(no_body, Req, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Missing request body: ~p~n", [Req]),</font>
+<font color=red>     0..|      {ok, no_body_error(Req), State};</font>
+        |  info({wrong_method, Method}, Req, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Wrong request method: ~p~n", [Method]),</font>
+<font color=red>     0..|      {ok, method_not_allowed_error(Req), State};</font>
+        |  info(forward_body, Req, S) -&gt;
+<font color=red>     0..|      {ok, Body, Req1} = cowboy_req:body(Req),</font>
+        |      %% TODO: the parser should be stored per session,
+        |      %%       but the session is identified inside the to-be-parsed element
+<font color=red>     0..|      {ok, BodyElem} = exml:parse(Body),</font>
+<font color=red>     0..|      ?DEBUG("Parsed body: ~p~n", [BodyElem]),</font>
+<font color=red>     0..|      forward_body(Req1, BodyElem, S);</font>
+        |  info({bosh_reply, El}, Req, S) -&gt;
+<font color=red>     0..|      BEl = exml:to_binary(El),</font>
+<font color=red>     0..|      ?DEBUG("Sending (binary) to ~p: ~p~n", [exml_query:attr(El, &lt;&lt;"sid"&gt;&gt;), BEl]),</font>
+<font color=red>     0..|      {ok, Req1} = cowboy_req:reply(200, [content_type(),</font>
+        |                                          ac_allow_origin(?DEFAULT_ALLOW_ORIGIN),
+        |                                          ac_allow_methods(),
+        |                                          ac_allow_headers(),
+        |                                          ac_max_age()], BEl, Req),
+<font color=red>     0..|      {ok, Req1, S};</font>
+        |  info({close, Sid}, Req, S) -&gt;
+<font color=red>     0..|      ?DEBUG("Closing handler for ~p~n", [Sid]),</font>
+<font color=red>     0..|      {ok, Req1} = cowboy_req:reply(200, [], [], Req),</font>
+<font color=red>     0..|      {ok, Req1, S};</font>
+        |  info(item_not_found, Req, S) -&gt;
+<font color=red>     0..|      {ok, terminal_condition(&lt;&lt;"item-not-found"&gt;&gt;, Req), S};</font>
+        |  info(policy_violation, Req, S) -&gt;
+<font color=red>     0..|      {ok, terminal_condition(&lt;&lt;"policy-violation"&gt;&gt;, Req), S}.</font>
+        |  
+        |  
+        |  terminate(_Reason, _Req, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Callbacks implementation
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec start_cowboy(inet:port_number(), [option()]) -&gt; 'ok' | {'error','badarg'}.
+        |  start_cowboy(Port, Opts) -&gt;
+<font color=red>     0..|      Host = proplists:get_value(host, Opts, '_'),</font>
+<font color=red>     0..|      Prefix = proplists:get_value(prefix, Opts, "/http-bind"),</font>
+<font color=red>     0..|      NumAcceptors = proplists:get_value(num_acceptors, Opts, 100),</font>
+<font color=red>     0..|      Dispatch = cowboy_router:compile([{Host, [{Prefix, ?MODULE, Opts}] }]),</font>
+<font color=red>     0..|      TransOpts = [{port, Port}|get_option_pair(ip, Opts)],</font>
+<font color=red>     0..|      ProtoOpts = [{env, [{dispatch, Dispatch}]}],</font>
+<font color=red>     0..|      case cowboy:start_http(?LISTENER, NumAcceptors, TransOpts, ProtoOpts) of</font>
+        |          {ok, _Pid} -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  
+        |  -spec start_backend([option()]) -&gt; 'ok'.
+        |  start_backend(Opts) -&gt;
+<font color=red>     0..|      Backend = proplists:get_value(backend, Opts, ?DEFAULT_BACKEND),</font>
+<font color=red>     0..|      {Mod, Code} = dynamic_compile:from_string(mod_bosh_dynamic_src(Backend)),</font>
+<font color=red>     0..|      code:load_binary(Mod, "mod_bosh_dynamic.erl", Code),</font>
+<font color=red>     0..|      ?BOSH_BACKEND:start(Opts),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec event_type(jlib:xmlel()) -&gt; event_type().
+        |  event_type(Body) -&gt;
+        |      %% Order of checks is important:
+        |      %% stream restart has got sid attribute,
+        |      %% so check for it at the end.
+<font color=red>     0..|      catch begin</font>
+<font color=red>     0..|          case exml_query:attr(Body, &lt;&lt;"type"&gt;&gt;) of</font>
+        |              &lt;&lt;"terminate"&gt;&gt; -&gt;
+<font color=red>     0..|                  throw(streamend);</font>
+        |              _ -&gt;
+<font color=red>     0..|                  check_next</font>
+        |          end,
+<font color=red>     0..|          case exml_query:attr(Body, &lt;&lt;"xmpp:restart"&gt;&gt;) of</font>
+        |              &lt;&lt;"true"&gt;&gt; -&gt;
+<font color=red>     0..|                  throw(restart);</font>
+        |              _ -&gt;
+<font color=red>     0..|                  check_next</font>
+        |          end,
+<font color=red>     0..|          case exml_query:attr(Body, &lt;&lt;"pause"&gt;&gt;) of</font>
+        |              undefined -&gt;
+<font color=red>     0..|                  check_next;</font>
+        |              _ -&gt;
+<font color=red>     0..|                  throw(pause)</font>
+        |          end,
+<font color=red>     0..|          case exml_query:attr(Body, &lt;&lt;"sid"&gt;&gt;) of</font>
+        |              undefined -&gt;
+<font color=red>     0..|                  throw(streamstart);</font>
+        |              _ -&gt;
+<font color=red>     0..|                  normal</font>
+        |          end
+        |      end.
+        |  
+        |  
+        |  -spec forward_body(req(), jlib:xmlel(), rstate())
+        |              -&gt; {'loop',_,rstate()} | {'ok',req(),rstate()}.
+        |  forward_body(Req, #xmlel{} = Body, S) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          case Type = event_type(Body) of</font>
+        |              streamstart -&gt;
+<font color=red>     0..|                  case maybe_start_session(Req, Body) of</font>
+        |                      {true, Req1} -&gt;
+<font color=red>     0..|                          {loop, Req1, S};</font>
+        |                      {false, Req1} -&gt;
+<font color=red>     0..|                          {ok, Req1, S}</font>
+        |                  end;
+        |              _ -&gt;
+<font color=red>     0..|                  Socket = get_session_socket(exml_query:attr(Body, &lt;&lt;"sid"&gt;&gt;)),</font>
+<font color=red>     0..|                  handle_request(Socket, {Type, Body}),</font>
+<font color=red>     0..|                  {loop, Req, S}</font>
+        |          end
+        |      catch
+        |          error:item_not_found -&gt;
+<font color=red>     0..|              ?WARNING_MSG("session not found!~n~p~n", [Body]),</font>
+<font color=red>     0..|              {ok, terminal_condition(&lt;&lt;"item-not-found"&gt;&gt;, Req), S}</font>
+        |      end.
+        |  
+        |  
+        |  -spec handle_request(pid(), {event_type(), jlib:xmlel()}) -&gt; 'ok'.
+        |  handle_request(Socket, {EventType, Body}) -&gt;
+<font color=red>     0..|      mod_bosh_socket:handle_request(Socket, {EventType, self(), Body}).</font>
+        |  
+        |  
+        |  -spec get_session_socket(mod_bosh:sid()) -&gt; 'undefined' | pid().
+        |  get_session_socket(Sid) -&gt;
+<font color=red>     0..|      case ?BOSH_BACKEND:get_session(Sid) of</font>
+        |          [BS] -&gt;
+<font color=red>     0..|              BS#bosh_session.socket;</font>
+        |          [] -&gt;
+<font color=red>     0..|              error(item_not_found)</font>
+        |      end.
+        |  
+        |  
+        |  -spec maybe_start_session(req(), jlib:xmlel()) -&gt; {boolean(), req()}.
+        |  maybe_start_session(Req, Body) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          Hosts = ejabberd_config:get_global_option(hosts),</font>
+<font color=red>     0..|          {&lt;&lt;"to"&gt;&gt;, true} = {&lt;&lt;"to"&gt;&gt;,</font>
+        |                              lists:member(exml_query:attr(Body, &lt;&lt;"to"&gt;&gt;),
+        |                                           Hosts)},
+        |          %% Version isn't checked as it would be meaningless when supporting
+        |          %% only a subset of the specification.
+<font color=red>     0..|          {ok, NewBody} = set_max_hold(Body),</font>
+<font color=red>     0..|          {Peer, Req1} = cowboy_req:peer(Req),</font>
+<font color=red>     0..|          start_session(Peer, NewBody),</font>
+<font color=red>     0..|          {true, Req1}</font>
+        |      catch
+        |          error:{badmatch, {&lt;&lt;"to"&gt;&gt;, _}} -&gt;
+<font color=red>     0..|              {false, terminal_condition(&lt;&lt;"host-unknown"&gt;&gt;, Req)};</font>
+        |          error:{badmatch, {_Attr, _Value}} -&gt;
+        |              %% TODO: return some sensible condition details
+<font color=red>     0..|              {false, terminal_condition(&lt;&lt;"undefined-condition"&gt;&gt;, [], Req)}</font>
+        |      end.
+        |  
+        |  
+        |  -spec start_session(_, jlib:xmlel()) -&gt; any().
+        |  start_session(Peer, Body) -&gt;
+<font color=red>     0..|      Sid = make_sid(),</font>
+<font color=red>     0..|      {ok, Socket} = mod_bosh_socket:start(Sid, Peer),</font>
+<font color=red>     0..|      store_session(Sid, Socket),</font>
+<font color=red>     0..|      handle_request(Socket, {streamstart, Body}),</font>
+<font color=red>     0..|      ?DEBUG("Created new session ~p~n", [Sid]).</font>
+        |  
+        |  -spec store_session(Sid :: sid(), Socket :: pid()) -&gt; any().
+        |  store_session(Sid, Socket) -&gt;
+<font color=red>     0..|      ?BOSH_BACKEND:create_session(#bosh_session{sid = Sid, socket = Socket}).</font>
+        |  
+        |  -spec make_sid() -&gt; binary().
+        |  make_sid() -&gt;
+        |      %% TODO: now() skews system timer and ref() is unique enough as is
+<font color=red>     0..|      sha:sha1_hex(term_to_binary({now(), make_ref()})).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% HTTP errors
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec no_body_error(cowboy_req:req()) -&gt; cowboy_req:req().
+        |  no_body_error(Req) -&gt;
+<font color=red>     0..|      strip_ok(cowboy_req:reply(400, ac_all(?DEFAULT_ALLOW_ORIGIN),</font>
+        |                                &lt;&lt;"Missing request body"&gt;&gt;, Req)).
+        |  
+        |  
+        |  -spec method_not_allowed_error(cowboy_req:req()) -&gt; cowboy_req:req().
+        |  method_not_allowed_error(Req) -&gt;
+<font color=red>     0..|      strip_ok(cowboy_req:reply(405, ac_all(?DEFAULT_ALLOW_ORIGIN),</font>
+        |                                &lt;&lt;"Use POST request method"&gt;&gt;, Req)).
+        |  
+        |  -spec strip_ok({'ok',cowboy_req:req()}) -&gt; cowboy_req:req().
+        |  strip_ok({ok, Req}) -&gt;
+<font color=red>     0..|      Req.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% BOSH Terminal Binding Error Conditions
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec terminal_condition(binary(), cowboy_req:req()) -&gt; cowboy_req:req().
+        |  terminal_condition(Condition, Req) -&gt;
+<font color=red>     0..|      terminal_condition(Condition, [], Req).</font>
+        |  
+        |  
+        |  -spec terminal_condition(binary(), [jlib:xmlel()], cowboy_req:req())
+        |              -&gt; cowboy_req:req().
+        |  terminal_condition(Condition, Details, Req) -&gt;
+<font color=red>     0..|      Body = terminal_condition_body(Condition, Details),</font>
+<font color=red>     0..|      Headers = [content_type()] ++ ac_all(?DEFAULT_ALLOW_ORIGIN),</font>
+<font color=red>     0..|      strip_ok(cowboy_req:reply(200, Headers, Body, Req)).</font>
+        |  
+        |  
+        |  -spec terminal_condition_body(binary(), [jlib:xmlel()]) -&gt; binary().
+        |  terminal_condition_body(Condition, Children) -&gt;
+<font color=red>     0..|      exml:to_binary(#xmlel{name = &lt;&lt;"body"&gt;&gt;,</font>
+        |                            attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"terminate"&gt;&gt;},
+        |                                     {&lt;&lt;"condition"&gt;&gt;, Condition},
+        |                                     {&lt;&lt;"xmlns"&gt;&gt;, ?NS_HTTPBIND}],
+        |                            children = Children}).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Backend configuration
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec mod_bosh_dynamic_src(atom()) -&gt; string().
+        |  mod_bosh_dynamic_src(Backend) -&gt;
+<font color=red>     0..|      lists:flatten(</font>
+        |        ["-module(mod_bosh_dynamic).
+        |          -export([backend/0]).
+        |  
+        |          -spec backend() -&gt; atom().
+        |          backend() -&gt;
+        |              mod_bosh_", atom_to_list(Backend), ".\n"]).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Helpers
+        |  %%--------------------------------------------------------------------
+        |  
+        |  content_type() -&gt;
+<font color=red>     0..|      {&lt;&lt;"content-type"&gt;&gt;, &lt;&lt;"text/xml; charset=utf8"&gt;&gt;}.</font>
+        |  
+        |  ac_allow_origin(Origin) -&gt;
+<font color=red>     0..|      {&lt;&lt;"Access-Control-Allow-Origin"&gt;&gt;, Origin}.</font>
+        |  
+        |  ac_allow_methods() -&gt;
+<font color=red>     0..|      {&lt;&lt;"Access-Control-Allow-Methods"&gt;&gt;, &lt;&lt;"POST, OPTIONS, GET"&gt;&gt;}.</font>
+        |  
+        |  ac_allow_headers() -&gt;
+<font color=red>     0..|      {&lt;&lt;"Access-Control-Allow-Headers"&gt;&gt;, &lt;&lt;"Content-Type"&gt;&gt;}.</font>
+        |  
+        |  ac_max_age() -&gt;
+<font color=red>     0..|      {&lt;&lt;"Access-Control-Max-Age"&gt;&gt;, integer_to_binary(?DEFAULT_MAX_AGE)}.</font>
+        |  
+        |  
+        |  -spec ac_all('undefined' | binary()) -&gt; [{binary(),_},...].
+        |  ac_all(Origin) -&gt;
+<font color=red>     0..|      [ac_allow_origin(Origin),</font>
+        |       ac_allow_methods(),
+        |       ac_allow_headers(),
+        |       ac_max_age()].
+        |  
+        |  
+        |  -spec get_option_pair('ip',[any()]) -&gt; [{'ip',_}].
+        |  get_option_pair(Key, Opts) -&gt;
+<font color=red>     0..|      case proplists:get_value(Key, Opts) of</font>
+<font color=red>     0..|          undefined -&gt; [];</font>
+<font color=red>     0..|          Value     -&gt; [{Key, Value}]</font>
+        |      end.
+        |  
+        |  set_max_hold(Body) -&gt;
+<font color=red>     0..|      HoldBin = exml_query:attr(Body, &lt;&lt;"hold"&gt;&gt;),</font>
+<font color=red>     0..|      ClientHold = binary_to_integer(HoldBin),</font>
+<font color=red>     0..|      maybe_set_max_hold(ClientHold, Body).</font>
+        |  
+        |  
+        |  maybe_set_max_hold(1, Body) -&gt;
+<font color=red>     0..|      {ok, Body};</font>
+        |  maybe_set_max_hold(ClientHold, #xmlel{attrs = Attrs} = Body) when ClientHold &gt; 1 -&gt;
+<font color=red>     0..|      NewAttrs = lists:keyreplace(&lt;&lt;"hold"&gt;&gt;, 1, Attrs, {&lt;&lt;"hold"&gt;&gt;, &lt;&lt;"1"&gt;&gt;}),</font>
+<font color=red>     0..|      {ok, Body#xmlel{attrs = NewAttrs}};</font>
+        |  maybe_set_max_hold(_, _) -&gt;
+<font color=red>     0..|      {error, invalid_hold}.</font>
+        |  
+</pre>
+</body>
+</html>

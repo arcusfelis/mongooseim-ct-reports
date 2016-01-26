@@ -1,0 +1,701 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mod_privacy.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_privacy.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_privacy.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : jabber:iq:privacy support
+        |  %%% Created : 21 Jul 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_privacy).
+        |  -author('alexey@process-one.net').
+        |  -xep([{xep, 16}, {version, "1.6"}]).
+        |  -xep([{xep, 126}, {version, "1.1"}]).
+        |  -behaviour(gen_mod).
+        |  
+        |  -export([start/2, stop/1,
+        |       process_iq/3,
+        |       process_iq_set/4,
+        |       process_iq_get/5,
+        |       get_user_list/3,
+        |       check_packet/6,
+        |       remove_user/2,
+        |       updated_list/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_privacy.hrl").
+        |  
+        |  -define(BACKEND, mod_privacy_backend).
+        |  
+        |  -export_type([userlist/0]).
+        |  
+        |  -type userlist() :: #userlist{}.
+        |  -type list_name() :: binary().
+        |  -type list_item() :: #listitem{}.
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Backend callbacks
+        |  
+        |  -callback init(Host, Opts) -&gt; ok when
+        |      Host    :: binary(),
+        |      Opts    :: list().
+        |  
+        |  -callback remove_user(LUser, LServer) -&gt; any() when
+        |      LUser   :: binary(),
+        |      LServer :: binary().
+        |  
+        |  -callback get_list_names(LUser, LServer) -&gt;
+        |          {ok, {Default, Names}} | {error, Reason} when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      Default :: list_name(),
+        |      Names   :: list(list_name()),
+        |      Reason  :: not_found | term().
+        |  
+        |  -callback get_privacy_list(LUser, LServer, Name) -&gt;
+        |          {ok, Items} | {error, Reason} when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      Name    :: list_name(),
+        |      Items   :: list(list_item()),
+        |      Reason  :: not_found | term().
+        |  
+        |  -callback set_default_list(LUser, LServer, Name) -&gt; ok | {error, Reason} when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      Name    :: list_name(),
+        |      Reason  :: not_found | term().
+        |  
+        |  -callback forget_default_list(LUser, LServer) -&gt; ok | {error, Reason} when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      Reason  :: not_found | term().
+        |  
+        |  -callback remove_privacy_list(LUser, LServer, Name) -&gt; ok | {error, Reason} when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      Name    :: list_name(),
+        |      Reason  :: conflict | term().
+        |  
+        |  -callback replace_privacy_list(LUser, LServer, Name, Items) -&gt;
+        |          ok | {error, Reason} when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      Name    :: list_name(),
+        |      Items   :: list(list_item()),
+        |      Reason  :: conflict | term().
+        |  
+        |  -callback get_default_list(LUser, LServer) -&gt;
+        |          {ok, {Default, Items}} | {error, Reason} when
+        |      LUser   :: binary(),
+        |      LServer :: binary(),
+        |      Default :: list_name(),
+        |      Items   :: list(list_item()),
+        |      Reason  :: not_found | term().
+        |  
+        |  %% gen_mod callbacks
+        |  %% ------------------------------------------------------------------
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      gen_mod:start_backend_module(?MODULE, Opts, [get_privacy_list,get_list_names,</font>
+        |                                                   set_default_list, forget_default_list,
+        |                                                   remove_privacy_list, replace_privacy_list,
+        |                                                   get_default_list]),
+<font color=red>     0..|      ?BACKEND:init(Host, Opts),</font>
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+<font color=red>     0..|      ejabberd_hooks:add(privacy_iq_get, Host,</font>
+        |                 ?MODULE, process_iq_get, 50),
+<font color=red>     0..|      ejabberd_hooks:add(privacy_iq_set, Host,</font>
+        |                 ?MODULE, process_iq_set, 50),
+<font color=red>     0..|      ejabberd_hooks:add(privacy_get_user_list, Host,</font>
+        |                 ?MODULE, get_user_list, 50),
+<font color=red>     0..|      ejabberd_hooks:add(privacy_check_packet, Host,</font>
+        |                 ?MODULE, check_packet, 50),
+<font color=red>     0..|      ejabberd_hooks:add(privacy_updated_list, Host,</font>
+        |                 ?MODULE, updated_list, 50),
+<font color=red>     0..|      ejabberd_hooks:add(remove_user, Host,</font>
+        |                 ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:add(anonymous_purge_hook, Host,</font>
+        |          ?MODULE, remove_user, 50),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host, ?NS_PRIVACY,</font>
+        |                    ?MODULE, process_iq, IQDisc).
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(privacy_iq_get, Host,</font>
+        |                ?MODULE, process_iq_get, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(privacy_iq_set, Host,</font>
+        |                ?MODULE, process_iq_set, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(privacy_get_user_list, Host,</font>
+        |                ?MODULE, get_user_list, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(privacy_check_packet, Host,</font>
+        |                ?MODULE, check_packet, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(privacy_updated_list, Host,</font>
+        |                ?MODULE, updated_list, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(remove_user, Host,</font>
+        |                ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(anonymous_purge_hook, Host,</font>
+        |          ?MODULE, remove_user, 50),
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_PRIVACY).</font>
+        |  
+        |  %% Handlers
+        |  %% ------------------------------------------------------------------
+        |  
+        |  process_iq(_From, _To, IQ) -&gt;
+<font color=red>     0..|      SubEl = IQ#iq.sub_el,</font>
+<font color=red>     0..|      IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]}.</font>
+        |  
+        |  process_iq_get(_,
+        |          _From = #jid{luser = LUser, lserver = LServer},
+        |          _To,
+        |          #iq{sub_el = #xmlel{children = Els}},
+        |          #userlist{name = Active}) -&gt;
+<font color=red>     0..|      case xml:remove_cdata(Els) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              process_lists_get(LUser, LServer, Active);</font>
+        |          [#xmlel{name = Name, attrs = Attrs}] -&gt;
+<font color=red>     0..|              case Name of</font>
+        |                  &lt;&lt;"list"&gt;&gt; -&gt;
+<font color=red>     0..|                      ListName = xml:get_attr(&lt;&lt;"name"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|                      process_list_get(LUser, LServer, ListName);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {error, ?ERR_BAD_REQUEST}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              {error, ?ERR_BAD_REQUEST}</font>
+        |      end.
+        |  
+        |  process_lists_get(LUser, LServer, Active) -&gt;
+<font color=red>     0..|      case ?BACKEND:get_list_names(LUser, LServer) of</font>
+        |          {ok, {Default, ListNames}} -&gt;
+<font color=red>     0..|              {result, [list_names_query(Active, Default, ListNames)]};</font>
+        |          {error, not_found} -&gt;
+<font color=red>     0..|              {result, [empty_list_names_query()]};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end.
+        |  
+        |  process_list_get(LUser, LServer, {value, Name}) -&gt;
+<font color=red>     0..|      case ?BACKEND:get_privacy_list(LUser, LServer, Name) of</font>
+        |          {ok, List} -&gt;
+<font color=red>     0..|              LItems = lists:map(fun item_to_xml/1, List),</font>
+<font color=red>     0..|              {result, [list_query_result(Name, LItems)]};</font>
+        |          {error, not_found} -&gt;
+<font color=red>     0..|              {error, ?ERR_ITEM_NOT_FOUND};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end;
+        |  process_list_get(_LUser, _LServer, false) -&gt;
+<font color=red>     0..|      {error, ?ERR_BAD_REQUEST}.</font>
+        |  
+        |  process_iq_set(_, From, _To, #iq{sub_el = SubEl}) -&gt;
+<font color=red>     0..|      #jid{luser = LUser, lserver = LServer} = From,</font>
+<font color=red>     0..|      #xmlel{children = Els} = SubEl,</font>
+<font color=red>     0..|      case xml:remove_cdata(Els) of</font>
+        |          [#xmlel{name = Name, attrs = Attrs, children = SubEls}] -&gt;
+<font color=red>     0..|              ListName = xml:get_attr(&lt;&lt;"name"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|              case Name of</font>
+        |                  &lt;&lt;"list"&gt;&gt; -&gt;
+<font color=red>     0..|                      process_list_set(LUser, LServer, ListName,</font>
+        |                               xml:remove_cdata(SubEls));
+        |                  &lt;&lt;"active"&gt;&gt; -&gt;
+<font color=red>     0..|                      process_active_set(LUser, LServer, ListName);</font>
+        |                  &lt;&lt;"default"&gt;&gt; -&gt;
+<font color=red>     0..|                      process_default_set(LUser, LServer, ListName);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {error, ?ERR_BAD_REQUEST}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              {error, ?ERR_BAD_REQUEST}</font>
+        |      end.
+        |  
+        |  process_default_set(LUser, LServer, {value, Name}) -&gt;
+<font color=red>     0..|      case ?BACKEND:set_default_list(LUser, LServer, Name) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {result, []};</font>
+        |          {error, not_found} -&gt;
+<font color=red>     0..|              {error, ?ERR_ITEM_NOT_FOUND};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end;
+        |  process_default_set(LUser, LServer, false) -&gt;
+<font color=red>     0..|      case ?BACKEND:forget_default_list(LUser, LServer) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {result, []};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end.
+        |  
+        |  process_active_set(LUser, LServer, {value, Name}) -&gt;
+<font color=red>     0..|      case ?BACKEND:get_privacy_list(LUser, LServer, Name) of</font>
+        |          {ok, List} -&gt;
+<font color=red>     0..|              NeedDb = is_list_needdb(List),</font>
+<font color=red>     0..|              {result, [], #userlist{name = Name, list = List, needdb = NeedDb}};</font>
+        |          {error, not_found} -&gt;
+<font color=red>     0..|              {error, ?ERR_ITEM_NOT_FOUND};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end;
+        |  process_active_set(_LUser, _LServer, false) -&gt;
+<font color=red>     0..|      {result, [], #userlist{}}.</font>
+        |  
+        |  process_list_set(LUser, LServer, {value, Name}, Els) -&gt;
+<font color=red>     0..|      case parse_items(Els) of</font>
+        |          false -&gt;
+<font color=red>     0..|              {error, ?ERR_BAD_REQUEST};</font>
+        |          remove -&gt;
+<font color=red>     0..|              remove_privacy_list(LUser, LServer, Name);</font>
+        |          List -&gt;
+<font color=red>     0..|              replace_privacy_list(LUser, LServer, Name, List)</font>
+        |      end;
+        |  process_list_set(_LUser, _LServer, false, _Els) -&gt;
+<font color=red>     0..|      {error, ?ERR_BAD_REQUEST}.</font>
+        |  
+        |  remove_privacy_list(LUser, LServer, Name) -&gt;
+<font color=red>     0..|      case ?BACKEND:remove_privacy_list(LUser, LServer, Name) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              UserList = #userlist{name = Name, list = []},</font>
+<font color=red>     0..|              broadcast_privacy_list(LUser, LServer, Name, UserList),</font>
+<font color=red>     0..|              {result, []};</font>
+        |          %% TODO if Name == Active -&gt; conflict
+        |          {error, conflict} -&gt;
+<font color=red>     0..|              {error, ?ERR_CONFLICT};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end.
+        |  
+        |  replace_privacy_list(LUser, LServer, Name, List) -&gt;
+<font color=red>     0..|      case ?BACKEND:replace_privacy_list(LUser, LServer, Name, List) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              NeedDb = is_list_needdb(List),</font>
+<font color=red>     0..|              UserList = #userlist{name = Name, list = List, needdb = NeedDb},</font>
+<font color=red>     0..|              broadcast_privacy_list(LUser, LServer, Name, UserList),</font>
+<font color=red>     0..|              {result, []};</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end.
+        |  
+        |  is_list_needdb(Items) -&gt;
+<font color=red>     0..|      lists:any(fun is_item_needdb/1, Items).</font>
+        |  
+<font color=red>     0..|  is_item_needdb(#listitem{type = subscription}) -&gt; true;</font>
+<font color=red>     0..|  is_item_needdb(#listitem{type = group})        -&gt; true;</font>
+<font color=red>     0..|  is_item_needdb(_)                              -&gt; false.</font>
+        |  
+        |  get_user_list(_, User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      case ?BACKEND:get_default_list(LUser, LServer) of</font>
+        |          {ok, {Default, List}} -&gt;
+<font color=red>     0..|              NeedDb = is_list_needdb(List),</font>
+<font color=red>     0..|              #userlist{name = Default, list = List, needdb = NeedDb};</font>
+        |          {error, _} -&gt;
+<font color=red>     0..|              #userlist{}</font>
+        |      end.
+        |  
+        |  %% From is the sender, To is the destination.
+        |  %% If Dir = out, User@Server is the sender account (From).
+        |  %% If Dir = in, User@Server is the destination account (To).
+        |  check_packet(_, User, Server,
+        |           #userlist{list = List, needdb = NeedDb},
+        |           {From, To, Packet},
+        |           Dir) -&gt;
+<font color=red>     0..|      case List of</font>
+        |          [] -&gt;
+<font color=red>     0..|              allow;</font>
+        |          _ -&gt;
+<font color=red>     0..|              PType = packet_directed_type(Dir, packet_type(Packet)),</font>
+<font color=red>     0..|              LJID = case Dir of</font>
+<font color=red>     0..|                     in -&gt; jid:to_lower(From);</font>
+<font color=red>     0..|                     out -&gt; jid:to_lower(To)</font>
+        |                     end,
+<font color=red>     0..|              {Subscription, Groups} =</font>
+        |              case NeedDb of
+        |                  true -&gt;
+<font color=red>     0..|                      Host = jid:nameprep(Server),</font>
+<font color=red>     0..|                      roster_get_jid_info(Host, User, Server, LJID);</font>
+        |                  false -&gt;
+<font color=red>     0..|                      {[], []}</font>
+        |              end,
+<font color=red>     0..|              check_packet_aux(List, PType, LJID, Subscription, Groups)</font>
+        |      end.
+        |  
+        |  check_packet_aux([], _PType, _JID, _Subscription, _Groups) -&gt;
+<font color=red>     0..|      allow;</font>
+        |  check_packet_aux([Item | List], PType, JID, Subscription, Groups) -&gt;
+<font color=red>     0..|      #listitem{type = Type, value = Value, action = Action} = Item,</font>
+<font color=red>     0..|      case is_ptype_match(Item, PType) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case Type of</font>
+        |                  none -&gt;
+<font color=red>     0..|                      Action;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      case is_type_match(Type, Value, JID, Subscription, Groups) of</font>
+        |                          true -&gt;
+<font color=red>     0..|                              Action;</font>
+        |                          false -&gt;
+<font color=red>     0..|                              check_packet_aux(</font>
+        |                                  List, PType, JID, Subscription, Groups)
+        |                      end
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              check_packet_aux(List, PType, JID, Subscription, Groups)</font>
+        |      end.
+        |  
+        |  is_ptype_match(Item, PType) -&gt;
+<font color=red>     0..|      case Item#listitem.match_all of</font>
+        |          true -&gt;
+<font color=red>     0..|              true;</font>
+        |          false -&gt;
+<font color=red>     0..|              case PType of</font>
+        |                  message -&gt;
+<font color=red>     0..|                      Item#listitem.match_message;</font>
+        |                  iq -&gt;
+<font color=red>     0..|                      Item#listitem.match_iq;</font>
+        |                  presence_in -&gt;
+<font color=red>     0..|                      Item#listitem.match_presence_in;</font>
+        |                  presence_out -&gt;
+<font color=red>     0..|                      Item#listitem.match_presence_out;</font>
+        |                  other -&gt;
+<font color=red>     0..|                      false</font>
+        |              end
+        |      end.
+        |  
+        |  is_type_match(Type, Value, JID, Subscription, Groups) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          jid -&gt;
+<font color=red>     0..|              case Value of</font>
+        |                  {&lt;&lt;&gt;&gt;, Server, &lt;&lt;&gt;&gt;} -&gt;
+<font color=red>     0..|                      case JID of</font>
+        |                          {_, Server, _} -&gt;
+<font color=red>     0..|                              true;</font>
+        |                          _ -&gt;
+<font color=red>     0..|                              false</font>
+        |                      end;
+        |                  {User, Server, &lt;&lt;&gt;&gt;} -&gt;
+<font color=red>     0..|                      case JID of</font>
+        |                          {User, Server, _} -&gt;
+<font color=red>     0..|                              true;</font>
+        |                          _ -&gt;
+<font color=red>     0..|                              false</font>
+        |                      end;
+        |                  _ -&gt;
+<font color=red>     0..|                      Value == JID</font>
+        |              end;
+        |          subscription -&gt;
+<font color=red>     0..|              Value == Subscription;</font>
+        |          group -&gt;
+<font color=red>     0..|              lists:member(Value, Groups)</font>
+        |      end.
+        |  
+        |  
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      ?BACKEND:remove_user(LUser, LServer).</font>
+        |  
+        |  
+        |  updated_list(_,
+        |           #userlist{name = OldName} = Old,
+        |           #userlist{name = NewName} = New) -&gt;
+<font color=red>     0..|      if</font>
+        |      OldName == NewName -&gt;
+<font color=red>     0..|          New;</font>
+        |      true -&gt;
+<font color=red>     0..|          Old</font>
+        |      end.
+        |  
+        |  
+        |  %% Deserialization
+        |  %% ------------------------------------------------------------------
+        |  
+        |  packet_directed_type(Dir, Type) -&gt;
+<font color=red>     0..|      case {Type, Dir} of</font>
+<font color=red>     0..|           {message, in} -&gt; message;</font>
+<font color=red>     0..|           {iq, in} -&gt; iq;</font>
+<font color=red>     0..|           {presence, in} -&gt; presence_in;</font>
+<font color=red>     0..|           {presence, out} -&gt; presence_out;</font>
+<font color=red>     0..|           {_, _} -&gt; other</font>
+        |      end.
+        |  
+        |  packet_type(#xmlel{name = Name, attrs = Attrs}) -&gt;
+<font color=red>     0..|      case Name of</font>
+<font color=red>     0..|          &lt;&lt;"message"&gt;&gt; -&gt; message;</font>
+<font color=red>     0..|          &lt;&lt;"iq"&gt;&gt; -&gt; iq;</font>
+        |          &lt;&lt;"presence"&gt;&gt; -&gt;
+<font color=red>     0..|              case xml:get_attr_s(&lt;&lt;"type"&gt;&gt;, Attrs) of</font>
+        |                  %% notification
+<font color=red>     0..|                  &lt;&lt;&gt;&gt; -&gt; presence;</font>
+<font color=red>     0..|                  &lt;&lt;"unavailable"&gt;&gt; -&gt; presence;</font>
+        |                  %% subscribe, subscribed, unsubscribe,
+        |                  %% unsubscribed, error, probe, or other
+<font color=red>     0..|                  _ -&gt; other</font>
+        |              end
+        |      end.
+        |  
+        |  parse_items([]) -&gt;
+<font color=red>     0..|      remove;</font>
+        |  parse_items(Els) -&gt;
+<font color=red>     0..|      parse_items(Els, []).</font>
+        |  
+        |  parse_items([], Res) -&gt;
+        |      %% Sort the items by their 'order' attribute
+<font color=red>     0..|      lists:keysort(#listitem.order, Res);</font>
+        |  parse_items([#xmlel{name = &lt;&lt;"item"&gt;&gt;, attrs = Attrs,
+        |                      children = SubEls} | Els], Res) -&gt;
+<font color=red>     0..|      Type    = xml:get_attr_s(&lt;&lt;"type"&gt;&gt;,   Attrs),</font>
+<font color=red>     0..|      Value   = xml:get_attr_s(&lt;&lt;"value"&gt;&gt;,  Attrs),</font>
+<font color=red>     0..|      SAction = xml:get_attr_s(&lt;&lt;"action"&gt;&gt;, Attrs),</font>
+<font color=red>     0..|      SOrder  = xml:get_attr_s(&lt;&lt;"order"&gt;&gt;,  Attrs),</font>
+<font color=red>     0..|      Action  = parse_action(SAction),</font>
+<font color=red>     0..|      Order   = parse_order(SOrder),</font>
+<font color=red>     0..|      I1 = set_action_and_order(Action, Order),</font>
+<font color=red>     0..|      I2 = set_type_and_value(Type, Value, I1),</font>
+<font color=red>     0..|      I3 = set_matches(SubEls, I2),</font>
+<font color=red>     0..|      parse_items(Els, add_item(I3, Res));</font>
+        |  parse_items(_, _Res) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  parse_action(&lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      false;</font>
+        |  parse_action(Action) -&gt;
+<font color=red>     0..|      binary_to_action_s(Action).</font>
+        |  
+        |  parse_order(&lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      false;</font>
+        |  parse_order(Order) -&gt;
+<font color=red>     0..|      validate_order(binary_to_order_s(Order)).</font>
+        |  
+        |  validate_order(Order) when Order &gt;= 0 -&gt;
+<font color=red>     0..|      Order;</font>
+        |  validate_order(_) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  set_action_and_order(false, _) -&gt;
+<font color=red>     0..|      false;</font>
+        |  set_action_and_order(_, false) -&gt;
+<font color=red>     0..|      false;</font>
+        |  set_action_and_order(Action, Order) when is_atom(Action), is_integer(Order) -&gt;
+<font color=red>     0..|      #listitem{action = Action, order = Order}.</font>
+        |  
+        |  set_type_and_value(_Type, _Value, false) -&gt;
+<font color=red>     0..|      false;</font>
+        |  set_type_and_value(&lt;&lt;&gt;&gt;, _Value, Item) -&gt;
+<font color=red>     0..|      Item;</font>
+        |  set_type_and_value(_Type, &lt;&lt;&gt;&gt;, _Item) -&gt;
+<font color=red>     0..|      false;</font>
+        |  set_type_and_value(&lt;&lt;"jid"&gt;&gt;, Value, Item) -&gt;
+<font color=red>     0..|      case jid:from_binary(Value) of</font>
+        |          error -&gt;
+<font color=red>     0..|              false;</font>
+        |          JID -&gt;
+<font color=red>     0..|              Item#listitem{type = jid, value = jid:to_lower(JID)}</font>
+        |      end;
+        |  set_type_and_value(&lt;&lt;"group"&gt;&gt;, Value, Item) -&gt;
+<font color=red>     0..|      Item#listitem{type = group, value = Value};</font>
+        |  set_type_and_value(&lt;&lt;"subscription"&gt;&gt;, Value, Item) -&gt;
+<font color=red>     0..|      case Value of</font>
+        |          &lt;&lt;"none"&gt;&gt; -&gt;
+<font color=red>     0..|              Item#listitem{type = subscription, value = none};</font>
+        |          &lt;&lt;"both"&gt;&gt; -&gt;
+<font color=red>     0..|              Item#listitem{type = subscription, value = both};</font>
+        |          &lt;&lt;"from"&gt;&gt; -&gt;
+<font color=red>     0..|              Item#listitem{type = subscription, value = from};</font>
+        |          &lt;&lt;"to"&gt;&gt; -&gt;
+<font color=red>     0..|              Item#listitem{type = subscription, value = to};</font>
+        |          _ -&gt;
+<font color=red>     0..|          false</font>
+        |      end.
+        |  
+        |  set_matches(_SubEls, false) -&gt;
+<font color=red>     0..|      false;</font>
+        |  set_matches(SubEls, Item) -&gt;
+<font color=red>     0..|      parse_matches(Item, xml:remove_cdata(SubEls)).</font>
+        |  
+        |  parse_matches(Item, []) -&gt;
+<font color=red>     0..|      Item#listitem{match_all = true};</font>
+        |  parse_matches(Item, Els) -&gt;
+<font color=red>     0..|      parse_matches1(Item, Els).</font>
+        |  
+        |  parse_matches1(Item, []) -&gt;
+<font color=red>     0..|      Item;</font>
+        |  parse_matches1(Item, [#xmlel{name = &lt;&lt;"message"&gt;&gt;} | Els]) -&gt;
+<font color=red>     0..|      parse_matches1(Item#listitem{match_message = true}, Els);</font>
+        |  parse_matches1(Item, [#xmlel{name = &lt;&lt;"iq"&gt;&gt;} | Els]) -&gt;
+<font color=red>     0..|      parse_matches1(Item#listitem{match_iq = true}, Els);</font>
+        |  parse_matches1(Item, [#xmlel{name = &lt;&lt;"presence-in"&gt;&gt;} | Els]) -&gt;
+<font color=red>     0..|      parse_matches1(Item#listitem{match_presence_in = true}, Els);</font>
+        |  parse_matches1(Item, [#xmlel{name = &lt;&lt;"presence-out"&gt;&gt;} | Els]) -&gt;
+<font color=red>     0..|      parse_matches1(Item#listitem{match_presence_out = true}, Els);</font>
+        |  parse_matches1(_Item, [#xmlel{} | _Els]) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  add_item(false, Items) -&gt;
+<font color=red>     0..|      Items;</font>
+        |  add_item(Item, Items) -&gt;
+<font color=red>     0..|      [Item | Items].</font>
+        |  
+        |  
+        |  %% Serialization
+        |  %% ------------------------------------------------------------------
+        |  
+        |  empty_list_names_query() -&gt;
+<font color=red>     0..|      #xmlel{</font>
+        |          name = &lt;&lt;"query"&gt;&gt;,
+        |          attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_PRIVACY}]}.
+        |  
+        |  list_names_query(Active, Default, ListNames) -&gt;
+<font color=red>     0..|      #xmlel{</font>
+        |          name = &lt;&lt;"query"&gt;&gt;,
+        |          attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_PRIVACY}],
+        |          children = list_names(Active, Default, ListNames)}.
+        |  
+        |  list_names(Active, Default, ListNames) -&gt;
+<font color=red>     0..|      [list_name(&lt;&lt;"active"&gt;&gt;, Active) || Active =/= none] ++</font>
+<font color=red>     0..|      [list_name(&lt;&lt;"default"&gt;&gt;, Default) || Default =/= none] ++</font>
+<font color=red>     0..|      [list_name(&lt;&lt;"list"&gt;&gt;, ListName) || ListName &lt;- ListNames].</font>
+        |  
+        |  list_name(Type, Name) -&gt;
+<font color=red>     0..|      #xmlel{name = Type, attrs = [{&lt;&lt;"name"&gt;&gt;, Name}]}.</font>
+        |  
+        |  list_query_result(Name, LItems) -&gt;
+<font color=red>     0..|      #xmlel{</font>
+        |          name = &lt;&lt;"query"&gt;&gt;,
+        |          attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_PRIVACY}],
+        |          children = [
+        |              #xmlel{
+        |                  name = &lt;&lt;"list"&gt;&gt;,
+        |                  attrs = [{&lt;&lt;"name"&gt;&gt;, Name}],
+        |                  children = LItems}]}.
+        |  
+        |  item_to_xml(Item) -&gt;
+<font color=red>     0..|      #xmlel{</font>
+        |          name = &lt;&lt;"item"&gt;&gt;,
+        |          attrs = item_to_xml_attrs(Item),
+        |          children = item_to_xml_children(Item)}.
+        |  
+        |  item_to_xml_attrs(Item=#listitem{type=none}) -&gt;
+<font color=red>     0..|      item_to_xml_attrs1(Item);</font>
+        |  item_to_xml_attrs(Item=#listitem{type=Type, value=Value}) -&gt;
+<font color=red>     0..|      [{&lt;&lt;"type"&gt;&gt;, type_to_binary(Type)},</font>
+        |       {&lt;&lt;"value"&gt;&gt;, value_to_binary(Type, Value)}
+        |       | item_to_xml_attrs1(Item)].
+        |  
+        |  item_to_xml_attrs1(#listitem{action=Action, order=Order}) -&gt;
+<font color=red>     0..|      [{&lt;&lt;"action"&gt;&gt;, action_to_binary(Action)},</font>
+        |       {&lt;&lt;"order"&gt;&gt;, order_to_binary(Order)}].
+        |      
+        |  item_to_xml_children(#listitem{match_all=true}) -&gt;
+<font color=red>     0..|      [];</font>
+        |  item_to_xml_children(#listitem{match_all=false,
+        |          match_iq=MatchIQ,
+        |          match_message=MatchMessage,
+        |          match_presence_in=MatchPresenceIn,
+        |          match_presence_out=MatchPresenceOut}) -&gt;
+<font color=red>     0..|         [#xmlel{name = &lt;&lt;"message"&gt;&gt;}        || MatchMessage]</font>
+<font color=red>     0..|      ++ [#xmlel{name = &lt;&lt;"presence-in"&gt;&gt;}    || MatchPresenceIn]</font>
+<font color=red>     0..|      ++ [#xmlel{name = &lt;&lt;"presence-out"&gt;&gt;}   || MatchPresenceOut]</font>
+<font color=red>     0..|      ++ [#xmlel{name = &lt;&lt;"iq"&gt;&gt;}             || MatchIQ].</font>
+        |  
+        |  action_to_binary(Action) -&gt;
+<font color=red>     0..|      case Action of</font>
+<font color=red>     0..|      allow -&gt; &lt;&lt;"allow"&gt;&gt;;</font>
+<font color=red>     0..|      deny -&gt; &lt;&lt;"deny"&gt;&gt;</font>
+        |      end.
+        |  
+        |  order_to_binary(Order) -&gt;
+<font color=red>     0..|      list_to_binary(integer_to_list(Order)).</font>
+        |  
+        |  binary_to_order(Binary) -&gt;
+<font color=red>     0..|      list_to_integer(binary_to_list(Binary)).</font>
+        |  
+        |  type_to_binary(Type) -&gt;
+<font color=red>     0..|      case Type of</font>
+<font color=red>     0..|      jid -&gt; &lt;&lt;"jid"&gt;&gt;;</font>
+<font color=red>     0..|      group -&gt; &lt;&lt;"group"&gt;&gt;;</font>
+<font color=red>     0..|      subscription -&gt; &lt;&lt;"subscription"&gt;&gt;</font>
+        |      end.
+        |  
+        |  value_to_binary(Type, Val) -&gt;
+<font color=red>     0..|      case Type of</font>
+<font color=red>     0..|      jid -&gt; jid:to_binary(Val);</font>
+<font color=red>     0..|      group -&gt; Val;</font>
+        |      subscription -&gt;
+<font color=red>     0..|          case Val of</font>
+<font color=red>     0..|          both -&gt; &lt;&lt;"both"&gt;&gt;;</font>
+<font color=red>     0..|          to   -&gt; &lt;&lt;"to"&gt;&gt;;</font>
+<font color=red>     0..|          from -&gt; &lt;&lt;"from"&gt;&gt;;</font>
+<font color=red>     0..|          none -&gt; &lt;&lt;"none"&gt;&gt;</font>
+        |          end
+        |      end.
+        |  
+        |  binary_to_action(S) -&gt;
+<font color=red>     0..|      case S of</font>
+<font color=red>     0..|      &lt;&lt;"allow"&gt;&gt; -&gt; allow;</font>
+<font color=red>     0..|      &lt;&lt;"deny"&gt;&gt; -&gt; deny</font>
+        |      end.
+        |  
+        |  binary_to_action_s(Action) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          binary_to_action(Action)</font>
+        |      catch error:_ -&gt;
+<font color=red>     0..|          false</font>
+        |      end.
+        |  
+        |  binary_to_order_s(Order) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          binary_to_order(Order)</font>
+        |      catch error:_ -&gt;
+<font color=red>     0..|          false</font>
+        |      end.
+        |  
+        |  
+        |  %% Ejabberd
+        |  %% ------------------------------------------------------------------
+        |  
+        |  broadcast_privacy_list(LUser, LServer, Name, UserList) -&gt;
+<font color=red>     0..|      UserJID = jid:make(LUser, LServer, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      ejabberd_sm:route(UserJID, UserJID, broadcast_privacy_list_packet(Name, UserList)).</font>
+        |  
+        |  %% TODO this is dirty
+        |  broadcast_privacy_list_packet(Name, UserList) -&gt;
+<font color=red>     0..|      {broadcast, {privacy_list, UserList, Name}}.</font>
+        |  
+        |  roster_get_jid_info(Host, User, Server, LJID) -&gt;
+<font color=red>     0..|      ejabberd_hooks:run_fold(</font>
+        |          roster_get_jid_info,
+        |          Host,
+        |          {none, []},
+        |          [User, Server, LJID]).
+        |  
+</pre>
+</body>
+</html>

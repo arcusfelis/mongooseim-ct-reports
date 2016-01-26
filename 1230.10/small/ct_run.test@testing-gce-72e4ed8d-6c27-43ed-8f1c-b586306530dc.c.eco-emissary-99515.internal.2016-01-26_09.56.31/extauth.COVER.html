@@ -1,0 +1,226 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/extauth.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/extauth.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : extauth.erl
+        |  %%% Author  : Leif Johansson &lt;leifj@it.su.se&gt;
+        |  %%% Purpose : External authentication using a simple port-driver
+        |  %%% Created : 30 Jul 2004 by Leif Johansson &lt;leifj@it.su.se&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(extauth).
+        |  -author('leifj@it.su.se').
+        |  
+        |  -export([start/2,
+        |           stop/1,
+        |           init/2,
+        |           check_password/3,
+        |           set_password/3,
+        |           try_register/3,
+        |           remove_user/2,
+        |           remove_user/3,
+        |           is_user_exists/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -define(INIT_TIMEOUT, 60000). % Timeout is in milliseconds: 60 seconds == 60000
+        |  -define(CALL_TIMEOUT, 10000). % Timeout is in milliseconds: 10 seconds == 10000
+        |  
+        |  
+        |  -spec start(atom() | binary(),_) -&gt; 'ok'.
+        |  start(Host, ExtPrg) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |          fun(This) -&gt;
+<font color=red>     0..|              start_instance(get_process_name(Host, This), ExtPrg)</font>
+        |          end,
+        |          lists:seq(0, get_instances(Host)-1)
+        |      ).
+        |  
+        |  
+        |  -spec start_instance(atom(),_) -&gt; pid().
+        |  start_instance(ProcessName, ExtPrg) -&gt;
+<font color=red>     0..|      spawn(?MODULE, init, [ProcessName, ExtPrg]).</font>
+        |  
+        |  
+        |  -spec restart_instance(atom(),_) -&gt; pid().
+        |  restart_instance(ProcessName, ExtPrg) -&gt;
+<font color=red>     0..|      unregister(ProcessName),</font>
+<font color=red>     0..|      start_instance(ProcessName, ExtPrg).</font>
+        |  
+        |  
+        |  -spec init(atom(),string()) -&gt; no_return().
+        |  init(ProcessName, ExtPrg) -&gt;
+<font color=red>     0..|      register(ProcessName, self()),</font>
+<font color=red>     0..|      process_flag(trap_exit,true),</font>
+<font color=red>     0..|      Port = open_port({spawn, ExtPrg}, [{packet,2}]),</font>
+<font color=red>     0..|      loop(Port, ?INIT_TIMEOUT, ProcessName, ExtPrg).</font>
+        |  
+        |  
+        |  -spec stop(atom() | binary()) -&gt; 'ok'.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |          fun(This) -&gt;
+<font color=red>     0..|              get_process_name(Host, This) ! stop</font>
+        |          end,
+        |          lists:seq(0, get_instances(Host)-1)
+        |      ).
+        |  
+        |  
+        |  -spec get_process_name(binary(),integer()) -&gt; atom().
+        |  get_process_name(Host, Integer) -&gt;
+<font color=red>     0..|      gen_mod:get_module_proc(lists:append([erlang:binary_to_list(Host), integer_to_list(Integer)]), eauth).</font>
+        |  
+        |  
+        |  -spec check_password(ejabberd:user(), ejabberd:server(), binary()) -&gt; boolean().
+        |  check_password(User, Server, Password) -&gt;
+<font color=red>     0..|      call_port(Server, [&lt;&lt;"auth"&gt;&gt;, User, Server, Password]).</font>
+        |  
+        |  
+        |  -spec is_user_exists(ejabberd:user(), ejabberd:server()) -&gt; boolean().
+        |  is_user_exists(User, Server) -&gt;
+<font color=red>     0..|      call_port(Server, [&lt;&lt;"isuser"&gt;&gt;, User, Server]).</font>
+        |  
+        |  
+        |  -spec set_password(ejabberd:user(), ejabberd:server(), binary()) -&gt; any().
+        |  set_password(User, Server, Password) -&gt;
+<font color=red>     0..|      call_port(Server, [&lt;&lt;"setpass"&gt;&gt;, User, Server, Password]).</font>
+        |  
+        |  
+        |  -spec try_register(ejabberd:user(), ejabberd:server(), binary()
+        |                    ) -&gt; ok | {error, not_allowed}.
+        |  try_register(User, Server, Password) -&gt;
+<font color=red>     0..|      case call_port(Server, [&lt;&lt;"tryregister"&gt;&gt;, User, Server, Password]) of</font>
+<font color=red>     0..|          true -&gt; ok;</font>
+<font color=red>     0..|          false -&gt; {error, not_allowed}</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_user(ejabberd:user(), ejabberd:server()) -&gt; any().
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      call_port(Server, [&lt;&lt;"removeuser"&gt;&gt;, User, Server]).</font>
+        |  
+        |  
+        |  -spec remove_user(ejabberd:user(), ejabberd:server(), binary()) -&gt; any().
+        |  remove_user(User, Server, Password) -&gt;
+<font color=red>     0..|      call_port(Server, [&lt;&lt;"removeuser3"&gt;&gt;, User, Server, Password]).</font>
+        |  
+        |  
+        |  -spec call_port(ejabberd:server(), [any(),...]) -&gt; any().
+        |  call_port(Server, Msg) -&gt;
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      ProcessName = get_process_name(LServer, random_instance(get_instances(LServer))),</font>
+<font color=red>     0..|      ProcessName ! {call, self(), Msg},</font>
+<font color=red>     0..|      receive</font>
+        |          {eauth,Result} -&gt;
+<font color=red>     0..|              Result</font>
+        |      end.
+        |  
+        |  
+        |  -spec random_instance(pos_integer()) -&gt; non_neg_integer().
+        |  random_instance(MaxNum) -&gt;
+<font color=red>     0..|      {A1,A2,A3} = now(),</font>
+<font color=red>     0..|      random:seed(A1, A2, A3),</font>
+<font color=red>     0..|      random:uniform(MaxNum) - 1.</font>
+        |  
+        |  
+        |  -spec get_instances(atom() | binary()) -&gt; integer().
+        |  get_instances(Server) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option({extauth_instances, Server}) of</font>
+<font color=red>     0..|          Num when is_integer(Num) -&gt; Num;</font>
+<font color=red>     0..|          _ -&gt; 1</font>
+        |      end.
+        |  
+        |  
+        |  -spec loop(port(), integer(), atom(), any()) -&gt; no_return().
+        |  loop(Port, Timeout, ProcessName, ExtPrg) -&gt;
+<font color=red>     0..|      receive</font>
+        |          {call, Caller, Msg} -&gt;
+<font color=red>     0..|              port_command(Port, encode(Msg)),</font>
+<font color=red>     0..|              receive</font>
+        |                  {Port, {data, Data}} -&gt;
+<font color=red>     0..|                      ?DEBUG("extauth call '~p' received data response:~n~p", [Msg, Data]),</font>
+<font color=red>     0..|                      Caller ! {eauth, decode(Data)},</font>
+<font color=red>     0..|                      loop(Port, ?CALL_TIMEOUT, ProcessName, ExtPrg);</font>
+        |                  {Port, Other} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("extauth call '~p' received strange response:~n~p", [Msg, Other]),</font>
+<font color=red>     0..|                      Caller ! {eauth, false},</font>
+<font color=red>     0..|                      loop(Port, ?CALL_TIMEOUT, ProcessName, ExtPrg)</font>
+        |              after
+        |                  Timeout -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("extauth call '~p' didn't receive response", [Msg]),</font>
+<font color=red>     0..|                      Caller ! {eauth, false},</font>
+<font color=red>     0..|                      Pid = restart_instance(ProcessName, ExtPrg),</font>
+<font color=red>     0..|                      flush_buffer_and_forward_messages(Pid),</font>
+<font color=red>     0..|                      exit(port_terminated)</font>
+        |              end;
+        |          stop -&gt;
+<font color=red>     0..|              Port ! {self(), close},</font>
+<font color=red>     0..|              receive</font>
+        |                  {Port, closed} -&gt;
+<font color=red>     0..|                      exit(normal)</font>
+        |              end;
+        |          {'EXIT', Port, Reason} -&gt;
+<font color=red>     0..|              ?CRITICAL_MSG("extauth script has exitted abruptly with reason '~p'", [Reason]),</font>
+<font color=red>     0..|              Pid = restart_instance(ProcessName, ExtPrg),</font>
+<font color=red>     0..|              flush_buffer_and_forward_messages(Pid),</font>
+<font color=red>     0..|              exit(port_terminated)</font>
+        |      end.
+        |  
+        |  
+        |  -spec flush_buffer_and_forward_messages(pid()) -&gt; 'true'.
+        |  flush_buffer_and_forward_messages(Pid) -&gt;
+<font color=red>     0..|      receive</font>
+        |          Message -&gt;
+<font color=red>     0..|              Pid ! Message,</font>
+<font color=red>     0..|              flush_buffer_and_forward_messages(Pid)</font>
+        |      after 0 -&gt;
+<font color=red>     0..|              true</font>
+        |      end.
+        |  
+        |  
+        |  -spec join([binary()], binary()) -&gt; binary().
+        |  join(List, Sep) -&gt;
+<font color=red>     0..|      lists:foldl(fun(A, &lt;&lt;""&gt;&gt;) -&gt; A;</font>
+<font color=red>     0..|                     (A, Acc) -&gt; &lt;&lt;Acc/bitstring, Sep/bitstring, A/bitstring&gt;&gt;</font>
+        |          end, &lt;&lt;""&gt;&gt;, List).
+        |  
+        |  
+        |  -spec encode([binary()]) -&gt; [byte()].
+        |  encode(L) -&gt;
+<font color=red>     0..|      erlang:binary_to_list(join(L,&lt;&lt;":"&gt;&gt;)).</font>
+        |  
+        |  
+        |  -spec decode([0 | 1,...]) -&gt; boolean().
+<font color=red>     0..|  decode([0,0]) -&gt; false;</font>
+<font color=red>     0..|  decode([0,1]) -&gt; true.</font>
+        |  
+</pre>
+</body>
+</html>

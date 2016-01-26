@@ -1,0 +1,84 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/ejabberd_node_id.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_node_id.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Uvarov Michael &lt;arcusfelis@gmail.com&gt;
+        |  %%% @copyright (C) 2013, Uvarov Michael
+        |  %%% @doc Allocates unique ids for each node.
+        |  %%% @end
+        |  %%%-------------------------------------------------------------------
+        |  -module(ejabberd_node_id).
+        |  -export([start/0, node_id/0]).
+        |  
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  
+        |  -type nodeid() :: non_neg_integer().
+        |  -record(node, {name :: atom(),
+        |                 id :: nodeid()
+        |                }).
+        |  
+        |  start() -&gt;
+<font color=red>     0..|      mnesia:create_table(node,</font>
+        |              [{ram_copies, [node()]},
+        |               {type, set},
+        |               {attributes, record_info(fields, node)}]),
+<font color=red>     0..|      mnesia:add_table_copy(node, node(), ram_copies),</font>
+<font color=red>     0..|      register_node(node()),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec register_node(atom()) -&gt; 'ok'.
+        |  register_node(NodeName) -&gt;
+<font color=red>     0..|      {atomic, _} = mnesia:transaction(fun() -&gt;</font>
+<font color=red>     0..|          case mnesia:read(node, NodeName) of</font>
+        |              [] -&gt;
+<font color=red>     0..|                  mnesia:write(#node{name = NodeName, id = next_node_id()});</font>
+<font color=red>     0..|              [_] -&gt; ok</font>
+        |          end
+        |          end),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% @doc Return an integer node ID.
+        |  -spec node_id() -&gt; {ok, nodeid()}.
+        |  node_id() -&gt;
+        |      %% Save result into the process's memory space.
+<font color=red>     0..|      case get(node_id) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              {ok, NodeId} = select_node_id(node()),</font>
+<font color=red>     0..|              put(node_id, NodeId),</font>
+<font color=red>     0..|              {ok, NodeId};</font>
+        |          NodeId -&gt;
+<font color=red>     0..|              {ok, NodeId}</font>
+        |      end.
+        |  
+        |  -spec next_node_id() -&gt; nodeid().
+        |  next_node_id() -&gt;
+<font color=red>     0..|      max_node_id() + 1.</font>
+        |  
+        |  -spec max_node_id() -&gt; nodeid().
+        |  max_node_id() -&gt;
+<font color=red>     0..|      mnesia:foldl(fun(#node{id=Id}, Max) -&gt; max(Id, Max) end, 0, node).</font>
+        |  
+        |  -spec select_node_id(NodeName :: atom()
+        |                      ) -&gt; {'error','not_found'} | {'ok',nodeid()}.
+        |  select_node_id(NodeName) -&gt;
+<font color=red>     0..|      case mnesia:dirty_read(node, NodeName) of</font>
+<font color=red>     0..|          [#node{id=Id}] -&gt; {ok, Id};</font>
+<font color=red>     0..|          [] -&gt; {error, not_found}</font>
+        |      end.
+</pre>
+</body>
+</html>

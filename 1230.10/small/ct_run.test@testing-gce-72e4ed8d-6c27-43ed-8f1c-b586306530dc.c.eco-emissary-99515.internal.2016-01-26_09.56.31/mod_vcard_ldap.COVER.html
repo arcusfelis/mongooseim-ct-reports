@@ -1,0 +1,596 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/mod_vcard_ldap.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_vcard_ldap.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_vcard_ldap.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Support for VCards from LDAP storage.
+        |  %%% Created :  2 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%TODO LDAP layer should be separated like odbc one. Now every ldap module creates its own ldap pool per vhost
+        |  %%TODO gen_server is created only to store the state and create/destroy pool, should it be replaced ?
+        |  
+        |  -module(mod_vcard_ldap).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  -behaviour(mod_vcard).
+        |  
+        |  %% gen_server callbacks.
+        |  -export([init/1, handle_info/2, handle_call/3,
+        |  	 handle_cast/2,  code_change/3, terminate/2]).
+        |  
+        |  -export([start_link/2,  transform_module_options/1]).
+        |  
+        |  %% mod_vcards callbacks
+        |  -export([init/2,
+        |           remove_user/2,
+        |           get_vcard/2,
+        |           set_vcard/4,
+        |           search/2,
+        |           search_fields/1,
+        |           search_reported_fields/2]).
+        |  
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("eldap.hrl").
+        |  -include("mod_vcard.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -define(PROCNAME, ejabberd_mod_vcard_ldap).
+        |  
+        |  -record(state,
+        |          {serverhost = &lt;&lt;""&gt;&gt;        :: binary(),
+        |           myhost = &lt;&lt;""&gt;&gt;            :: binary(),
+        |           eldap_id = &lt;&lt;""&gt;&gt;          :: binary(),
+        |           servers = []               :: [binary()],
+        |           backups = []               :: [binary()],
+        |           port = ?LDAP_PORT          :: inet:port_number(),
+        |           tls_options = []           :: list(),
+        |           dn = &lt;&lt;""&gt;&gt;                :: binary(),
+        |           base = &lt;&lt;""&gt;&gt;              :: binary(),
+        |           password = &lt;&lt;""&gt;&gt;          :: binary(),
+        |           uids = []                  :: [{binary()} | {binary(), binary()}],
+        |           vcard_map = []             :: [{binary(), binary(), [binary()]}],
+        |           vcard_map_attrs = []       :: [binary()],
+        |           user_filter = &lt;&lt;""&gt;&gt;       :: binary(),
+        |           search_filter              :: eldap:filter(),
+        |           search_fields = []         :: [{binary(), binary()}],
+        |           search_reported = []       :: [{binary(), binary()}],
+        |           search_reported_attrs = [] :: [binary()],
+        |           search_operator            :: 'or' | 'and',
+        |           binary_search_fields       :: [binary()],
+        |           deref_aliases = never      :: never | searching | finding | always,
+        |           matches = 0                :: non_neg_integer()}).
+        |  
+        |  -define(VCARD_MAP,
+        |  	[{&lt;&lt;"NICKNAME"&gt;&gt;, &lt;&lt;"%u"&gt;&gt;, []},
+        |  	 {&lt;&lt;"FN"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"displayName"&gt;&gt;]},
+        |  	 {&lt;&lt;"FAMILY"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"sn"&gt;&gt;]},
+        |  	 {&lt;&lt;"GIVEN"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"givenName"&gt;&gt;]},
+        |  	 {&lt;&lt;"MIDDLE"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"initials"&gt;&gt;]},
+        |  	 {&lt;&lt;"ORGNAME"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"o"&gt;&gt;]},
+        |  	 {&lt;&lt;"ORGUNIT"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"ou"&gt;&gt;]},
+        |  	 {&lt;&lt;"CTRY"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"c"&gt;&gt;]},
+        |  	 {&lt;&lt;"LOCALITY"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"l"&gt;&gt;]},
+        |  	 {&lt;&lt;"STREET"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"street"&gt;&gt;]},
+        |  	 {&lt;&lt;"REGION"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"st"&gt;&gt;]},
+        |  	 {&lt;&lt;"PCODE"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"postalCode"&gt;&gt;]},
+        |  	 {&lt;&lt;"TITLE"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"title"&gt;&gt;]},
+        |  	 {&lt;&lt;"URL"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"labeleduri"&gt;&gt;]},
+        |  	 {&lt;&lt;"DESC"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"description"&gt;&gt;]},
+        |  	 {&lt;&lt;"TEL"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"telephoneNumber"&gt;&gt;]},
+        |  	 {&lt;&lt;"EMAIL"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"mail"&gt;&gt;]},
+        |  	 {&lt;&lt;"BDAY"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"birthDay"&gt;&gt;]},
+        |  	 {&lt;&lt;"ROLE"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"employeeType"&gt;&gt;]},
+        |  	 {&lt;&lt;"PHOTO"&gt;&gt;, &lt;&lt;"%s"&gt;&gt;, [&lt;&lt;"jpegPhoto"&gt;&gt;]}]).
+        |  
+        |  -define(SEARCH_FIELDS,
+        |  	[{&lt;&lt;"User"&gt;&gt;, &lt;&lt;"%u"&gt;&gt;},
+        |  	 {&lt;&lt;"Full Name"&gt;&gt;, &lt;&lt;"displayName"&gt;&gt;},
+        |  	 {&lt;&lt;"Given Name"&gt;&gt;, &lt;&lt;"givenName"&gt;&gt;},
+        |  	 {&lt;&lt;"Middle Name"&gt;&gt;, &lt;&lt;"initials"&gt;&gt;},
+        |  	 {&lt;&lt;"Family Name"&gt;&gt;, &lt;&lt;"sn"&gt;&gt;},
+        |  	 {&lt;&lt;"Nickname"&gt;&gt;, &lt;&lt;"%u"&gt;&gt;},
+        |  	 {&lt;&lt;"Birthday"&gt;&gt;, &lt;&lt;"birthDay"&gt;&gt;},
+        |  	 {&lt;&lt;"Country"&gt;&gt;, &lt;&lt;"c"&gt;&gt;}, {&lt;&lt;"City"&gt;&gt;, &lt;&lt;"l"&gt;&gt;},
+        |  	 {&lt;&lt;"Email"&gt;&gt;, &lt;&lt;"mail"&gt;&gt;},
+        |  	 {&lt;&lt;"Organization Name"&gt;&gt;, &lt;&lt;"o"&gt;&gt;},
+        |  	 {&lt;&lt;"Organization Unit"&gt;&gt;, &lt;&lt;"ou"&gt;&gt;}]).
+        |  
+        |  -define(SEARCH_REPORTED,
+        |  	[{&lt;&lt;"Full Name"&gt;&gt;, &lt;&lt;"FN"&gt;&gt;},
+        |  	 {&lt;&lt;"Given Name"&gt;&gt;, &lt;&lt;"FIRST"&gt;&gt;},
+        |  	 {&lt;&lt;"Middle Name"&gt;&gt;, &lt;&lt;"MIDDLE"&gt;&gt;},
+        |  	 {&lt;&lt;"Family Name"&gt;&gt;, &lt;&lt;"LAST"&gt;&gt;},
+        |  	 {&lt;&lt;"Nickname"&gt;&gt;, &lt;&lt;"NICK"&gt;&gt;},
+        |  	 {&lt;&lt;"Birthday"&gt;&gt;, &lt;&lt;"BDAY"&gt;&gt;},
+        |  	 {&lt;&lt;"Country"&gt;&gt;, &lt;&lt;"CTRY"&gt;&gt;},
+        |  	 {&lt;&lt;"City"&gt;&gt;, &lt;&lt;"LOCALITY"&gt;&gt;},
+        |  	 {&lt;&lt;"Email"&gt;&gt;, &lt;&lt;"EMAIL"&gt;&gt;},
+        |  	 {&lt;&lt;"Organization Name"&gt;&gt;, &lt;&lt;"ORGNAME"&gt;&gt;},
+        |  	 {&lt;&lt;"Organization Unit"&gt;&gt;, &lt;&lt;"ORGUNIT"&gt;&gt;}]).
+        |  
+        |  
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mod_vcards callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  init(VHost, Options) -&gt;
+<font color=red>     0..|      start_link(VHost,Options),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  remove_user(_LUser, _LServer) -&gt;
+        |      %% no need to handle this - in ldap
+        |      %% removing user = delete all user info
+<font color=red>     0..|      ok.</font>
+        |  
+        |  get_vcard(LUser, LServer) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(LServer, ?PROCNAME),</font>
+<font color=red>     0..|      {ok,State} = gen_server:call(Proc, get_state),</font>
+<font color=red>     0..|      LServer = State#state.serverhost,</font>
+<font color=red>     0..|      case ejabberd_auth:is_user_exists(LUser, LServer) of</font>
+        |          true -&gt;
+<font color=red>     0..|              VCardMap = State#state.vcard_map,</font>
+<font color=red>     0..|              case find_ldap_user(LUser,State) of</font>
+        |                  #eldap_entry{attributes = Attributes} -&gt;
+<font color=red>     0..|                      Vcard = ldap_attributes_to_vcard(Attributes, VCardMap,{LUser, LServer}),</font>
+<font color=red>     0..|                      {ok,Vcard};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {ok, []}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              {ok, []}</font>
+        |      end.
+        |  
+        |  set_vcard(_User, _VHost, _VCard, _VCardSearch) -&gt;
+<font color=red>     0..|      {error, ?ERR_NOT_ALLOWED}.</font>
+        |  
+        |  search(LServer, Data) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(LServer, ?PROCNAME),</font>
+<font color=red>     0..|      {ok,State} = gen_server:call(Proc, get_state),</font>
+<font color=red>     0..|      search_internal(State, Data).</font>
+        |  
+        |  search_fields(Host) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      {ok,State} = gen_server:call(Proc, get_state),</font>
+<font color=red>     0..|      State#state.search_fields.</font>
+        |  
+        |  search_reported_fields(Host, Lang) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      {ok,State} = gen_server:call(Proc, get_state),</font>
+<font color=red>     0..|      SearchReported = State#state.search_reported,</font>
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"reported"&gt;&gt;, attrs = [],</font>
+        |             children =
+        |             [?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, &lt;&lt;"Jabber ID"&gt;&gt;,
+        |                       &lt;&lt;"jid"&gt;&gt;)]
+        |             ++
+        |             lists:map(fun ({Name, Value}) -&gt;
+<font color=red>     0..|                               ?TLFIELD(&lt;&lt;"text-single"&gt;&gt;, Name,</font>
+        |                                        Value)
+        |                       end,
+        |                       SearchReported)}.
+        |  
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% gen server callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  start_link(Host, Opts) -&gt;
+<font color=red>     0..|      Proc = gen_mod:get_module_proc(Host, ?PROCNAME),</font>
+<font color=red>     0..|      gen_server:start_link({local, Proc}, ?MODULE,</font>
+        |  			  [Host, Opts], []).
+        |  
+        |  init([Host, Opts]) -&gt;
+<font color=red>     0..|      process_flag(trap_exit, true),</font>
+<font color=red>     0..|      State = parse_options(Host, Opts),</font>
+<font color=red>     0..|      eldap_pool:start_link(State#state.eldap_id,</font>
+        |  			  State#state.servers, State#state.backups,
+        |  			  State#state.port, State#state.dn,
+        |  			  State#state.password, State#state.tls_options),
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  handle_call(get_state, _From, State) -&gt;
+<font color=red>     0..|      {reply, {ok, State}, State};</font>
+        |  handle_call(stop, _From, State) -&gt;
+<font color=red>     0..|      {stop, normal, ok, State};</font>
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      {reply, bad_request, State}.</font>
+        |  
+<font color=red>     0..|  handle_cast(_Request, State) -&gt; {noreply, State}.</font>
+        |  
+<font color=red>     0..|  code_change(_OldVsn, State, _Extra) -&gt; {ok, State}.</font>
+        |  
+        |  terminate(_Reason, State) -&gt;
+<font color=red>     0..|      eldap_pool:stop(State#state.eldap_id).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Internal
+        |  %%--------------------------------------------------------------------
+        |  find_ldap_user(User, State) -&gt;
+<font color=red>     0..|      Base = State#state.base,</font>
+<font color=red>     0..|      RFC2254_Filter = State#state.user_filter,</font>
+<font color=red>     0..|      Eldap_ID = State#state.eldap_id,</font>
+<font color=red>     0..|      VCardAttrs = State#state.vcard_map_attrs,</font>
+<font color=red>     0..|      case eldap_filter:parse(RFC2254_Filter,</font>
+        |  			    [{&lt;&lt;"%u"&gt;&gt;, User}])
+        |  	of
+        |        {ok, EldapFilter} -&gt;
+<font color=red>     0..|  	  case eldap_pool:search(Eldap_ID,</font>
+        |  				 [{base, Base}, {filter, EldapFilter},
+        |  				  {deref_aliases, State#state.deref_aliases},
+        |  				  {attributes, VCardAttrs}])
+        |  	      of
+<font color=red>     0..|  	    #eldap_search_result{entries = [E | _]} -&gt; E;</font>
+<font color=red>     0..|  	    _ -&gt; false</font>
+        |  	  end;
+<font color=red>     0..|        _ -&gt; false</font>
+        |      end.
+        |  
+        |  ldap_attributes_to_vcard(Attributes, VCardMap, UD) -&gt;
+<font color=red>     0..|      Attrs = lists:map(fun ({VCardName, _, _}) -&gt;</font>
+<font color=red>     0..|  			      {stringprep:tolower(VCardName),</font>
+        |  			       map_vcard_attr(VCardName, Attributes, VCardMap,
+        |  					      UD)}
+        |  		      end,
+        |  		      VCardMap),
+<font color=red>     0..|      Elts = [ldap_attribute_to_vcard(vCard, Attr)</font>
+<font color=red>     0..|  	    || Attr &lt;- Attrs],</font>
+<font color=red>     0..|      NElts = [ldap_attribute_to_vcard(vCardN, Attr)</font>
+<font color=red>     0..|  	     || Attr &lt;- Attrs],</font>
+<font color=red>     0..|      OElts = [ldap_attribute_to_vcard(vCardO, Attr)</font>
+<font color=red>     0..|  	     || Attr &lt;- Attrs],</font>
+<font color=red>     0..|      AElts = [ldap_attribute_to_vcard(vCardA, Attr)</font>
+<font color=red>     0..|  	     || Attr &lt;- Attrs],</font>
+<font color=red>     0..|      [#xmlel{name = &lt;&lt;"vCard"&gt;&gt;,</font>
+        |  	    attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_VCARD}],
+        |  	    children =
+<font color=red>     0..|  		lists:append([X || X &lt;- Elts, X /= none],</font>
+        |  			     [#xmlel{name = &lt;&lt;"N"&gt;&gt;, attrs = [],
+<font color=red>     0..|  				     children = [X || X &lt;- NElts, X /= none]},</font>
+        |  			      #xmlel{name = &lt;&lt;"ORG"&gt;&gt;, attrs = [],
+<font color=red>     0..|  				     children = [X || X &lt;- OElts, X /= none]},</font>
+        |  			      #xmlel{name = &lt;&lt;"ADR"&gt;&gt;, attrs = [],
+        |  				     children =
+<font color=red>     0..|  					 [X || X &lt;- AElts, X /= none]}])}].</font>
+        |  
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"fn"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"FN"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCard,
+        |  			{&lt;&lt;"nickname"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"NICKNAME"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"title"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"TITLE"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"bday"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"BDAY"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"url"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"URL"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"desc"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"DESC"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"role"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"ROLE"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"tel"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"TEL"&gt;&gt;, attrs = [],</font>
+        |  	   children =
+        |  	       [#xmlel{name = &lt;&lt;"VOICE"&gt;&gt;, attrs = [], children = []},
+        |  		#xmlel{name = &lt;&lt;"WORK"&gt;&gt;, attrs = [], children = []},
+        |  		#xmlel{name = &lt;&lt;"NUMBER"&gt;&gt;, attrs = [],
+        |  		       children = [{xmlcdata, Value}]}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"email"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"EMAIL"&gt;&gt;, attrs = [],</font>
+        |  	   children =
+        |  	       [#xmlel{name = &lt;&lt;"INTERNET"&gt;&gt;, attrs = [],
+        |  		       children = []},
+        |  		#xmlel{name = &lt;&lt;"PREF"&gt;&gt;, attrs = [], children = []},
+        |  		#xmlel{name = &lt;&lt;"USERID"&gt;&gt;, attrs = [],
+        |  		       children = [{xmlcdata, Value}]}]};
+        |  ldap_attribute_to_vcard(vCard, {&lt;&lt;"photo"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"PHOTO"&gt;&gt;, attrs = [],</font>
+        |  	   children =
+        |  	       [#xmlel{name = &lt;&lt;"TYPE"&gt;&gt;, attrs = [],
+        |  		       children = [{xmlcdata, &lt;&lt;"image/jpeg"&gt;&gt;}]},
+        |  		#xmlel{name = &lt;&lt;"BINVAL"&gt;&gt;, attrs = [],
+        |  		       children = [{xmlcdata, jlib:encode_base64(Value)}]}]};
+        |  ldap_attribute_to_vcard(vCardN,
+        |  			{&lt;&lt;"family"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"FAMILY"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardN, {&lt;&lt;"given"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"GIVEN"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardN,
+        |  			{&lt;&lt;"middle"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"MIDDLE"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardO,
+        |  			{&lt;&lt;"orgname"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"ORGNAME"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardO,
+        |  			{&lt;&lt;"orgunit"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"ORGUNIT"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardA,
+        |  			{&lt;&lt;"locality"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"LOCALITY"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardA,
+        |  			{&lt;&lt;"street"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"STREET"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardA, {&lt;&lt;"ctry"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"CTRY"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardA,
+        |  			{&lt;&lt;"region"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"REGION"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+        |  ldap_attribute_to_vcard(vCardA, {&lt;&lt;"pcode"&gt;&gt;, Value}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"PCODE"&gt;&gt;, attrs = [],</font>
+        |  	   children = [{xmlcdata, Value}]};
+<font color=red>     0..|  ldap_attribute_to_vcard(_, _) -&gt; none.</font>
+        |  
+        |  search_internal(_, []) -&gt;
+<font color=red>     0..|      [];</font>
+        |  search_internal(State, Data) -&gt;
+<font color=red>     0..|      Base = State#state.base,</font>
+<font color=red>     0..|      SearchFilter = State#state.search_filter,</font>
+<font color=red>     0..|      Eldap_ID = State#state.eldap_id,</font>
+<font color=red>     0..|      UIDs = State#state.uids,</font>
+<font color=red>     0..|      Limit = State#state.matches,</font>
+<font color=red>     0..|      ReportedAttrs = State#state.search_reported_attrs,</font>
+<font color=red>     0..|      Op = State#state.search_operator,</font>
+<font color=red>     0..|      Filter = eldap:'and'([SearchFilter,</font>
+        |                            eldap_utils:make_filter(Data, UIDs, Op)]),
+<font color=red>     0..|      case eldap_pool:search(Eldap_ID,</font>
+        |  			   [{base, Base}, {filter, Filter}, {limit, Limit},
+        |  			    {deref_aliases, State#state.deref_aliases},
+        |  			    {attributes, ReportedAttrs}])
+        |  	of
+        |        #eldap_search_result{entries = E} -&gt;
+<font color=red>     0..|  	  search_items(E, State);</font>
+<font color=red>     0..|        _ -&gt; error</font>
+        |      end.
+        |  
+        |  search_items(Entries, State) -&gt;
+<font color=red>     0..|      LServer = State#state.serverhost,</font>
+<font color=red>     0..|      SearchReported = State#state.search_reported,</font>
+<font color=red>     0..|      VCardMap = State#state.vcard_map,</font>
+<font color=red>     0..|      UIDs = State#state.uids,</font>
+<font color=red>     0..|      BinFields = State#state.binary_search_fields,</font>
+<font color=red>     0..|      Attributes = lists:map(fun (E) -&gt;</font>
+<font color=red>     0..|  				   #eldap_entry{attributes = Attrs} = E, Attrs</font>
+        |  			   end,
+        |  			   Entries),
+<font color=red>     0..|      lists:flatmap(fun (Attrs) -&gt;</font>
+<font color=red>     0..|  			  case eldap_utils:find_ldap_attrs(UIDs, Attrs) of</font>
+        |  			    {U, UIDAttrFormat} -&gt;
+<font color=red>     0..|  				case eldap_utils:get_user_part(U, UIDAttrFormat)</font>
+        |  				    of
+        |  				  {ok, Username} -&gt;
+<font color=red>     0..|  				      case</font>
+        |  					ejabberd_auth:is_user_exists(Username,
+        |  								     LServer)
+        |  					  of
+        |  					true -&gt;
+<font color=red>     0..|  					    RFields = lists:map(fun ({_,</font>
+        |  								      VCardName}) -&gt;
+<font color=red>     0..|  									{VCardName,</font>
+        |  									 map_vcard_attr(VCardName,
+        |  											Attrs,
+        |  											VCardMap,
+        |  											{Username,
+        |  											 ?MYNAME})}
+        |  								end,
+        |  								SearchReported),
+<font color=red>     0..|  					    Result = [?FIELD(&lt;&lt;"jid"&gt;&gt;,</font>
+        |  							     &lt;&lt;Username/binary,
+        |  							       "@",
+        |  							       LServer/binary&gt;&gt;)]
+        |  						       ++
+<font color=red>     0..|  						       [?FIELD(Name,</font>
+        |                                         search_item_value(Name,Value,BinFields))
+        |  							|| {Name, Value}
+<font color=red>     0..|  							       &lt;- RFields],</font>
+<font color=red>     0..|  					    [#xmlel{name = &lt;&lt;"item"&gt;&gt;,</font>
+        |  						    attrs = [],
+        |  						    children = Result}];
+<font color=red>     0..|  					_ -&gt; []</font>
+        |  				      end;
+<font color=red>     0..|  				  _ -&gt; []</font>
+        |  				end;
+<font color=red>     0..|  			    &lt;&lt;""&gt;&gt; -&gt; []</font>
+        |  			  end
+        |  		  end,
+        |  		  Attributes).
+        |  
+        |  %%%-----------------------
+        |  %%% Auxiliary functions.
+        |  %%%-----------------------
+        |  search_item_value(Name, Value, BinaryFields) -&gt;
+<font color=red>     0..|      case lists:member(Name, BinaryFields) of</font>
+<font color=red>     0..|          true  -&gt; jlib:encode_base64(Value);</font>
+<font color=red>     0..|          false -&gt; Value</font>
+        |      end.
+        |  
+        |  map_vcard_attr(VCardName, Attributes, Pattern, UD) -&gt;
+<font color=red>     0..|      Res = lists:filter(fun ({Name, _, _}) -&gt;</font>
+<font color=red>     0..|  			       eldap_utils:case_insensitive_match(Name,</font>
+        |  								  VCardName)
+        |  		       end,
+        |  		       Pattern),
+<font color=red>     0..|      case Res of</font>
+        |        [{_, Str, Attrs}] -&gt;
+<font color=red>     0..|  	  process_pattern(Str, UD,</font>
+<font color=red>     0..|  			  [eldap_utils:get_ldap_attr(X, Attributes)</font>
+<font color=red>     0..|  			   || X &lt;- Attrs]);</font>
+<font color=red>     0..|        _ -&gt; &lt;&lt;""&gt;&gt;</font>
+        |      end.
+        |  
+        |  process_pattern(Str, {User, Domain}, AttrValues) -&gt;
+<font color=red>     0..|      eldap_filter:do_sub(Str,</font>
+        |  			[{&lt;&lt;"%u"&gt;&gt;, User}, {&lt;&lt;"%d"&gt;&gt;, Domain}] ++
+<font color=red>     0..|  			  [{&lt;&lt;"%s"&gt;&gt;, V, 1} || V &lt;- AttrValues]).</font>
+        |  
+        |  parse_options(Host, Opts) -&gt;
+<font color=red>     0..|      MyHost = gen_mod:get_opt_host(Host, Opts,</font>
+        |  				  &lt;&lt;"vjud.@HOST@"&gt;&gt;),
+<font color=red>     0..|      Matches = eldap_utils:get_mod_opt(matches, Opts,</font>
+<font color=red>     0..|                                fun(infinity) -&gt; 0;</font>
+<font color=red>     0..|                                   (I) when is_integer(I), I&gt;0 -&gt; I</font>
+        |                                end, 30),
+<font color=red>     0..|      Eldap_ID = atom_to_binary(gen_mod:get_module_proc(Host, ?PROCNAME),utf8),</font>
+<font color=red>     0..|      Cfg = eldap_utils:get_config(Host, Opts),</font>
+<font color=red>     0..|      UIDsTemp = eldap_utils:get_opt(</font>
+        |                   {ldap_uids, Host}, Opts,
+        |                   fun(Us) -&gt;
+<font color=red>     0..|                           lists:map(</font>
+        |                             fun({U, P}) -&gt;
+<font color=red>     0..|                                     {iolist_to_binary(U),</font>
+        |                                      iolist_to_binary(P)};
+        |                                ({U}) -&gt;
+<font color=red>     0..|                                     {iolist_to_binary(U)}</font>
+        |                             end, Us)
+        |                   end, [{&lt;&lt;"uid"&gt;&gt;, &lt;&lt;"%u"&gt;&gt;}]),
+<font color=red>     0..|      UIDs = eldap_utils:uids_domain_subst(Host, UIDsTemp),</font>
+<font color=red>     0..|      SubFilter = eldap_utils:generate_subfilter(UIDs),</font>
+<font color=red>     0..|      UserFilter = case eldap_utils:get_opt(</font>
+        |                          {ldap_filter, Host}, Opts,
+        |                          fun check_filter/1, &lt;&lt;""&gt;&gt;) of
+        |                       &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|  			 SubFilter;</font>
+        |                       F -&gt;
+<font color=red>     0..|                           &lt;&lt;"(&amp;", SubFilter/binary, F/binary, ")"&gt;&gt;</font>
+        |                   end,
+<font color=red>     0..|      {ok, SearchFilter} =</font>
+        |  	eldap_filter:parse(eldap_filter:do_sub(UserFilter,
+        |  					       [{&lt;&lt;"%u"&gt;&gt;, &lt;&lt;"*"&gt;&gt;}])),
+<font color=red>     0..|      VCardMap = eldap_utils:get_mod_opt(ldap_vcard_map, Opts,</font>
+        |                                 fun(Ls) -&gt;
+<font color=red>     0..|                                         lists:map(</font>
+        |                                           fun({S, [{P, L}]}) -&gt;
+<font color=red>     0..|                                                   {iolist_to_binary(S),</font>
+        |                                                    iolist_to_binary(P),
+<font color=red>     0..|                                                    [iolist_to_binary(E)</font>
+<font color=red>     0..|                                                     || E &lt;- L]}</font>
+        |                                           end, Ls)
+        |                                 end, ?VCARD_MAP),
+<font color=red>     0..|      SearchFields = eldap_utils:get_mod_opt(ldap_search_fields, Opts,</font>
+        |                                     fun(Ls) -&gt;
+<font color=red>     0..|                                             [{iolist_to_binary(S),</font>
+        |                                               iolist_to_binary(P)}
+<font color=red>     0..|                                              || {S, P} &lt;- Ls]</font>
+        |                                     end, ?SEARCH_FIELDS),
+<font color=red>     0..|      SearchReported = eldap_utils:get_mod_opt(ldap_search_reported, Opts,</font>
+        |                                       fun(Ls) -&gt;
+<font color=red>     0..|                                               [{iolist_to_binary(S),</font>
+        |                                                 iolist_to_binary(P)}
+<font color=red>     0..|                                                || {S, P} &lt;- Ls]</font>
+        |                                       end, ?SEARCH_REPORTED),
+<font color=red>     0..|      UIDAttrs = [UAttr || {UAttr, _} &lt;- UIDs],</font>
+<font color=red>     0..|      VCardMapAttrs = lists:usort(lists:append([A</font>
+<font color=red>     0..|  					      || {_, _, A} &lt;- VCardMap])</font>
+        |  				  ++ UIDAttrs),
+<font color=red>     0..|      SearchReportedAttrs = lists:usort(lists:flatmap(fun ({_,</font>
+        |  							  N}) -&gt;
+<font color=red>     0..|  							    case</font>
+        |  							      lists:keysearch(N,
+        |  									      1,
+        |  									      VCardMap)
+        |  								of
+        |  							      {value,
+        |  							       {_, _, L}} -&gt;
+<font color=red>     0..|  								  L;</font>
+<font color=red>     0..|  							      _ -&gt; []</font>
+        |  							    end
+        |  						    end,
+        |  						    SearchReported)
+        |  					++ UIDAttrs),
+<font color=red>     0..|      SearchOperatorFun = fun</font>
+<font color=red>     0..|          ('or') -&gt; 'or';</font>
+<font color=red>     0..|          (_)    -&gt; 'and'</font>
+        |      end,
+<font color=red>     0..|      SearchOperator = eldap_utils:get_mod_opt(ldap_search_operator, Opts,</font>
+        |                                               SearchOperatorFun, 'and'),
+<font color=red>     0..|      BinaryFields = eldap_utils:get_mod_opt(ldap_binary_search_fields, Opts,</font>
+<font color=red>     0..|                                             fun(X) -&gt; X end, []),</font>
+<font color=red>     0..|      #state{serverhost = Host, myhost = MyHost,</font>
+        |             eldap_id = Eldap_ID,
+        |             servers = Cfg#eldap_config.servers,
+        |             backups = Cfg#eldap_config.backups,
+        |             port = Cfg#eldap_config.port,
+        |             tls_options = Cfg#eldap_config.tls_options,
+        |             dn = Cfg#eldap_config.dn,
+        |             password = Cfg#eldap_config.password,
+        |             base = Cfg#eldap_config.base,
+        |             deref_aliases = Cfg#eldap_config.deref_aliases,
+        |             uids = UIDs, vcard_map = VCardMap,
+        |             vcard_map_attrs = VCardMapAttrs,
+        |             user_filter = UserFilter, search_filter = SearchFilter,
+        |             search_fields = SearchFields,
+        |             binary_search_fields = BinaryFields,
+        |             search_reported = SearchReported,
+        |             search_reported_attrs = SearchReportedAttrs,
+        |             search_operator = SearchOperator,
+        |             matches = Matches}.
+        |  
+        |  transform_module_options(Opts) -&gt;
+<font color=red>     0..|      lists:map(</font>
+        |        fun({ldap_vcard_map, Map}) -&gt;
+<font color=red>     0..|                NewMap = lists:map(</font>
+        |                           fun({Field, Pattern, Attrs}) -&gt;
+<font color=red>     0..|                                   {Field, [{Pattern, Attrs}]};</font>
+        |                              (Opt) -&gt;
+<font color=red>     0..|                                   Opt</font>
+        |                           end, Map),
+<font color=red>     0..|                {ldap_vcard_map, NewMap};</font>
+        |           (Opt) -&gt;
+<font color=red>     0..|                Opt</font>
+        |        end, Opts).
+        |  
+        |  check_filter(F) -&gt;
+<font color=red>     0..|      NewF = iolist_to_binary(F),</font>
+<font color=red>     0..|      {ok, _} = eldap_filter:parse(NewF),</font>
+<font color=red>     0..|      NewF.</font>
+</pre>
+</body>
+</html>

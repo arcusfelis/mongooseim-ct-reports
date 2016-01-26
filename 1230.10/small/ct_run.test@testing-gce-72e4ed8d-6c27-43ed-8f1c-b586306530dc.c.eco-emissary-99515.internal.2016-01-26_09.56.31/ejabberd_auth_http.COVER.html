@@ -1,0 +1,322 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-72e4ed8d-6c27-43ed-8f1c-b586306530dc.c.eco-emissary-99515.internal.2016-01-26_09.56.31/ejabberd_auth_http.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_auth_http.erl by COVER 2016-01-26 at 09:56:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_auth_http.erl
+        |  %%% Author  : Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Authentication via HTTP request
+        |  %%% Created : 23 Sep 2013 by Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_auth_http).
+        |  -author('piotr.nosek@erlang-solutions.com').
+        |  
+        |  -behaviour(ejabberd_gen_auth).
+        |  
+        |  %% External exports
+        |  -export([start/1,
+        |           set_password/3,
+        |           check_password/3,
+        |           check_password/5,
+        |           try_register/3,
+        |           dirty_get_registered_users/0,
+        |           get_vh_registered_users/1,
+        |           get_vh_registered_users/2,
+        |           get_vh_registered_users_number/1,
+        |           get_vh_registered_users_number/2,
+        |           get_password/2,
+        |           get_password_s/2,
+        |           does_user_exist/2,
+        |           remove_user/2,
+        |           remove_user/3,
+        |           plain_password_required/0,
+        |           store_type/1,
+        |           login/2,
+        |           get_password/3,
+        |           stop/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -type http_error_atom() :: conflict | not_found | not_authorized | not_allowed.
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec start(binary()) -&gt; ok.
+        |  start(Host) -&gt;
+<font color=red>     0..|      AuthOpts = ejabberd_config:get_local_option(auth_opts, Host),</font>
+<font color=red>     0..|      {_, AuthHost} = lists:keyfind(host, 1, AuthOpts),</font>
+<font color=red>     0..|      PoolSize = proplists:get_value(connection_pool_size, AuthOpts, 10),</font>
+<font color=red>     0..|      Opts = proplists:get_value(connection_opts, AuthOpts, []),</font>
+<font color=red>     0..|      ChildMods = [fusco],</font>
+<font color=red>     0..|      ChildMF = {fusco, start_link},</font>
+<font color=red>     0..|      ChildArgs = {for_all, [AuthHost, Opts]},</font>
+        |  
+<font color=red>     0..|      {ok, _} = supervisor:start_child(ejabberd_sup,</font>
+        |                                       {{ejabberd_auth_http_sup, Host},
+        |                                        {cuesport, start_link,
+        |                                         [pool_name(Host), PoolSize, ChildMods, ChildMF, ChildArgs]},
+        |                                        transient, 2000, supervisor, [cuesport | ChildMods]}),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec plain_password_required() -&gt; false.
+        |  plain_password_required() -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  -spec store_type(binary()) -&gt; plain | scram.
+        |  store_type(Server) -&gt;
+<font color=red>     0..|      case scram:enabled(Server) of</font>
+        |          false -&gt;
+<font color=red>     0..|              case is_external(Server) of</font>
+<font color=red>     0..|                  true -&gt; external;</font>
+<font color=red>     0..|                  _ -&gt; plain</font>
+        |              end;
+<font color=red>     0..|          true -&gt; scram</font>
+        |      end.
+        |  
+        |  -spec check_password(ejabberd:luser(), ejabberd:lserver(), binary()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case scram:enabled(LServer) of</font>
+        |          false -&gt;
+<font color=red>     0..|              case make_req(get, &lt;&lt;"check_password"&gt;&gt;, LUser, LServer, Password) of</font>
+<font color=red>     0..|                  {ok, &lt;&lt;"true"&gt;&gt;} -&gt; true;</font>
+<font color=red>     0..|                  _ -&gt; false</font>
+        |              end;
+        |          true -&gt;
+<font color=red>     0..|              {ok, true} =:= verify_scram_password(LUser, LServer, Password)</font>
+        |      end.
+        |  
+        |  -spec check_password(ejabberd:luser(), ejabberd:lserver(), binary(), binary(), fun()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password, Digest, DigestGen) -&gt;
+<font color=red>     0..|      case make_req(get, &lt;&lt;"get_password"&gt;&gt;, LUser, LServer, &lt;&lt;""&gt;&gt;) of</font>
+        |          {error, _} -&gt;
+<font color=red>     0..|              false;</font>
+        |          {ok, GotPasswd} -&gt;
+<font color=red>     0..|              case scram:enabled(LServer) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      case scram:deserialize(GotPasswd) of</font>
+        |                          {ok, #scram{} = Scram} -&gt;
+<font color=red>     0..|                              scram:check_digest(Scram, Digest, DigestGen, Password);</font>
+        |                          _ -&gt;
+<font color=red>     0..|                              false</font>
+        |                      end;
+        |                  false -&gt;
+<font color=red>     0..|                      ejabberd_auth:check_digest(Digest, DigestGen, Password, GotPasswd)</font>
+        |              end
+        |      end.
+        |  
+        |  -spec set_password(ejabberd:luser(), ejabberd:lserver(), binary()) -&gt; ok | {error, not_allowed}.
+        |  set_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      PasswordFinal = case scram:enabled(LServer) of</font>
+<font color=red>     0..|                          true -&gt; scram:serialize(scram:password_to_scram(</font>
+        |                                                    Password, scram:iterations(LServer)));
+<font color=red>     0..|                          false -&gt; Password</font>
+        |                      end,
+<font color=red>     0..|      case make_req(post, &lt;&lt;"set_password"&gt;&gt;, LUser, LServer, PasswordFinal) of</font>
+<font color=red>     0..|          {ok, _} -&gt; ok;</font>
+<font color=red>     0..|          {error, invalid_jid} = Error -&gt; Error;</font>
+<font color=red>     0..|          {error, _} -&gt; {error, not_allowed}</font>
+        |      end.
+        |  
+        |  -spec try_register(ejabberd:luser(), ejabberd:lserver(), binary()) -&gt;
+        |      ok | {error, exists | not_allowed}.
+        |  try_register(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      PasswordFinal = case scram:enabled(LServer) of</font>
+<font color=red>     0..|                          true -&gt; scram:serialize(scram:password_to_scram(</font>
+        |                                                    Password, scram:iterations(LServer)));
+<font color=red>     0..|                          false -&gt; Password</font>
+        |                      end,
+<font color=red>     0..|      case make_req(post, &lt;&lt;"register"&gt;&gt;, LUser, LServer, PasswordFinal) of</font>
+<font color=red>     0..|          {ok, created} -&gt; ok;</font>
+<font color=red>     0..|          {error, conflict} -&gt; {error, exists};</font>
+<font color=red>     0..|          _Error -&gt; {error, not_allowed}</font>
+        |      end.
+        |  
+        |  -spec dirty_get_registered_users() -&gt; [].
+        |  dirty_get_registered_users() -&gt;
+<font color=red>     0..|      [].</font>
+        |  
+        |  -spec get_vh_registered_users(ejabberd:lserver()) -&gt; [].
+        |  get_vh_registered_users(_Server) -&gt;
+<font color=red>     0..|      [].</font>
+        |  
+        |  -spec get_vh_registered_users(ejabberd:lserver(), list()) -&gt; [].
+        |  get_vh_registered_users(_Server, _Opts) -&gt;
+<font color=red>     0..|      [].</font>
+        |  
+        |  -spec get_vh_registered_users_number(binary()) -&gt; 0.
+        |  get_vh_registered_users_number(_Server) -&gt;
+<font color=red>     0..|      0.</font>
+        |  
+        |  -spec get_vh_registered_users_number(ejabberd:lserver(), list()) -&gt; 0.
+        |  get_vh_registered_users_number(_Server, _Opts) -&gt;
+<font color=red>     0..|      0.</font>
+        |  
+        |  -spec get_password(ejabberd:luser(), ejabberd:lserver()) -&gt; false | binary() | scram:scram_tuple().
+        |  get_password(LUser, LServer) -&gt;
+<font color=red>     0..|      case make_req(get, &lt;&lt;"get_password"&gt;&gt;, LUser, LServer, &lt;&lt;""&gt;&gt;) of</font>
+        |          {error, _} -&gt;
+<font color=red>     0..|              false;</font>
+        |          {ok, Password} -&gt;
+<font color=red>     0..|              case scram:enabled(LServer) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      case scram:deserialize(Password) of</font>
+        |                          {ok, #scram{} = Scram} -&gt;
+<font color=red>     0..|                              scram:scram_to_tuple(Scram);</font>
+        |                          _ -&gt;
+<font color=red>     0..|                              false</font>
+        |                      end;
+        |                  false -&gt;
+<font color=red>     0..|                      Password</font>
+        |              end
+        |      end.
+        |  
+        |  -spec get_password_s(ejabberd:luser(), ejabberd:lserver()) -&gt; binary().
+        |  get_password_s(User, Server) -&gt;
+<font color=red>     0..|      case get_password(User, Server) of</font>
+<font color=red>     0..|          Pass when is_binary(Pass) -&gt; Pass;</font>
+<font color=red>     0..|          _ -&gt; &lt;&lt;&gt;&gt;</font>
+        |      end.
+        |  
+        |  -spec does_user_exist(ejabberd:luser(), ejabberd:lserver()) -&gt; boolean().
+        |  does_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      case make_req(get, &lt;&lt;"user_exists"&gt;&gt;, LUser, LServer, &lt;&lt;""&gt;&gt;) of</font>
+<font color=red>     0..|          {ok, &lt;&lt;"true"&gt;&gt;} -&gt; true;</font>
+<font color=red>     0..|          _ -&gt; false</font>
+        |      end.
+        |  
+        |  -spec remove_user(ejabberd:luser(), ejabberd:lserver()) -&gt;
+        |      ok | {error, not_allowed}.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      case remove_user_req(LUser, LServer, &lt;&lt;""&gt;&gt;, &lt;&lt;"remove_user"&gt;&gt;) of</font>
+<font color=red>     0..|          ok -&gt; ok;</font>
+<font color=red>     0..|          _ -&gt; {error, not_allowed}</font>
+        |      end.
+        |  
+        |  -spec remove_user(ejabberd:luser(), ejabberd:lserver(), binary()) -&gt;
+        |      ok | {error, not_allowed | not_exists | bad_request}.
+        |  remove_user(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case scram:enabled(LServer) of</font>
+        |          false -&gt;
+<font color=red>     0..|              remove_user_req(LUser, LServer, Password, &lt;&lt;"remove_user_validate"&gt;&gt;);</font>
+        |          true -&gt;
+<font color=red>     0..|              case verify_scram_password(LUser, LServer, Password) of</font>
+        |                  {ok, true} -&gt;
+<font color=red>     0..|                      remove_user_req(LUser, LServer, &lt;&lt;""&gt;&gt;, &lt;&lt;"remove_user"&gt;&gt;);</font>
+        |                  {ok, false} -&gt;
+<font color=red>     0..|                      {error, not_allowed};</font>
+        |                  {error, _} = Error -&gt;
+<font color=red>     0..|                      Error</font>
+        |              end
+        |      end.
+        |  
+        |  -spec remove_user_req(binary(), binary(), binary(), binary()) -&gt;
+        |      ok | {error, not_exists | not_allowed | bad_request}.
+        |  remove_user_req(LUser, LServer, Password, Method) -&gt;
+<font color=red>     0..|      case make_req(post, Method, LUser, LServer, Password) of</font>
+<font color=red>     0..|          {error, not_allowed} -&gt; {error, not_allowed};</font>
+<font color=red>     0..|          {error, not_found} -&gt; {error, not_exists};</font>
+<font color=red>     0..|          {error, _} -&gt; {error, bad_request};</font>
+<font color=red>     0..|          {ok, _} -&gt; ok</font>
+        |      end.
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Request maker
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec make_req(post | get, binary(), binary(), binary(), binary()) -&gt;
+        |      {ok, BodyOrCreated :: binary() | created} | {error, invalid_jid | http_error_atom() | binary()}.
+        |  make_req(_, _, LUser, LServer, _) when LUser == error orelse LServer == error -&gt;
+<font color=red>     0..|      {error, invalid_jid};</font>
+        |  make_req(Method, Path, LUser, LServer, Password) -&gt; 
+<font color=red>     0..|      AuthOpts = ejabberd_config:get_local_option(auth_opts, LServer),</font>
+<font color=red>     0..|      BasicAuth = case lists:keyfind(basic_auth, 1, AuthOpts) of</font>
+<font color=red>     0..|                      {_, BasicAuth0} -&gt; BasicAuth0;</font>
+<font color=red>     0..|                      _ -&gt; ""</font>
+        |                  end,
+<font color=red>     0..|      PathPrefix = case lists:keyfind(path_prefix, 1, AuthOpts) of</font>
+<font color=red>     0..|                       {_, Prefix} -&gt; ejabberd_binary:string_to_binary(Prefix);</font>
+<font color=red>     0..|                       false -&gt; &lt;&lt;"/"&gt;&gt;</font>
+        |                   end,
+<font color=red>     0..|      BasicAuth64 = base64:encode(BasicAuth),</font>
+<font color=red>     0..|      LUserE = list_to_binary(http_uri:encode(binary_to_list(LUser))),</font>
+<font color=red>     0..|      LServerE = list_to_binary(http_uri:encode(binary_to_list(LServer))),</font>
+<font color=red>     0..|      PasswordE = list_to_binary(http_uri:encode(binary_to_list(Password))),</font>
+<font color=red>     0..|      Query = &lt;&lt;"user=", LUserE/binary, "&amp;server=", LServerE/binary, "&amp;pass=", PasswordE/binary&gt;&gt;,</font>
+<font color=red>     0..|      Header = [{&lt;&lt;"Authorization"&gt;&gt;, &lt;&lt;"Basic ", BasicAuth64/binary&gt;&gt;}],</font>
+<font color=red>     0..|      Connection = cuesport:get_worker(existing_pool_name(LServer)),</font>
+        |  
+<font color=red>     0..|      ?DEBUG("Making request '~s' for user ~s@~s...", [Path, LUser, LServer]),</font>
+<font color=red>     0..|      {ok, {{Code, _Reason}, _RespHeaders, RespBody, _, _}} = case Method of</font>
+<font color=red>     0..|          get -&gt; fusco:request(Connection, &lt;&lt;PathPrefix/binary, Path/binary, "?", Query/binary&gt;&gt;,</font>
+        |                               "GET", Header, "", 2, 5000);
+<font color=red>     0..|          post -&gt; fusco:request(Connection, &lt;&lt;PathPrefix/binary, Path/binary&gt;&gt;,</font>
+        |                                "POST", Header, Query, 2, 5000)
+        |      end,
+        |  
+<font color=red>     0..|      ?DEBUG("Request result: ~s: ~p", [Code, RespBody]),</font>
+<font color=red>     0..|      case Code of</font>
+<font color=red>     0..|          &lt;&lt;"409"&gt;&gt; -&gt; {error, conflict};</font>
+<font color=red>     0..|          &lt;&lt;"404"&gt;&gt; -&gt; {error, not_found};</font>
+<font color=red>     0..|          &lt;&lt;"401"&gt;&gt; -&gt; {error, not_authorized};</font>
+<font color=red>     0..|          &lt;&lt;"403"&gt;&gt; -&gt; {error, not_allowed};</font>
+<font color=red>     0..|          &lt;&lt;"400"&gt;&gt; -&gt; {error, RespBody};</font>
+<font color=red>     0..|          &lt;&lt;"204"&gt;&gt; -&gt; {ok, &lt;&lt;""&gt;&gt;};</font>
+<font color=red>     0..|          &lt;&lt;"201"&gt;&gt; -&gt; {ok, created};</font>
+<font color=red>     0..|          &lt;&lt;"200"&gt;&gt; -&gt; {ok, RespBody}</font>
+        |      end.
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Other internal functions
+        |  %%%----------------------------------------------------------------------
+        |  -spec pool_name(binary()) -&gt; atom().
+        |  pool_name(Host) -&gt;
+<font color=red>     0..|      list_to_atom("ejabberd_auth_http_" ++ binary_to_list(Host)).</font>
+        |  
+        |  -spec existing_pool_name(binary()) -&gt; atom().
+        |  existing_pool_name(Host) -&gt;
+<font color=red>     0..|      list_to_existing_atom("ejabberd_auth_http_" ++ binary_to_list(Host)).</font>
+        |  
+        |  -spec verify_scram_password(binary(), binary(), binary()) -&gt;
+        |      {ok, boolean()} | {error, bad_request | not_exists}.
+        |  verify_scram_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case make_req(get, &lt;&lt;"get_password"&gt;&gt;, LUser, LServer, &lt;&lt;""&gt;&gt;) of</font>
+        |          {ok, RawPassword} -&gt;
+<font color=red>     0..|              case scram:deserialize(RawPassword) of</font>
+        |                  {ok, #scram{} = ScramRecord} -&gt;
+<font color=red>     0..|                      {ok, scram:check_password(Password, ScramRecord)};</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      {error, bad_request}</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              {error, not_exists}</font>
+        |      end.
+        |  
+        |  login(_User, _Server) -&gt;
+<font color=red>     0..|      erlang:error(not_implemented).</font>
+        |  
+        |  get_password(_User, _Server, _DefaultValue) -&gt;
+<font color=red>     0..|      erlang:error(not_implemented).</font>
+        |  
+        |  stop(_Host) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  is_external(Host) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(auth_opts, Host) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              false;</font>
+        |          AuthOpts -&gt;
+<font color=red>     0..|              {is_external, true} == lists:keyfind(is_external, 1, AuthOpts)</font>
+        |      end.
+</pre>
+</body>
+</html>
