@@ -1,0 +1,86 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Test sm_SUITE:end_per_group result</title>
+<meta http-equiv="cache-control" content="no-cache">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<link rel="stylesheet" href="../../ct_default.css" type="text/css">
+<script type="text/javascript" src="../../jquery-latest.js"></script>
+<script type="text/javascript" src="../../jquery.tablesorter.min.js"></script>
+</head>
+<body>
+
+<a name="top"></a><pre>
+=== Config function: <a href="sm_suite.src.html#end_per_group-1">sm_SUITE:end_per_group/2</a> (click for source code)
+
+=== Group properties: [{name,reconnection},shuffle,{repeat,5}]
+
+=== Config value:
+
+    [{watchdog,<0.24322.0>},
+     {{saved,ack_freq},unset},
+     {preset,"riak_mnesia"},
+     {tc_logfile,"/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-a8759509-6c74-4ebe-b897-cd33fe8b097d.2016-01-26_14.25.37/ejabberd_tests.tests.sm_SUITE.logs/run.2016-01-26_14.47.10/sm_suite.end_per_group.819744.959.html"},
+     {tc_group_properties,[{name,reconnection},shuffle,{repeat,5}]},
+     {tc_group_path,[]},
+     {data_dir,"/home/travis/build/esl/MongooseIM/test/ejabberd_tests/tests/sm_SUITE_data/"},
+     {priv_dir,"/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-a8759509-6c74-4ebe-b897-cd33fe8b097d.2016-01-26_14.25.37/ejabberd_tests.tests.sm_SUITE.logs/run.2016-01-26_14.47.10/log_private/"},
+     {escalus_users,[{alice,[{manual_ack,true},
+                             {stream_management,true},
+                             {username,<<"alicE">>},
+                             {server,<<"localhost">>},
+                             {password,<<"makota">>}]},
+                     {bob,[{username,<<"bOb">>},
+                           {server,<<"localhost">>},
+                           {password,<<"makrolika">>}]}]}]
+
+=== Current directory is "/home/travis/build/esl/MongooseIM/test/ejabberd_tests/ct_report/ct_run.test@testing-gce-a8759509-6c74-4ebe-b897-cd33fe8b097d.2016-01-26_14.25.37"
+
+=== Started at 2016-01-26 14:49:04
+
+<br />
+
+<div class="ct_error_notify"><b>*** CT Error Notification 2016-01-26 14:49:05.165 ***</b>
+sm_SUITE:end_per_group failed
+Reason: {badmatch,false}
+
+<a href="#end">Full error description and stacktrace</a>
+</div>
+<a name="end"></a>
+
+
+=== Ended at 2016-01-26 14:49:05
+=== location [{escalus_session,stream_management,222},
+              {escalus_connection,connection_step,119},
+              {lists,foldl,1261},
+              {escalus_connection,start,105},
+              {sm_SUITE,discard_offline_messages,<a href="sm_suite.src.html#749">749</a>},
+              {sm_SUITE,end_per_group,<a href="sm_suite.src.html#89">89</a>},
+              {test_server,ts_tc,1429},
+              {test_server,run_test_case_eval1,1099}]
+=== reason = no match of right hand side value false
+  in function  escalus_session:stream_management/3 (src/escalus_session.erl, line 222)
+  in call from escalus_connection:connection_step/2 (src/escalus_connection.erl, line 119)
+  in call from lists:foldl/3 (lists.erl, line 1261)
+  in call from escalus_connection:start/2 (src/escalus_connection.erl, line 105)
+  in call from sm_SUITE:discard_offline_messages/3 (sm_SUITE.erl, line 749)
+  in call from sm_SUITE:end_per_group/2 (sm_SUITE.erl, line 89)
+  in call from test_server:ts_tc/3 (test_server.erl, line 1429)
+  in call from test_server:run_test_case_eval1/6 (test_server.erl, line 1099)
+=== 
+=== Total execution time of group: 20.189s
+
+</pre>
+<center>
+<br /><hr /><p>
+<a href="../../../all_runs.html">Test run history
+</a>  |  <a href="../../../index.html">Top level test index
+</a>
+</p>
+<div class="copyright">Copyright &copy; 2016 <a href="http://www.erlang.org">Open Telecom Platform</a><br />
+Updated: <!date>Tue Jan 26 2016 14:49:04<!/date><br />
+</div>
+</center>
+</body>
+</html>
