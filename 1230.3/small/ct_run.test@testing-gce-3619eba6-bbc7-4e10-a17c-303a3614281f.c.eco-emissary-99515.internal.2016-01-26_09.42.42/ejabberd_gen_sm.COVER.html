@@ -1,0 +1,49 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/ejabberd_gen_sm.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_gen_sm.erl by COVER 2016-01-26 at 09:43:06
+
+****************************************************************************
+
+        |  -module(ejabberd_gen_sm).
+        |  
+        |  -callback start(list()) -&gt; any().
+        |  -callback get_sessions() -&gt; [ejabberd_sm:ses_tuple()].
+        |  -callback get_sessions(ejabberd:server()) -&gt; [ejabberd_sm:ses_tuple()].
+        |  -callback get_sessions(ejabberd:user(), ejabberd:server()) -&gt; [ejabberd_sm:session()].
+        |  -callback get_sessions(ejabberd:user(), ejabberd:server(), ejabberd:resource()
+        |                        ) -&gt; [ejabberd_sm:session()].
+        |  -callback create_session(_User :: ejabberd:user(),
+        |                           _Server :: ejabberd:server(),
+        |                           _Resource :: ejabberd:resource(),
+        |                           Session :: ejabberd_sm:session()) -&gt; ok | {error, term()}.
+        |  -callback delete_session(ejabberd_sm:sid(),
+        |                           _User :: ejabberd:user(),
+        |                           _Server :: ejabberd:server(),
+        |                           _Resource :: ejabberd:resource()) -&gt; ok.
+        |  -callback cleanup(atom()) -&gt; any().
+        |  -callback total_count() -&gt; integer().
+        |  -callback unique_count() -&gt; integer().
+        |  
+        |  %% -export([behaviour_info/1]).
+        |  %% -spec behaviour_info(atom()) -&gt; 'undefined' | [{atom(), arity()}].
+        |  %% behaviour_info(callbacks) -&gt;
+        |  %%     [{start, 1},
+        |  %%      {get_sessions, 0},
+        |  %%      {get_sessions, 1},
+        |  %%      {get_sessions, 2},
+        |  %%      {get_sessions, 3},
+        |  %%      {create_session, 4},
+        |  %%      {delete_session, 4},
+        |  %%      {cleanup, 1},
+        |  %%      {total_count, 0},
+        |  %%      {unique_count, 0}];
+        |  %% behaviour_info(_Other) -&gt;
+        |  %%     undefined.
+</pre>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/acl.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/acl.erl by COVER 2016-01-26 at 09:43:17
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : acl.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : ACL support
+        |  %%% Created : 18 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(acl).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([start/0,
+        |           to_record/3,
+        |           add/3,
+        |           delete/3,
+        |           match_rule/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -export_type([rule/0, host/0]).
+        |  
+        |  -type rule() :: 'all' | 'none' | atom().
+        |  -type host() :: ejabberd:server() | 'global'.
+        |  -type acl_name() :: {atom(), host()}.
+        |  -type regexp() :: iolist() | binary().
+        |  -type aclspec() :: all
+        |                  | none
+        |                  | {user, ejabberd:user()}
+        |                  | {user, ejabberd:user(), ejabberd:server()}
+        |                  | {server, ejabberd:server()}
+        |                  | {resource, ejabberd:resource()}
+        |                  | {user_regexp, regexp()}
+        |                  | {user_regexp, regexp(), ejabberd:server()}
+        |                  | {server_regexp, regexp()}
+        |                  | {resource_regexp, regexp()}
+        |                  | {node_regexp, regexp(), regexp()}
+        |                  | {user_glob, regexp()}
+        |                  | {user_glob, regexp(), ejabberd:server()}
+        |                  | {server_glob, regexp()}
+        |                  | {resource_glob, regexp()}
+        |                  | {node_glob, regexp(), regexp()}.
+        |  
+        |  -record(acl, {aclname :: acl_name(),
+        |                aclspec :: aclspec()
+        |               }).
+        |  -type acl() :: #acl{}.
+        |  
+        |  start() -&gt;
+<font color=red>     0..|      mnesia:create_table(acl,</font>
+        |                          [{ram_copies, [node()]},
+        |                           {type, bag},
+        |                           {attributes, record_info(fields, acl)}]),
+<font color=red>     0..|      mnesia:add_table_copy(acl, node(), ram_copies),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec to_record(Host :: host(),
+        |                  ACLName :: atom(),
+        |                  ACLSpec :: aclspec()) -&gt; acl().
+        |  to_record(Host, ACLName, ACLSpec) -&gt;
+<font color=red>     0..|      #acl{aclname = {ACLName, Host}, aclspec = normalize_spec(ACLSpec)}.</font>
+        |  
+        |  -spec add(Host :: host(),
+        |            ACLName :: atom(),
+        |            ACLSpec :: aclspec()) -&gt; {atomic, term()} | {aborted, term()}.
+        |  add(Host, ACLName, ACLSpec) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  ACLRecord = to_record(Host, ACLName, ACLSpec),</font>
+<font color=red>     0..|                  mnesia:write(ACLRecord)</font>
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  -spec delete(Host :: host(),
+        |            ACLName :: atom(),
+        |            ACLSpec :: aclspec()) -&gt; {atomic, term()} | {aborted, term()}.
+        |  delete(Host, ACLName, ACLSpec) -&gt;
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  ACLRecord = to_record(Host, ACLName, ACLSpec),</font>
+<font color=red>     0..|                  mnesia:delete_object(ACLRecord)</font>
+        |          end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  -spec normalize(_) -&gt; 'error' | binary() | tuple().
+        |  normalize(A) when is_list(A) -&gt;
+<font color=red>     0..|      normalize(list_to_binary(A));</font>
+        |  normalize(A) -&gt;
+<font color=red>     0..|      jid:nodeprep(A).</font>
+        |  
+        |  -spec normalize_spec(aclspec())
+        |        -&gt; aclspec()
+        |           | {_, 'error' | binary() | tuple()}
+        |           | {_, 'error' | binary() | tuple(), 'error' | binary() | tuple()}.
+        |  normalize_spec({A, B}) -&gt;
+<font color=red>     0..|      {A, normalize(B)};</font>
+        |  normalize_spec({A, B, C}) -&gt;
+<font color=red>     0..|      {A, normalize(B), normalize(C)};</font>
+        |  normalize_spec(all) -&gt;
+<font color=red>     0..|      all;</font>
+        |  normalize_spec(none) -&gt;
+<font color=red>     0..|      none.</font>
+        |  
+        |  
+        |  -spec match_rule(Host :: host(),
+        |                   Rule :: rule(),
+        |                   JID :: ejabberd:jid()) -&gt; allow | deny | term().
+        |  match_rule(_, all, _) -&gt;
+<font color=red>     0..|      allow;</font>
+        |  match_rule(_, none, _) -&gt;
+<font color=red>     0..|      deny;</font>
+        |  match_rule(global, Rule, JID) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_global_option({access, Rule, global}) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              deny;</font>
+        |          GACLs -&gt;
+<font color=red>     0..|              match_acls(GACLs, JID, global)</font>
+        |      end;
+        |  match_rule(Host, Rule, JID) -&gt;
+<font color=red>     0..|      GlobalACLs = ejabberd_config:get_global_option({access, Rule, global}),</font>
+<font color=red>     0..|      HostACLs = ejabberd_config:get_global_option({access, Rule, Host}),</font>
+        |  
+<font color=red>     0..|      case {GlobalACLs, HostACLs} of</font>
+        |          {undefined, undefined} -&gt;
+<font color=red>     0..|              deny;</font>
+        |          {undefined, HostACLs} -&gt;
+<font color=red>     0..|              match_acls(HostACLs, JID, Host);</font>
+        |          {GlobalACLs, undefined} -&gt;
+<font color=red>     0..|              match_acls(GlobalACLs, JID, Host);</font>
+        |          {GlobalACLs, HostACLs} -&gt;
+<font color=red>     0..|              match_acls(merge_acls(GlobalACLs, HostACLs), JID, Host)</font>
+        |      end.
+        |  
+        |  -spec merge_acls([{any(), rule()}], [{any(), rule()}]) -&gt; [{any(), rule()}].
+        |  merge_acls(Global, HostLocal) -&gt;
+<font color=red>     0..|      case lists:reverse(Global) of</font>
+        |          [{allow, all} | Rest] -&gt;
+<font color=red>     0..|              lists:reverse(Rest) ++ HostLocal ++ [{allow, all}];</font>
+        |          _ -&gt;
+<font color=red>     0..|              Global ++ HostLocal</font>
+        |      end.
+        |  
+        |  -spec match_acls(ACLs :: [{any(), rule()}],
+        |                   JID :: ejabberd:jid(),
+        |                   Host :: host()) -&gt; deny | term().
+        |  match_acls([], _, _Host) -&gt;
+<font color=red>     0..|      deny;</font>
+        |  match_acls([{Value, ACL} | ACLs], JID, Host) -&gt;
+<font color=red>     0..|      case match_acl(ACL, JID, Host) of</font>
+        |          true -&gt;
+<font color=red>     0..|              Value;</font>
+        |          _ -&gt;
+<font color=red>     0..|              match_acls(ACLs, JID, Host)</font>
+        |      end.
+        |  
+        |  -spec match_acl(ACL :: rule(),
+        |                  JID :: ejabberd:jid(),
+        |                  Host :: host()) -&gt; boolean().
+        |  match_acl(all, _JID, _Host) -&gt;
+<font color=red>     0..|      true;</font>
+        |  match_acl(none, _JID, _Host) -&gt;
+<font color=red>     0..|      false;</font>
+        |  match_acl(ACL, JID, Host) -&gt;
+<font color=red>     0..|      LJID = jid:to_lower(JID),</font>
+<font color=red>     0..|      AllSpecs = ets:lookup(acl, {ACL, global}) ++ ets:lookup(acl, {ACL, Host}),</font>
+<font color=red>     0..|      Pred = fun(#acl{aclspec = S}) -&gt; match(S, LJID, Host) end,</font>
+<font color=red>     0..|      lists:any(Pred, AllSpecs).</font>
+        |  
+        |  -spec is_server_valid(host(), ejabberd:server()) -&gt; boolean().
+        |  is_server_valid(Host, Host) -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_server_valid(global, JIDServer) -&gt;
+<font color=red>     0..|      lists:member(JIDServer, ?MYHOSTS);</font>
+        |  is_server_valid(_Host, _JIDServer) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  -spec match(aclspec(), ejabberd:simple_jid(), host()) -&gt; boolean().
+        |  match(all, _LJID, _Host) -&gt;
+<font color=red>     0..|      true;</font>
+        |  match({user, U}, {User, Server, _Resource}, Host) -&gt;
+<font color=red>     0..|      U == User andalso is_server_valid(Host, Server);</font>
+        |  match({user, U, S}, {User, Server ,_Resource}, _Host) -&gt;
+<font color=red>     0..|      U == User andalso S == Server;</font>
+        |  match({server, S}, {_User, Server, _Resource}, _Host) -&gt;
+<font color=red>     0..|      S == Server;</font>
+        |  match({resource, Res}, {_User, _Server, Resource}, _Host) -&gt;
+<font color=red>     0..|      Resource == Res;</font>
+        |  match({user_regexp, UserReg}, {User, Server, _Resource}, Host) -&gt;
+<font color=red>     0..|      is_server_valid(Host, Server) andalso is_regexp_match(User, UserReg);</font>
+        |  match({user_regexp, UserReg, MServer}, {User, Server, _Resource}, _Host) -&gt;
+<font color=red>     0..|      MServer == Server andalso is_regexp_match(User, UserReg);</font>
+        |  match({server_regexp, ServerReg}, {_User, Server, _Resource}, _Host) -&gt;
+<font color=red>     0..|      is_regexp_match(Server, ServerReg);</font>
+        |  match({resource_regexp, ResourceReg}, {_User, _Server, Resource}, _Host) -&gt;
+<font color=red>     0..|      is_regexp_match(Resource, ResourceReg);</font>
+        |  match({node_regexp, UserReg, ServerReg}, {User, Server, _Resource}, _Host) -&gt;
+<font color=red>     0..|      is_regexp_match(Server, ServerReg) andalso</font>
+<font color=red>     0..|      is_regexp_match(User, UserReg);</font>
+        |  match({user_glob, UserGlob}, {User, Server, _Resource}, Host) -&gt;
+<font color=red>     0..|      is_server_valid(Host, Server) andalso is_glob_match(User, UserGlob);</font>
+        |  match({user_glob, UserGlob, MServer}, {User, Server, _Resource}, _Host) -&gt;
+<font color=red>     0..|      MServer == Server andalso is_glob_match(User, UserGlob);</font>
+        |  match({server_glob, ServerGlob}, {_User, Server, _Resource}, _Host) -&gt;
+<font color=red>     0..|      is_glob_match(Server, ServerGlob);</font>
+        |  match({resource_glob, ResourceGlob}, {_User, _Server, Resource}, _Host) -&gt;
+<font color=red>     0..|      is_glob_match(Resource, ResourceGlob);</font>
+        |  match({node_glob, UserGlob, ServerGlob}, {User, Server, _Resource}, _Host) -&gt;
+<font color=red>     0..|      is_glob_match(Server, ServerGlob) andalso is_glob_match(User, UserGlob);</font>
+        |  match(WrongSpec, _LJID, _Host) -&gt;
+<font color=red>     0..|      ?ERROR_MSG(</font>
+        |         "Wrong ACL expression: ~p~n"
+        |         "Check your config file and reload it with the override_acls option enabled",
+        |         [WrongSpec]),
+<font color=red>     0..|      false.</font>
+        |  
+        |  -spec is_regexp_match(binary(), Regex :: regexp()) -&gt; boolean().
+        |  is_regexp_match(String, RegExp) -&gt;
+<font color=red>     0..|      try re:run(String, RegExp, [{capture, none}]) of</font>
+        |          nomatch -&gt;
+<font color=red>     0..|              false;</font>
+        |          match -&gt;
+<font color=red>     0..|              true</font>
+        |      catch _:ErrDesc -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Wrong regexp ~p in ACL: ~p", [RegExp, ErrDesc]),</font>
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  -spec is_glob_match(binary(), Glob :: regexp()) -&gt; boolean().
+        |  is_glob_match(String, Glob) -&gt;
+<font color=red>     0..|      is_regexp_match(String, xmerl_regexp:sh_to_awk(binary_to_list(Glob))).</font>
+        |  
+</pre>
+</body>
+</html>

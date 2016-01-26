@@ -1,0 +1,241 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mongoose_api.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_api.erl by COVER 2016-01-26 at 09:43:21
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2014 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mongoose_api).
+        |  
+        |  %% ejabberd_cowboy callbacks
+        |  -export([cowboy_router_paths/2]).
+        |  
+        |  %% cowboy_rest callbacks
+        |  -export([init/3,
+        |           rest_init/2,
+        |           rest_terminate/2]).
+        |  
+        |  -export([allowed_methods/2,
+        |           content_types_provided/2,
+        |           content_types_accepted/2,
+        |           delete_resource/2]).
+        |  
+        |  -export([to_xml/2,
+        |           to_json/2,
+        |           from_json/2]).
+        |  
+        |  -record(state, {handler, opts, bindings}).
+        |  
+        |  -type prefix()   :: string().
+        |  -type route()    :: {string(), options()}.
+        |  -type routes()   :: [route()].
+        |  -type bindings() :: proplists:proplist().
+        |  -type options()  :: [any()].
+        |  -type method()   :: get | post | put | patch | delete.
+        |  -type methods()  :: [method()].
+        |  -type response() :: ok | {ok, any()} | {error, atom()}.
+        |  -export_type([prefix/0, routes/0, route/0, bindings/0, options/0, response/0, methods/0]).
+        |  
+        |  -callback prefix() -&gt; prefix().
+        |  -callback routes() -&gt; routes().
+        |  -callback handle_options(bindings(), options()) -&gt; methods().
+        |  -callback handle_get(bindings(), options()) -&gt; response().
+        |  -callback handle_post(term(), bindings(), options()) -&gt; response().
+        |  -callback handle_put(term(), bindings(), options()) -&gt; response().
+        |  -callback handle_delete(bindings(), options()) -&gt; response().
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% ejabberd_cowboy callbacks
+        |  %%--------------------------------------------------------------------
+        |  cowboy_router_paths(Base, Opts) -&gt;
+<font color=red>     0..|      Handlers = gen_mod:get_opt(handlers, Opts, []),</font>
+<font color=red>     0..|      lists:flatmap(pa:bind(fun register_handler/2, Base), Handlers).</font>
+        |  
+        |  register_handler(Base, Handler) -&gt;
+<font color=red>     0..|      [{[Base, Handler:prefix(), Path], ?MODULE, [{handler, Handler}|Opts]}</font>
+<font color=red>     0..|       || {Path, Opts} &lt;- Handler:routes()].</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% cowboy_rest callbacks
+        |  %%--------------------------------------------------------------------
+        |  init({_Transport, http}, Req, Opts) -&gt;
+<font color=red>     0..|      {upgrade, protocol, cowboy_rest, Req, Opts}.</font>
+        |  
+        |  rest_init(Req, Opts) -&gt;
+<font color=red>     0..|      case lists:keytake(handler, 1, Opts) of</font>
+        |          {value, {handler, Handler}, Opts1} -&gt;
+<font color=red>     0..|              {Bindings, Req1} = cowboy_req:bindings(Req),</font>
+<font color=red>     0..|              State = #state{handler=Handler, opts=Opts1, bindings=Bindings},</font>
+<font color=red>     0..|              {ok, Req1, State};</font>
+        |          false -&gt;
+<font color=red>     0..|              erlang:throw(no_handler_defined)</font>
+        |      end.
+        |  
+        |  rest_terminate(_Req, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  allowed_methods(Req, #state{bindings=Bindings, opts=Opts}=State) -&gt;
+<font color=red>     0..|      case call(handle_options, [Bindings, Opts], State) of</font>
+        |          no_call -&gt;
+<font color=red>     0..|              allowed_methods_from_exports(Req, State);</font>
+        |          Methods -&gt;
+<font color=red>     0..|              allowed_methods_from_module(Methods, Req, State)</font>
+        |      end.
+        |  
+        |  content_types_provided(Req, State) -&gt;
+<font color=red>     0..|      CTP = [{{&lt;&lt;"application"&gt;&gt;, &lt;&lt;"json"&gt;&gt;, '*'}, to_json},</font>
+        |             {{&lt;&lt;"application"&gt;&gt;, &lt;&lt;"xml"&gt;&gt;, '*'}, to_xml}],
+<font color=red>     0..|      {CTP, Req, State}.</font>
+        |  
+        |  content_types_accepted(Req, State) -&gt;
+<font color=red>     0..|      CTA = [{{&lt;&lt;"application"&gt;&gt;, &lt;&lt;"json"&gt;&gt;, '*'}, from_json}],</font>
+<font color=red>     0..|      {CTA, Req, State}.</font>
+        |  
+        |  delete_resource(Req, State) -&gt;
+<font color=red>     0..|      handle_delete(Req, State).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% content_types_provided/2 callbacks
+        |  %%--------------------------------------------------------------------
+        |  to_json(Req, State) -&gt;
+<font color=red>     0..|      handle_get(mongoose_api_json, Req, State).</font>
+        |  
+        |  to_xml(Req, State) -&gt;
+<font color=red>     0..|      handle_get(mongoose_api_xml, Req, State).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% content_types_accepted/2 callbacks
+        |  %%--------------------------------------------------------------------
+        |  from_json(Req, State) -&gt;
+<font color=red>     0..|      handle_unsafe(mongoose_api_json, Req, State).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% HTTP verbs handlers
+        |  %%--------------------------------------------------------------------
+        |  handle_get(Serializer, Req, #state{opts=Opts, bindings=Bindings}=State) -&gt;
+<font color=red>     0..|      Result = call(handle_get, [Bindings, Opts], State),</font>
+<font color=red>     0..|      handle_result(Result, Serializer, Req, State).</font>
+        |  
+        |  handle_unsafe(Deserializer, Req, State) -&gt;
+<font color=red>     0..|      {Method, Req1} = cowboy_req:method(Req),</font>
+<font color=red>     0..|      {ok, Body, Req2} = cowboy_req:body(Req1),</font>
+<font color=red>     0..|      case Deserializer:deserialize(Body) of</font>
+        |          {ok, Data} -&gt;
+<font color=red>     0..|              handle_unsafe(Method, Data, Req2, State);</font>
+        |          {error, _Reason} -&gt;
+<font color=red>     0..|              error_response(bad_request, Req2, State)</font>
+        |      end.
+        |  
+        |  handle_unsafe(Method, Data, Req, #state{opts=Opts, bindings=Bindings}=State) -&gt;
+<font color=red>     0..|      case method_callback(Method) of</font>
+        |          not_implemented -&gt;
+<font color=red>     0..|              error_response(not_implemented, Req, State);</font>
+        |          Callback -&gt;
+<font color=red>     0..|              Result = call(Callback, [Data, Bindings, Opts], State),</font>
+<font color=red>     0..|              handle_result(Result, Req, State)</font>
+        |      end.
+        |  
+        |  handle_delete(Req, #state{opts=Opts, bindings=Bindings}=State) -&gt;
+<font color=red>     0..|      Result = call(handle_delete, [Bindings, Opts], State),</font>
+<font color=red>     0..|      handle_result(Result, Req, State).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Helpers
+        |  %%--------------------------------------------------------------------
+        |  handle_result({ok, Result}, Serializer, Req, State) -&gt;
+<font color=red>     0..|      serialize(Result, Serializer, Req, State);</font>
+        |  handle_result(Other, _Serializer, Req, State) -&gt;
+<font color=red>     0..|      handle_result(Other, Req, State).</font>
+        |  
+        |  handle_result(ok, Req, State) -&gt;
+<font color=red>     0..|      {true, Req, State};</font>
+        |  handle_result({error, Error}, Req, State) -&gt;
+<font color=red>     0..|      error_response(Error, Req, State);</font>
+        |  handle_result(no_call, Req, State) -&gt;
+<font color=red>     0..|      error_response(not_implemented, Req, State).</font>
+        |  
+        |  allowed_methods_from_module(Methods, Req, State) -&gt;
+<font color=red>     0..|      Methods1 = case lists:member(get, Methods) of</font>
+<font color=red>     0..|          true  -&gt; [head | Methods];</font>
+<font color=red>     0..|          false -&gt; Methods</font>
+        |      end,
+<font color=red>     0..|      Methods2 = [options | Methods1],</font>
+<font color=red>     0..|      {methods_to_binary(Methods2), Req, State}.</font>
+        |  
+        |  allowed_methods_from_exports(Req, #state{handler=Handler}=State) -&gt;
+<font color=red>     0..|      Exports = Handler:module_info(exports),</font>
+<font color=red>     0..|      Methods = lists:foldl(fun collect_allowed_methods/2, [options], Exports),</font>
+<font color=red>     0..|      {methods_to_binary(Methods), Req, State}.</font>
+        |  
+        |  collect_allowed_methods({handle_get, 2}, Acc) -&gt;
+<font color=red>     0..|      [head, get | Acc];</font>
+        |  collect_allowed_methods({handle_post, 3}, Acc) -&gt;
+<font color=red>     0..|      [post | Acc];</font>
+        |  collect_allowed_methods({handle_put, 3}, Acc) -&gt;
+<font color=red>     0..|      [put | Acc];</font>
+        |  collect_allowed_methods({handle_delete, 2}, Acc) -&gt;
+<font color=red>     0..|      [delete | Acc];</font>
+        |  collect_allowed_methods(_Other, Acc) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  serialize(Data, Serializer, Req, State) -&gt;
+<font color=red>     0..|      {Serializer:serialize(Data), Req, State}.</font>
+        |  
+        |  call(Function, Args, #state{handler=Handler}) -&gt;
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          apply(Handler, Function, Args)</font>
+        |      catch error:undef -&gt;
+<font color=red>     0..|          no_call</font>
+        |      end.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Error responses
+        |  %%--------------------------------------------------------------------
+        |  error_response(Code, Req, State) when is_integer(Code) -&gt;
+<font color=red>     0..|      {ok, Req1} = cowboy_req:reply(Code, Req),</font>
+<font color=red>     0..|      {halt, Req1, State};</font>
+        |  error_response(Reason, Req, State) -&gt;
+<font color=red>     0..|      error_response(error_code(Reason), Req, State).</font>
+        |  
+<font color=red>     0..|  error_code(bad_request)     -&gt; 400;</font>
+<font color=red>     0..|  error_code(not_found)       -&gt; 404;</font>
+<font color=red>     0..|  error_code(conflict)        -&gt; 409;</font>
+<font color=red>     0..|  error_code(unprocessable)   -&gt; 422;</font>
+<font color=red>     0..|  error_code(not_implemented) -&gt; 501.</font>
+        |  
+        |  methods_to_binary(Methods) -&gt;
+<font color=red>     0..|      [method_to_binary(Method) || Method &lt;- Methods].</font>
+        |  
+<font color=red>     0..|  method_to_binary(get)     -&gt; &lt;&lt;"GET"&gt;&gt;;</font>
+<font color=red>     0..|  method_to_binary(post)    -&gt; &lt;&lt;"POST"&gt;&gt;;</font>
+<font color=red>     0..|  method_to_binary(put)     -&gt; &lt;&lt;"PUT"&gt;&gt;;</font>
+<font color=red>     0..|  method_to_binary(delete)  -&gt; &lt;&lt;"DELETE"&gt;&gt;;</font>
+<font color=red>     0..|  method_to_binary(patch)   -&gt; &lt;&lt;"PATCH"&gt;&gt;;</font>
+<font color=red>     0..|  method_to_binary(options) -&gt; &lt;&lt;"OPTIONS"&gt;&gt;;</font>
+<font color=red>     0..|  method_to_binary(head)    -&gt; &lt;&lt;"HEAD"&gt;&gt;.</font>
+        |  
+<font color=red>     0..|  method_callback(&lt;&lt;"POST"&gt;&gt;) -&gt; handle_post;</font>
+<font color=red>     0..|  method_callback(&lt;&lt;"PUT"&gt;&gt;)  -&gt; handle_put;</font>
+<font color=red>     0..|  method_callback(_Other)     -&gt; not_implemented.</font>
+</pre>
+</body>
+</html>

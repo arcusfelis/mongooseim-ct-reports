@@ -1,0 +1,361 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mod_vcard_mnesia.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_vcard_mnesia.erl by COVER 2016-01-26 at 09:43:14
+
+****************************************************************************
+
+        |  -module(mod_vcard_mnesia).
+        |  
+        |  -behaviour(mod_vcard).
+        |  
+        |  %% mod_vcards callbacks
+        |  -export([init/2,
+        |           remove_user/2,
+        |           get_vcard/2,
+        |           set_vcard/4,
+        |           search/2,
+        |           search_fields/1,
+        |           search_reported_fields/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_vcard.hrl").
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mod_vcards callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  init(_VHost, _Options) -&gt;
+<font color=red>     0..|      prepare_db(),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|              mnesia:delete({vcard, US}),</font>
+<font color=red>     0..|              mnesia:delete({vcard_search, US})</font>
+        |      end,
+<font color=red>     0..|      mnesia:transaction(F).</font>
+        |  
+        |  get_vcard(LUser, LServer) -&gt;
+<font color=red>     0..|      US = {LUser, LServer},</font>
+<font color=red>     0..|      F  = fun() -&gt;</font>
+<font color=red>     0..|                   mnesia:read({vcard, US})</font>
+        |           end,
+<font color=red>     0..|      case mnesia:transaction(F) of</font>
+        |          {atomic, []} -&gt;
+<font color=red>     0..|              {error, ?ERR_SERVICE_UNAVAILABLE};</font>
+        |          {atomic, Rs} -&gt;
+<font color=red>     0..|              Els = lists:map(fun(R) -&gt;</font>
+<font color=red>     0..|                                      R#vcard.vcard</font>
+        |                              end, Rs),
+<font color=red>     0..|              {ok, Els};</font>
+        |          {aborted, Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("vCard lookup failed in process_sm_iq: ~p", [Reason]),</font>
+<font color=red>     0..|              {error, ?ERR_INTERNAL_SERVER_ERROR}</font>
+        |      end.
+        |  
+        |  set_vcard(User, VHost, VCard, VCardSearch) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      F = fun() -&gt;</font>
+<font color=red>     0..|                  mnesia:write(#vcard{us ={LUser,VHost}, vcard = VCard}),</font>
+<font color=red>     0..|                  mnesia:write(VCardSearch)</font>
+        |          end,
+<font color=red>     0..|      {atomic, _} = mnesia:transaction(F),</font>
+<font color=red>     0..|      ejabberd_hooks:run(vcard_set, VHost,[LUser,VHost, VCard]),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  search(VHost, Data) -&gt;
+<font color=red>     0..|      MatchHead = make_matchhead(VHost, Data),</font>
+<font color=red>     0..|      R = do_search(VHost, MatchHead),</font>
+<font color=red>     0..|      lists:map(fun record_to_item/1,R).</font>
+        |  
+        |  do_search(_, #vcard_search{_ = '_'}) -&gt;
+<font color=red>     0..|      [];</font>
+        |  do_search(VHost, MatchHeadIn) -&gt;
+<font color=red>     0..|      MatchHead = MatchHeadIn#vcard_search{us = {'_', VHost}},</font>
+<font color=red>     0..|      case catch mnesia:dirty_select(vcard_search,</font>
+        |          [{MatchHead, [], ['$_']}]) of
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p", [Reason]),</font>
+<font color=red>     0..|              [];</font>
+        |          Rs -&gt;
+<font color=red>     0..|              case mod_vcard:get_results_limit(VHost) of</font>
+        |                  infinity -&gt;
+<font color=red>     0..|                      Rs;</font>
+        |                  Val -&gt;
+<font color=red>     0..|                      lists:sublist(Rs, Val)</font>
+        |              end
+        |      end.
+        |  
+        |  search_fields(_VHost) -&gt;
+<font color=red>     0..|      mod_vcard:default_search_fields().</font>
+        |  
+        |  search_reported_fields(_VHost, Lang) -&gt;
+<font color=red>     0..|      mod_vcard:get_default_reported_fields(Lang).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% internal
+        |  %%--------------------------------------------------------------------
+        |  prepare_db() -&gt;
+<font color=red>     0..|      create_tables(),</font>
+<font color=red>     0..|      update_tables(),</font>
+<font color=red>     0..|      set_indexes(),</font>
+<font color=red>     0..|      add_table_copies().</font>
+        |  
+        |  create_tables() -&gt;
+<font color=red>     0..|      mnesia:create_table(vcard, [{disc_only_copies, [node()]},</font>
+        |                                  {attributes, record_info(fields, vcard)}]),
+<font color=red>     0..|      mnesia:create_table(vcard_search,</font>
+        |                          [{disc_copies, [node()]},
+        |                           {attributes, record_info(fields, vcard_search)}]).
+        |  
+        |  update_tables() -&gt;
+<font color=red>     0..|      update_vcard_table(),</font>
+<font color=red>     0..|      update_vcard_search_table().</font>
+        |  
+        |  add_table_copies() -&gt;
+<font color=red>     0..|      mnesia:add_table_copy(vcard, node(), disc_only_copies),</font>
+<font color=red>     0..|      mnesia:add_table_copy(vcard_search, node(), disc_copies).</font>
+        |  
+        |  set_indexes() -&gt;
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, luser),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lfn),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lfamily),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lgiven),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lmiddle),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lnickname),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lbday),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lctry),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, llocality),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lemail),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lorgname),</font>
+<font color=red>     0..|      mnesia:add_table_index(vcard_search, lorgunit).</font>
+        |  
+        |  update_vcard_table() -&gt;
+<font color=red>     0..|      Fields = record_info(fields, vcard),</font>
+<font color=red>     0..|      case mnesia:table_info(vcard, attributes) of</font>
+        |          Fields -&gt;
+<font color=red>     0..|              ok;</font>
+        |          [user, vcard] -&gt;
+<font color=red>     0..|              ?INFO_MSG("Converting vcard table from "</font>
+        |                        "{user, vcard} format", []),
+<font color=red>     0..|              Host = ?MYNAME,</font>
+<font color=red>     0..|              {atomic, ok} = mnesia:create_table(</font>
+        |                               mod_vcard_tmp_table,
+        |                               [{disc_only_copies, [node()]},
+        |                                {type, bag},
+        |                                {local_content, true},
+        |                                {record_name, vcard},
+        |                                {attributes, record_info(fields, vcard)}]),
+<font color=red>     0..|              mnesia:transform_table(vcard, ignore, Fields),</font>
+<font color=red>     0..|              F1 = fun() -&gt;</font>
+<font color=red>     0..|                           mnesia:write_lock_table(mod_vcard_tmp_table),</font>
+<font color=red>     0..|                           mnesia:foldl(</font>
+        |                             fun(#vcard{us = U} = R, _) -&gt;
+<font color=red>     0..|                                     mnesia:dirty_write(</font>
+        |                                       mod_vcard_tmp_table,
+        |                                       R#vcard{us = {U, Host}})
+        |                             end, ok, vcard)
+        |                   end,
+<font color=red>     0..|              mnesia:transaction(F1),</font>
+<font color=red>     0..|              mnesia:clear_table(vcard),</font>
+<font color=red>     0..|              F2 = fun() -&gt;</font>
+<font color=red>     0..|                           mnesia:write_lock_table(vcard),</font>
+<font color=red>     0..|                           mnesia:foldl(</font>
+        |                             fun(R, _) -&gt;
+<font color=red>     0..|                                     mnesia:dirty_write(R)</font>
+        |                             end, ok, mod_vcard_tmp_table)
+        |                   end,
+<font color=red>     0..|              mnesia:transaction(F2),</font>
+<font color=red>     0..|              mnesia:delete_table(mod_vcard_tmp_table);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ?INFO_MSG("Recreating vcard table", []),</font>
+<font color=red>     0..|              mnesia:transform_table(vcard, ignore, Fields)</font>
+        |      end.
+        |  
+        |  
+        |  update_vcard_search_table() -&gt;
+<font color=red>     0..|      Fields = record_info(fields, vcard_search),</font>
+<font color=red>     0..|      case mnesia:table_info(vcard_search, attributes) of</font>
+        |          Fields -&gt;
+<font color=red>     0..|              ok;</font>
+        |          [user,     luser,
+        |           fn,       lfn,
+        |           family,   lfamily,
+        |           given,    lgiven,
+        |           middle,   lmiddle,
+        |           nickname, lnickname,
+        |           bday,	   lbday,
+        |           ctry,	   lctry,
+        |           locality, llocality,
+        |           email,	   lemail,
+        |           orgname,  lorgname,
+        |           orgunit,  lorgunit] -&gt;
+<font color=red>     0..|              ?INFO_MSG("Converting vcard_search table from "</font>
+        |                        "{user, luser, fn, lfn, family, lfamily, given, lgiven, middle, lmiddle, nickname, lnickname, bday, lbday, ctry, lctry, locality, llocality, email, lemail, orgname, lorgname, orgunit, lorgunit} format", []),
+<font color=red>     0..|              Host = ?MYNAME,</font>
+<font color=red>     0..|              {atomic, ok} = mnesia:create_table(</font>
+        |                               mod_vcard_tmp_table,
+        |                               [{disc_only_copies, [node()]},
+        |                                {type, bag},
+        |                                {local_content, true},
+        |                                {record_name, vcard_search},
+        |                                {attributes, record_info(fields, vcard_search)}]),
+<font color=red>     0..|              F1 = fun() -&gt;</font>
+<font color=red>     0..|                           mnesia:write_lock_table(mod_vcard_tmp_table),</font>
+<font color=red>     0..|                           mnesia:foldl(</font>
+        |                             fun({vcard_search,
+        |                                  User,     LUser,
+        |                                  FN,       LFN,
+        |                                  Family,   LFamily,
+        |                                  Given,    LGiven,
+        |                                  Middle,   LMiddle,
+        |                                  Nickname, LNickname,
+        |                                  BDay,     LBDay,
+        |                                  CTRY,     LCTRY,
+        |                                  Locality, LLocality,
+        |                                  EMail,    LEMail,
+        |                                  OrgName,  LOrgName,
+        |                                  OrgUnit,  LOrgUnit
+        |                                 }, _) -&gt;
+<font color=red>     0..|                                     mnesia:dirty_write(</font>
+        |                                       mod_vcard_tmp_table,
+        |                                       #vcard_search{
+        |                                          us        = {LUser, Host},
+        |                                          user      = {User, Host},
+        |                                          luser     = LUser,
+        |                                          fn        = FN,       lfn        = LFN,
+        |                                          family    = Family,   lfamily    = LFamily,
+        |                                          given     = Given,    lgiven     = LGiven,
+        |                                          middle    = Middle,   lmiddle    = LMiddle,
+        |                                          nickname  = Nickname, lnickname  = LNickname,
+        |                                          bday      = BDay,     lbday      = LBDay,
+        |                                          ctry      = CTRY,     lctry      = LCTRY,
+        |                                          locality  = Locality, llocality  = LLocality,
+        |  				       email     = EMail,    lemail     = LEMail,
+        |  				       orgname   = OrgName,  lorgname   = LOrgName,
+        |  				       orgunit   = OrgUnit,  lorgunit   = LOrgUnit
+        |  				      })
+        |  			   end, ok, vcard_search)
+        |  		 end,
+<font color=red>     0..|  	    mnesia:transaction(F1),</font>
+<font color=red>     0..|  	    lists:foreach(fun(I) -&gt;</font>
+<font color=red>     0..|  				  mnesia:del_table_index(</font>
+        |  				    vcard_search,
+        |  				    element(I, {vcard_search,
+        |  						user,     luser,
+        |  						fn,       lfn,
+        |  						family,   lfamily,
+        |  						given,    lgiven,
+        |  						middle,   lmiddle,
+        |  						nickname, lnickname,
+        |  						bday,	   lbday,
+        |  						ctry,	   lctry,
+        |  						locality, llocality,
+        |  						email,	   lemail,
+        |  						orgname,  lorgname,
+        |  						orgunit,  lorgunit}))
+        |  			  end, mnesia:table_info(vcard_search, index)),
+<font color=red>     0..|  	    mnesia:clear_table(vcard_search),</font>
+<font color=red>     0..|  	    mnesia:transform_table(vcard_search, ignore, Fields),</font>
+<font color=red>     0..|  	    F2 = fun() -&gt;</font>
+<font color=red>     0..|  	        	 mnesia:write_lock_table(vcard_search),</font>
+<font color=red>     0..|  	        	 mnesia:foldl(</font>
+        |  	        	   fun(R, _) -&gt;
+<font color=red>     0..|  	        		   mnesia:dirty_write(R)</font>
+        |  	        	   end, ok, mod_vcard_tmp_table)
+        |  	         end,
+<font color=red>     0..|  	    mnesia:transaction(F2),</font>
+<font color=red>     0..|  	    mnesia:delete_table(mod_vcard_tmp_table);</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    ?INFO_MSG("Recreating vcard_search table", []),</font>
+<font color=red>     0..|  	    mnesia:transform_table(vcard_search, ignore, Fields)</font>
+        |      end.
+        |  
+        |  make_matchhead(VHost, Data) -&gt;
+<font color=red>     0..|      GlobMatch = #vcard_search{_ = '_'},</font>
+<font color=red>     0..|      Match = filter_fields(Data, GlobMatch, VHost),</font>
+<font color=red>     0..|      Match.</font>
+        |  
+        |  filter_fields([], Match, _VHost) -&gt;
+<font color=red>     0..|      Match;</font>
+        |  filter_fields([{SVar, [Val]} | Ds], Match, VHost)
+        |    when is_binary(Val) and (Val /= &lt;&lt;""&gt;&gt;) -&gt;
+<font color=red>     0..|      LVal = stringprep:tolower(Val),</font>
+<font color=red>     0..|      NewMatch =</font>
+        |          case SVar of
+<font color=red>     0..|              &lt;&lt;"user"&gt;&gt; -&gt; Match#vcard_search{luser = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"fn"&gt;&gt;       -&gt; Match#vcard_search{lfn       = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"last"&gt;&gt;     -&gt; Match#vcard_search{lfamily   = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"first"&gt;&gt;    -&gt; Match#vcard_search{lgiven    = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"middle"&gt;&gt;   -&gt; Match#vcard_search{lmiddle   = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"nick"&gt;&gt;     -&gt; Match#vcard_search{lnickname = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"bday"&gt;&gt;     -&gt; Match#vcard_search{lbday     = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"ctry"&gt;&gt;     -&gt; Match#vcard_search{lctry     = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"locality"&gt;&gt; -&gt; Match#vcard_search{llocality = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"email"&gt;&gt;    -&gt; Match#vcard_search{lemail    = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"orgname"&gt;&gt;  -&gt; Match#vcard_search{lorgname  = make_val(LVal)};</font>
+<font color=red>     0..|              &lt;&lt;"orgunit"&gt;&gt;  -&gt; Match#vcard_search{lorgunit  = make_val(LVal)};</font>
+<font color=red>     0..|              _              -&gt; Match</font>
+        |          end,
+<font color=red>     0..|      filter_fields(Ds, NewMatch, VHost);</font>
+        |  filter_fields([_ | Ds], Match, VHost) -&gt;
+<font color=red>     0..|      filter_fields(Ds, Match, VHost).</font>
+        |  
+        |  %% returns value as list to match substrings using match spec.
+        |  %% See vcard_search definition.
+        |  make_val(ValBin) -&gt;
+<font color=red>     0..|      Val = binary_to_list(ValBin),</font>
+<font color=red>     0..|      case lists:suffix("*", Val) of</font>
+        |      true -&gt;
+<font color=red>     0..|          lists:sublist(Val, length(Val) - 1) ++ '_';</font>
+        |      _ -&gt;
+<font color=red>     0..|          Val</font>
+        |      end.
+        |  
+        |  find_my_host(VHost) -&gt;
+<font color=red>     0..|      Parts = binary:matches(VHost, &lt;&lt;"."&gt;&gt;),</font>
+<font color=red>     0..|      find_my_host(Parts, ?MYHOSTS).</font>
+        |  
+        |  find_my_host([], _Hosts) -&gt;
+<font color=red>     0..|      ?MYNAME;</font>
+        |  find_my_host([_ | Tail] = Parts, Hosts) -&gt;
+<font color=red>     0..|      Domain = parts_to_binstring(Parts),</font>
+<font color=red>     0..|      case lists:member(Domain, Hosts) of</font>
+        |      true -&gt;
+<font color=red>     0..|          Domain;</font>
+        |      false -&gt;
+<font color=red>     0..|          find_my_host(Tail, Hosts)</font>
+        |      end.
+        |  
+        |  parts_to_binstring(Parts) -&gt;
+<font color=red>     0..|      string:strip(lists:flatten(lists:map(fun(S) -&gt; [S, $.] end, Parts)),</font>
+        |           right, $.).
+        |  
+        |  record_to_item(R) -&gt;
+<font color=red>     0..|      {User, Server} = R#vcard_search.user,</font>
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"item"&gt;&gt;,</font>
+        |             children = [
+        |                         ?FIELD(&lt;&lt;"jid"&gt;&gt;, [User, &lt;&lt;"@"&gt;&gt;, Server]),
+        |                         ?FIELD(&lt;&lt;"fn"&gt;&gt;, (R#vcard_search.fn)),
+        |                         ?FIELD(&lt;&lt;"last"&gt;&gt;, (R#vcard_search.family)),
+        |                         ?FIELD(&lt;&lt;"first"&gt;&gt;, (R#vcard_search.given)),
+        |                         ?FIELD(&lt;&lt;"middle"&gt;&gt;, (R#vcard_search.middle)),
+        |                         ?FIELD(&lt;&lt;"nick"&gt;&gt;, (R#vcard_search.nickname)),
+        |                         ?FIELD(&lt;&lt;"bday"&gt;&gt;, (R#vcard_search.bday)),
+        |                         ?FIELD(&lt;&lt;"ctry"&gt;&gt;, (R#vcard_search.ctry)),
+        |                         ?FIELD(&lt;&lt;"locality"&gt;&gt;, (R#vcard_search.locality)),
+        |                         ?FIELD(&lt;&lt;"email"&gt;&gt;, (R#vcard_search.email)),
+        |                         ?FIELD(&lt;&lt;"orgname"&gt;&gt;, (R#vcard_search.orgname)),
+        |                         ?FIELD(&lt;&lt;"orgunit"&gt;&gt;, (R#vcard_search.orgunit))
+        |                        ]}.
+        |  
+</pre>
+</body>
+</html>

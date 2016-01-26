@@ -1,0 +1,557 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/ejabberd_listener.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_listener.erl by COVER 2016-01-26 at 09:43:17
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_listener.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Manage socket listener
+        |  %%% Created : 16 Nov 2002 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_listener).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([start_link/0, init/1, start/3,
+        |           init/3,
+        |           start_listeners/0,
+        |           start_listener/3,
+        |           stop_listeners/0,
+        |           stop_listener/2,
+        |           parse_listener_portip/2,
+        |           add_listener/3,
+        |           delete_listener/3,
+        |           delete_listener/2
+        |          ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% We do not block on send anymore.
+        |  -define(TCP_SEND_TIMEOUT, 15000).
+        |  
+        |  -type proto() :: tcp | udp | ws | wss.
+        |  -type addr() :: inet:ip4_address() | string().
+        |  -type portnum() :: inet:port_number().
+        |  -type port_ip_proto() :: portnum() | {portnum(), addr() | proto()} | {portnum(), addr(), proto()}.
+        |  
+        |  -spec start_link() -&gt; 'ignore' | {'error', _} | {'ok', pid()}.
+        |  start_link() -&gt;
+<font color=red>     0..|      supervisor:start_link({local, ejabberd_listeners}, ?MODULE, []).</font>
+        |  
+        |  
+        |  init(_) -&gt;
+<font color=red>     0..|      ets:new(listen_sockets, [named_table, public]),</font>
+        |      %bind_tcp_ports(),
+<font color=red>     0..|      {ok, {{one_for_one, 10, 1}, []}}.</font>
+        |  
+        |  
+        |  -spec start_listeners() -&gt; 'ignore' | {'ok',{{_,_,_},[any()]}}.
+        |  start_listeners() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(listen) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              ignore;</font>
+        |          Ls -&gt;
+<font color=red>     0..|              Ls2 = lists:map(</font>
+        |                  fun({Port, Module, Opts}) -&gt;
+<font color=red>     0..|                          case start_listener(Port, Module, Opts) of</font>
+<font color=red>     0..|                              {ok, _Pid} = R -&gt; R;</font>
+        |                              {error, Error} -&gt;
+<font color=red>     0..|                                  throw(Error)</font>
+        |                          end
+        |                  end, Ls),
+<font color=red>     0..|              report_duplicated_portips(Ls),</font>
+<font color=red>     0..|              {ok, {{one_for_one, 10, 1}, Ls2}}</font>
+        |      end.
+        |  
+        |  -spec report_duplicated_portips([integer() | tuple()]) -&gt; ok.
+        |  report_duplicated_portips(L) -&gt;
+<font color=red>     0..|      LKeys = [Port || {Port, _, _} &lt;- L],</font>
+<font color=red>     0..|      LNoDupsKeys = proplists:get_keys(L),</font>
+<font color=red>     0..|      case LKeys -- LNoDupsKeys of</font>
+<font color=red>     0..|          [] -&gt; ok;</font>
+        |          Dups -&gt;
+<font color=red>     0..|              ?CRITICAL_MSG("In the ejabberd configuration there are duplicated "</font>
+        |                            "Port number + IP address:~n  ~p",
+        |                            [Dups])
+        |    end.
+        |  
+        |  -spec start(Port :: _,
+        |              Module :: atom() | tuple(),
+        |              Opts :: [any()]) -&gt; any().
+        |  start(Port, Module, Opts) -&gt;
+        |      %% Check if the module is an ejabberd listener or an independent listener
+<font color=red>     0..|      case Module:socket_type() of</font>
+<font color=red>     0..|          independent -&gt; Module:start_listener(Port, Opts);</font>
+<font color=red>     0..|          _ -&gt; start_dependent(Port, Module, Opts)</font>
+        |      end.
+        |  
+        |  -spec start_dependent(Port :: _,
+        |                        Module :: atom() | tuple(),
+        |                        Opts :: [any()]) -&gt; {ok, pid()} | {error, _}.
+        |  start_dependent(Port, Module, Opts) -&gt;
+<font color=red>     0..|      try check_listener_options(Opts) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              proc_lib:start_link(?MODULE, init, [Port, Module, Opts])</font>
+        |      catch
+        |          throw:{error, Error} -&gt;
+<font color=red>     0..|              ?ERROR_MSG(Error, []),</font>
+<font color=red>     0..|              {error, Error}</font>
+        |      end.
+        |  
+        |  -spec init(PortIP :: port_ip_proto(),
+        |             Module :: atom(),
+        |             Opts :: [any()]) -&gt; no_return().
+        |  init(PortIP, Module, RawOpts) -&gt;
+<font color=red>     0..|      {Port, IPT, IPS, IPV, Proto, OptsClean} = parse_listener_portip(PortIP, RawOpts),</font>
+<font color=red>     0..|      {Opts, SockOpts} = prepare_opts(IPT, IPV, OptsClean),</font>
+<font color=red>     0..|      if Proto == udp -&gt;</font>
+<font color=red>     0..|              init_udp(PortIP, Module, Opts, SockOpts, Port, IPS);</font>
+        |         true -&gt;
+<font color=red>     0..|              init_tcp(PortIP, Module, Opts, SockOpts, Port, IPS)</font>
+        |      end.
+        |  
+        |  -type udp_listen_option() :: gen_udp:option()
+        |                             | {ip, _}
+        |                             | {fd, pos_integer()}
+        |                             | {ifaddr, _}
+        |                             | inet:address_family()
+        |                             | {port, inet:port_number()}.
+        |  -spec init_udp(PortIPProto :: port_ip_proto(),
+        |                 Module :: atom(),
+        |                 Opts :: [any(),...],
+        |                 SockOpts :: [udp_listen_option()],
+        |                 Port :: inet:port_number(),
+        |                 IPS :: [any()]) -&gt; no_return().
+        |  init_udp(PortIPProto, Module, Opts, SockOpts, Port, IPS) -&gt;
+<font color=red>     0..|      case gen_udp:open(Port, [binary,</font>
+        |                               {active, false},
+        |                               {reuseaddr, true} |
+        |                               SockOpts]) of
+        |          {ok, Socket} -&gt;
+        |              %% Inform my parent that this port was opened succesfully
+<font color=red>     0..|              proc_lib:init_ack({ok, self()}),</font>
+<font color=red>     0..|              udp_recv(Socket, Module, Opts);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              socket_error(Reason, PortIPProto, Module, SockOpts, Port, IPS)</font>
+        |      end.
+        |  
+        |  -spec init_tcp(PortIPProto :: port_ip_proto(),
+        |                 Module :: atom(),
+        |                 Opts :: [any(),...],
+        |                 SockOpts :: [gen_tcp:listen_option()],
+        |                 Port :: inet:port_number(),
+        |                 IPS :: [any()]) -&gt; no_return().
+        |  init_tcp(PortIPProto, Module, Opts, SockOpts, Port, IPS) -&gt;
+<font color=red>     0..|      ListenSocket = listen_tcp(PortIPProto, Module, SockOpts, Port, IPS),</font>
+        |      %% Inform my parent that this port was opened succesfully
+<font color=red>     0..|      proc_lib:init_ack({ok, self()}),</font>
+        |      %% And now start accepting connection attempts
+<font color=red>     0..|      accept(ListenSocket, Module, Opts).</font>
+        |  
+        |  -spec listen_tcp(PortIPPRoto :: port_ip_proto(),
+        |                   Module :: atom(),
+        |                   SockOpts :: [gen_tcp:listen_option()],
+        |                   Port :: inet:port_number(),
+        |                   IPS :: [any()]) -&gt; port().
+        |  listen_tcp(PortIPProto, Module, SockOpts, Port, IPS) -&gt;
+<font color=red>     0..|      case ets:lookup(listen_sockets, PortIPProto) of</font>
+        |          [{PortIP, ListenSocket}] -&gt;
+<font color=red>     0..|              ?INFO_MSG("Reusing listening port for ~p", [Port]),</font>
+<font color=red>     0..|              ets:delete(listen_sockets, PortIP),</font>
+<font color=red>     0..|              ListenSocket;</font>
+        |          _ -&gt;
+<font color=red>     0..|              Res = gen_tcp:listen(Port, [binary,</font>
+        |                                          {packet, 0},
+        |                                          {active, false},
+        |                                          {reuseaddr, true},
+        |                                          {nodelay, true},
+        |                                          {send_timeout, ?TCP_SEND_TIMEOUT},
+        |                                          {keepalive, true},
+        |                                          {send_timeout_close, true}]),
+<font color=red>     0..|              case Res of</font>
+        |                  {ok, ListenSocket} -&gt;
+<font color=red>     0..|                      ListenSocket;</font>
+        |                  {error, Reason} -&gt;
+<font color=red>     0..|                      socket_error(Reason, PortIPProto, Module, SockOpts, Port, IPS)</font>
+        |              end
+        |      end.
+        |  
+        |  %% @spec (PortIP, Opts) -&gt; {Port, IPT, IPS, IPV, OptsClean}
+        |  %% where
+        |  %%      PortIP = Port | {Port, IPT | IPS}
+        |  %%      Port = integer()
+        |  %%      IPT = tuple()
+        |  %%      IPS = string()
+        |  %%      IPV = inet | inet6
+        |  %%      Opts = [IPV | {ip, IPT} | atom() | tuple()]
+        |  %%      OptsClean = [atom() | tuple()]
+        |  %% @doc Parse any kind of ejabberd listener specification.
+        |  %% The parsed options are returned in several formats.
+        |  %% OptsClean does not include inet/inet6 or ip options.
+        |  %% Opts can include the options inet6 and {ip, Tuple},
+        |  %% but they are only used when no IP address was specified in the PortIP.
+        |  %% The IP version (either IPv4 or IPv6) is inferred from the IP address type,
+        |  %% so the option inet/inet6 is only used when no IP is specified at all.
+        |  -spec parse_listener_portip(PortIPProto :: port_ip_proto(),
+        |                              Opts :: [any()]
+        |                              ) -&gt; {portnum(),
+        |                                    IPT :: tuple(),
+        |                                    IPS :: [any()],
+        |                                    IPV :: 'inet' | 'inet6',
+        |                                    Proto :: proto(),
+        |                                    OptsClean :: [any()]}.
+        |  parse_listener_portip(PortIPProto, Opts) -&gt;
+<font color=red>     0..|      {IPOpt, Opts2} = strip_ip_option(Opts),</font>
+<font color=red>     0..|      {IPVOpt, OptsClean} = case lists:member(inet6, Opts2) of</font>
+<font color=red>     0..|                                true -&gt; {inet6, Opts2 -- [inet6]};</font>
+<font color=red>     0..|                                false -&gt; {inet, Opts2}</font>
+        |                            end,
+<font color=red>     0..|      {Port, IPT, IPS, Proto} =</font>
+        |          case add_proto(PortIPProto, Opts) of
+        |              {P, Prot} -&gt;
+<font color=red>     0..|                  T = get_ip_tuple(IPOpt, IPVOpt),</font>
+<font color=red>     0..|                  S = inet_parse:ntoa(T),</font>
+<font color=red>     0..|                  {P, T, S, Prot};</font>
+        |              {P, T, Prot} when is_integer(P) and is_tuple(T) -&gt;
+<font color=red>     0..|                  S = inet_parse:ntoa(T),</font>
+<font color=red>     0..|                  {P, T, S, Prot};</font>
+        |              {P, S, Prot} when is_integer(P) and is_list(S) -&gt;
+<font color=red>     0..|                  [S | _] = string:tokens(S, "/"),</font>
+<font color=red>     0..|                  {ok, T} = inet_parse:address(S),</font>
+<font color=red>     0..|                  {P, T, S, Prot}</font>
+        |          end,
+<font color=red>     0..|      IPV = case size(IPT) of</font>
+<font color=red>     0..|                4 -&gt; inet;</font>
+<font color=red>     0..|                8 -&gt; inet6</font>
+        |            end,
+<font color=red>     0..|      {Port, IPT, IPS, IPV, Proto, OptsClean}.</font>
+        |  
+        |  -spec prepare_opts(IPT :: tuple(),
+        |                     IPV :: 'inet' | 'inet6',
+        |                     OptsClean :: [any()]) -&gt; {[any(),...],[any()]}.
+        |  prepare_opts(IPT, IPV, OptsClean) -&gt;
+        |      %% The first inet|inet6 and the last {ip, _} work,
+        |      %% so overriding those in Opts
+<font color=red>     0..|      Opts = [IPV | OptsClean] ++ [{ip, IPT}],</font>
+<font color=red>     0..|      SockOpts = lists:filter(fun({ip, _}) -&gt; true;</font>
+<font color=red>     0..|                                 (inet6) -&gt; true;</font>
+<font color=red>     0..|                                 (inet) -&gt; true;</font>
+<font color=red>     0..|                                 ({backlog, _}) -&gt; true;</font>
+<font color=red>     0..|                                 (_) -&gt; false</font>
+        |                              end, Opts),
+<font color=red>     0..|      {Opts, SockOpts}.</font>
+        |  
+        |  -spec add_proto(PortIPProto :: port_ip_proto(),
+        |                  Opts :: [any()]
+        |                  ) -&gt; {P :: portnum(), proto()}
+        |                     | {P :: portnum(), Addr :: addr(), proto()}.
+        |  add_proto(Port, Opts) when is_integer(Port) -&gt;
+<font color=red>     0..|      {Port, get_proto(Opts)};</font>
+        |  add_proto({Port, Proto}, _Opts) when is_atom(Proto) -&gt;
+<font color=red>     0..|      {Port, normalize_proto(Proto)};</font>
+        |  add_proto({Port, Addr}, Opts) -&gt;
+<font color=red>     0..|      {Port, Addr, get_proto(Opts)};</font>
+        |  add_proto({Port, Addr, Proto}, _Opts) -&gt;
+<font color=red>     0..|      {Port, Addr, normalize_proto(Proto)}.</font>
+        |  
+        |  -spec strip_ip_option(Opts :: [any()]) -&gt; {'no_ip_option' | tuple(), [any()]}.
+        |  strip_ip_option(Opts) -&gt;
+<font color=red>     0..|      {IPL, OptsNoIP} = lists:partition(</font>
+<font color=red>     0..|                          fun({ip, _}) -&gt; true;</font>
+<font color=red>     0..|                             (_) -&gt; false</font>
+        |                          end,
+        |                          Opts),
+<font color=red>     0..|      case IPL of</font>
+        |          %% Only the first ip option is considered
+        |          [{ip, T1} | _] when is_tuple(T1) -&gt;
+<font color=red>     0..|              {T1, OptsNoIP};</font>
+        |          [] -&gt;
+<font color=red>     0..|              {no_ip_option, OptsNoIP}</font>
+        |      end.
+        |  
+        |  -spec get_ip_tuple('no_ip_option' | tuple(), 'inet' | 'inet6'
+        |                    ) -&gt; 'no_ip_option' | tuple().
+        |  get_ip_tuple(no_ip_option, inet) -&gt;
+<font color=red>     0..|      {0, 0, 0, 0};</font>
+        |  get_ip_tuple(no_ip_option, inet6) -&gt;
+<font color=red>     0..|      {0, 0, 0, 0, 0, 0, 0, 0};</font>
+        |  get_ip_tuple(IPOpt, _IPVOpt) -&gt;
+<font color=red>     0..|      IPOpt.</font>
+        |  
+        |  -spec accept(Socket :: port(),
+        |               Module :: atom(),
+        |               Opts :: [any(),...]) -&gt; no_return().
+        |  accept(ListenSocket, Module, Opts) -&gt;
+<font color=red>     0..|      case gen_tcp:accept(ListenSocket) of</font>
+        |          {ok, Socket} -&gt;
+<font color=red>     0..|              case {inet:sockname(Socket), inet:peername(Socket)} of</font>
+        |                  {{ok, Addr}, {ok, PAddr}} -&gt;
+<font color=red>     0..|                      ?INFO_MSG("(~w) Accepted connection ~w -&gt; ~w",</font>
+        |                                [Socket, PAddr, Addr]);
+        |                  _ -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end,
+<font color=red>     0..|              ejabberd_socket:start(Module, gen_tcp, Socket, Opts),</font>
+<font color=red>     0..|              accept(ListenSocket, Module, Opts);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?INFO_MSG("(~w) Failed TCP accept: ~w",</font>
+        |                        [ListenSocket, Reason]),
+<font color=red>     0..|              accept(ListenSocket, Module, Opts)</font>
+        |      end.
+        |  
+        |  -spec udp_recv(Socket :: port(),
+        |                 Module :: atom(),
+        |                 Opts :: [any(),...]) -&gt; no_return().
+        |  udp_recv(Socket, Module, Opts) -&gt;
+<font color=red>     0..|      case gen_udp:recv(Socket, 0) of</font>
+        |          {ok, {Addr, Port, Packet}} -&gt;
+<font color=red>     0..|              case catch Module:udp_recv(Socket, Addr, Port, Packet, Opts) of</font>
+        |                  {'EXIT', Reason} -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("failed to process UDP packet:~n"</font>
+        |                                 "** Source: {~p, ~p}~n"
+        |                                 "** Reason: ~p~n** Packet: ~p",
+        |                                 [Addr, Port, Reason, Packet]);
+        |                  _ -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end,
+<font color=red>     0..|              udp_recv(Socket, Module, Opts);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("unexpected UDP error: ~s", [format_error(Reason)]),</font>
+<font color=red>     0..|              throw({error, Reason})</font>
+        |      end.
+        |  
+        |  -spec start_listener(PortIPProto :: port_ip_proto(),
+        |                       Module :: atom(),
+        |                       Opts :: [any()]) -&gt; {'error', pid()} | {'ok',_}.
+        |  start_listener(Port, Module, Opts) -&gt;
+<font color=red>     0..|      case start_listener2(Port, Module, Opts) of</font>
+<font color=red>     0..|          {ok, _Pid} = R -&gt; R;</font>
+        |          {error, {{'EXIT', {undef, [{M, _F, _A}|_]}}, _} = Error} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Error starting the ejabberd listener: ~p.~n"</font>
+        |                         "It could not be loaded or is not an ejabberd listener.~n"
+        |                         "Error: ~p~n", [Module, Error]),
+<font color=red>     0..|              {error, {module_not_available, M}};</font>
+        |          {error, {already_started, Pid}} -&gt;
+<font color=red>     0..|              {ok, Pid};</font>
+        |          {error, Error} -&gt;
+<font color=red>     0..|              {error, Error}</font>
+        |      end.
+        |  
+        |  start_listener2(Port, Module, Opts) -&gt;
+        |      %% It is only required to start the supervisor in some cases.
+        |      %% But it doesn't hurt to attempt to start it for any listener.
+        |      %% So, it's normal (and harmless) that in most cases this call returns: {error, {already_started, pid()}}
+<font color=red>     0..|      start_module_sup(Port, Module),</font>
+<font color=red>     0..|      start_listener_sup(Port, Module, Opts).</font>
+        |  
+        |  -spec start_module_sup(_, Module :: module())
+        |        -&gt; {'error',_} | {'ok','undefined' | pid()} | {'ok','undefined' | pid(),_}.
+        |  start_module_sup(_PortIPProto, Module) -&gt;
+<font color=red>     0..|      Proc1 = gen_mod:get_module_proc("sup", Module),</font>
+<font color=red>     0..|      ChildSpec1 =</font>
+        |          {Proc1,
+        |           {ejabberd_tmp_sup, start_link, [Proc1, Module]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, ChildSpec1).</font>
+        |  
+        |  -spec start_listener_sup(port_ip_proto(), Module :: atom(), Opts :: [any()])
+        |        -&gt; {'error',_} | {'ok','undefined' | pid()} | {'ok','undefined' | pid(),_}.
+        |  start_listener_sup(PortIPProto, Module, Opts) -&gt;
+<font color=red>     0..|      ChildSpec = {PortIPProto,</font>
+        |                   {?MODULE, start, [PortIPProto, Module, Opts]},
+        |                   transient,
+        |                   brutal_kill,
+        |                   worker,
+        |                   [?MODULE]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_listeners, ChildSpec).</font>
+        |  
+        |  -spec stop_listeners() -&gt; 'ok'.
+        |  stop_listeners() -&gt;
+<font color=red>     0..|      Ports = ejabberd_config:get_local_option(listen),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun({PortIpNetp, Module, _Opts}) -&gt;
+<font color=red>     0..|                delete_listener(PortIpNetp, Module)</font>
+        |        end,
+        |        Ports).
+        |  
+        |  -spec stop_listener(PortIPProto :: port_ip_proto(),
+        |                      Module :: atom())
+        |        -&gt; 'ok' | {'error','not_found' | 'restarting' | 'running' | 'simple_one_for_one'}.
+        |  stop_listener(PortIPProto, _Module) -&gt;
+<font color=red>     0..|      case ets:match(listen_sockets, {PortIPProto,'$1'}) of</font>
+        |          [[Socket]] -&gt;
+<font color=red>     0..|              true = ets:delete_object(listen_sockets, {PortIPProto, Socket}),</font>
+<font color=red>     0..|              ok = gen_tcp:close(Socket);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      supervisor:terminate_child(ejabberd_listeners, PortIPProto),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_listeners, PortIPProto).</font>
+        |  
+        |  %% @doc Add a listener and store in config if success
+        |  -type listener_option() :: inet | inet6 | {ip, tuple()} | atom() | tuple().
+        |  -spec add_listener(PortIPProto :: port_ip_proto(),
+        |                     Module :: atom(),
+        |                     Opts :: [listener_option()]
+        |                     ) -&gt; 'ok' | {'error',_}.
+        |  add_listener(PortIPProto, Module, Opts) -&gt;
+<font color=red>     0..|      {Port, IPT, _, _, Proto, _} = parse_listener_portip(PortIPProto, Opts),</font>
+<font color=red>     0..|      PortIP1 = {Port, IPT, Proto},</font>
+<font color=red>     0..|      case start_listener(PortIP1, Module, Opts) of</font>
+        |          {ok, _Pid} -&gt;
+<font color=red>     0..|              Ports = case ejabberd_config:get_local_option(listen) of</font>
+        |                          undefined -&gt;
+<font color=red>     0..|                              [];</font>
+        |                          Ls -&gt;
+<font color=red>     0..|                              Ls</font>
+        |                      end,
+<font color=red>     0..|              Ports1 = lists:keydelete(PortIP1, 1, Ports),</font>
+<font color=red>     0..|              Ports2 = [{PortIP1, Module, Opts} | Ports1],</font>
+<font color=red>     0..|              ejabberd_config:add_local_option(listen, Ports2),</font>
+<font color=red>     0..|              ok;</font>
+        |          {error, Error} -&gt;
+<font color=red>     0..|              {error, Error}</font>
+        |      end.
+        |  
+        |  -spec delete_listener(PortIPProto :: port_ip_proto(),
+        |                        Module :: atom())
+        |        -&gt; 'ok' | {'error','not_found' | 'restarting' | 'running' | 'simple_one_for_one'}.
+        |  delete_listener(PortIPProto, Module) -&gt;
+<font color=red>     0..|      delete_listener(PortIPProto, Module, []).</font>
+        |  
+        |  -spec delete_listener(PortIPProto :: port_ip_proto(),
+        |                        Module :: atom(),
+        |                        Opts :: [listener_option()])
+        |        -&gt; 'ok' | {'error','not_found' | 'restarting' | 'running' | 'simple_one_for_one'}.
+        |  delete_listener(PortIPProto, Module, Opts) -&gt;
+<font color=red>     0..|      {Port, IPT, _, _, Proto, _} = parse_listener_portip(PortIPProto, Opts),</font>
+<font color=red>     0..|      PortIP1 = {Port, IPT, Proto},</font>
+<font color=red>     0..|      Ports = case ejabberd_config:get_local_option(listen) of</font>
+        |                  undefined -&gt;
+<font color=red>     0..|                      [];</font>
+        |                  Ls -&gt;
+<font color=red>     0..|                      Ls</font>
+        |              end,
+<font color=red>     0..|      Ports1 = lists:keydelete(PortIP1, 1, Ports),</font>
+<font color=red>     0..|      ejabberd_config:add_local_option(listen, Ports1),</font>
+<font color=red>     0..|      stop_listener(PortIP1, Module).</font>
+        |  
+        |  %%%
+        |  %%% Check options
+        |  %%%
+        |  
+        |  -spec check_listener_options([any()]) -&gt; 'ok'.
+        |  check_listener_options(Opts) -&gt;
+<font color=red>     0..|      case includes_deprecated_ssl_option(Opts) of</font>
+<font color=red>     0..|          false -&gt; ok;</font>
+        |          true -&gt;
+<font color=red>     0..|              Error = "There is a problem with your ejabberd configuration file: "</font>
+        |                  "the option 'ssl' for listening sockets is no longer available."
+        |                  " To get SSL encryption use the option 'tls'.",
+<font color=red>     0..|              throw({error, Error})</font>
+        |      end,
+<font color=red>     0..|      case certfile_readable(Opts) of</font>
+<font color=red>     0..|          true -&gt; ok;</font>
+        |          {false, Path} -&gt;
+<font color=red>     0..|              ErrorText = "There is a problem in the configuration: "</font>
+        |                  "the specified file is not readable: ",
+<font color=red>     0..|              throw({error, ErrorText ++ Path})</font>
+        |      end,
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% @doc Parse the options of the socket,
+        |  %% and return if the deprecated option 'ssl' is included
+        |  -spec includes_deprecated_ssl_option(list()) -&gt; boolean().
+        |  includes_deprecated_ssl_option(Opts) -&gt;
+<font color=red>     0..|      case lists:keysearch(ssl, 1, Opts) of</font>
+        |          {value, {ssl, _SSLOpts}} -&gt;
+<font color=red>     0..|              true;</font>
+        |          _ -&gt;
+<font color=red>     0..|              lists:member(ssl, Opts)</font>
+        |      end.
+        |  
+        |  -spec certfile_readable([any()]) -&gt; 'true' | {'false',string()}.
+        |  certfile_readable(Opts) -&gt;
+<font color=red>     0..|      case proplists:lookup(certfile, Opts) of</font>
+<font color=red>     0..|          none -&gt; true;</font>
+        |          {certfile, Path} -&gt;
+<font color=red>     0..|              case ejabberd_config:is_file_readable(Path) of</font>
+<font color=red>     0..|                  true -&gt; true;</font>
+<font color=red>     0..|                  false -&gt; {false, Path}</font>
+        |              end
+        |      end.
+        |  
+        |  -spec get_proto([any()]) -&gt; 'tcp' | 'udp' | 'ws' | 'wss'.
+        |  get_proto(Opts) -&gt;
+<font color=red>     0..|      case proplists:get_value(proto, Opts) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              tcp;</font>
+        |          Proto -&gt;
+<font color=red>     0..|              normalize_proto(Proto)</font>
+        |      end.
+        |  
+        |  -spec normalize_proto(_) -&gt; 'tcp' | 'udp' | 'ws' | 'wss'.
+<font color=red>     0..|  normalize_proto(tcp) -&gt; tcp;</font>
+<font color=red>     0..|  normalize_proto(udp) -&gt; udp;</font>
+<font color=red>     0..|  normalize_proto(ws)  -&gt; ws;</font>
+<font color=red>     0..|  normalize_proto(wss) -&gt; wss;</font>
+        |  normalize_proto(UnknownProto) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("There is a problem in the configuration: "</font>
+        |                   "~p is an unknown IP protocol. Using tcp as fallback",
+        |                   [UnknownProto]),
+<font color=red>     0..|      tcp.</font>
+        |  
+        |  socket_error(Reason, PortIP, Module, SockOpts, Port, IPS) -&gt;
+<font color=red>     0..|      ReasonT = case Reason of</font>
+        |                    eaddrnotavail -&gt;
+<font color=red>     0..|                        "IP address not available: " ++ IPS;</font>
+        |                    eaddrinuse -&gt;
+        |                        "IP address and port number already used: "
+<font color=red>     0..|                            ++IPS++" "++integer_to_list(Port);</font>
+        |                    _ -&gt;
+<font color=red>     0..|                        format_error(Reason)</font>
+        |                end,
+<font color=red>     0..|      ?ERROR_MSG("Failed to open socket:~n  ~p~nReason: ~s",</font>
+        |                 [{Port, Module, SockOpts}, ReasonT]),
+<font color=red>     0..|      throw({Reason, PortIP}).</font>
+        |  
+        |  -spec format_error(atom()) -&gt; string().
+        |  format_error(Reason) -&gt;
+<font color=red>     0..|      case inet:format_error(Reason) of</font>
+        |          "unknown POSIX error" -&gt;
+<font color=red>     0..|              atom_to_list(Reason);</font>
+        |          ReasonStr -&gt;
+<font color=red>     0..|              ReasonStr</font>
+        |      end.
+</pre>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/ejabberd_check.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_check.erl by COVER 2016-01-26 at 09:43:11
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_check.erl
+        |  %%% Author  : Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%% Purpose : Check ejabberd configuration and
+        |  %%% Created : 27 Feb 2008 by Mickael Remond &lt;mremond@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_check).
+        |  
+        |  -export([libs/0, config/0]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_config.hrl").
+        |  
+        |  -compile([export_all]).
+        |  
+        |  %% @doc TODO: We want to implement library checking at launch time to issue
+        |  %% human readable user messages.
+        |  libs() -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% @doc Consistency check on ejabberd configuration
+        |  -spec config() -&gt; ['ok'].
+        |  config() -&gt;
+<font color=red>     0..|      check_database_modules().</font>
+        |  
+        |  
+        |  -spec check_database_modules() -&gt; ['ok'].
+        |  check_database_modules() -&gt;
+<font color=red>     0..|       [check_database_module(M)||M&lt;-get_db_used()].</font>
+        |  
+        |  
+        |  -spec check_database_module('mysql' | 'odbc' | 'pgsql') -&gt; 'ok'.
+        |  check_database_module(odbc) -&gt;
+<font color=red>     0..|      check_modules(odbc, [odbc, odbc_app, odbc_sup, ejabberd_odbc, ejabberd_odbc_sup, odbc_queries]);</font>
+        |  check_database_module(mysql) -&gt;
+<font color=red>     0..|      check_modules(mysql, [mysql, mysql_auth, mysql_conn, mysql_recv]);</font>
+        |  check_database_module(pgsql) -&gt;
+<font color=red>     0..|      check_modules(pgsql, [pgsql, pgsql_proto, pgsql_tcp, pgsql_util]).</font>
+        |  
+        |  
+        |  %% @doc Issue a critical error and throw an exit if needing module is
+        |  %% missing.
+        |  -spec check_modules(atom(), [module()]) -&gt; 'ok'.
+        |  check_modules(DB, Modules) -&gt;
+<font color=red>     0..|      case get_missing_modules(Modules) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              ok;</font>
+        |          MissingModules -&gt;
+<font color=red>     0..|              ?CRITICAL_MSG("ejabberd is configured to use '~p', but the following Erlang modules are not installed: '~p'", [DB, MissingModules]),</font>
+<font color=red>     0..|              exit(database_module_missing)</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Return the list of undefined modules
+        |  -spec get_missing_modules([module()]) -&gt; [module()].
+        |  get_missing_modules(Modules) -&gt;
+<font color=red>     0..|      lists:filter(fun(Module) -&gt;</font>
+<font color=red>     0..|                           case catch Module:module_info() of</font>
+        |                               {'EXIT', {undef, _}} -&gt;
+<font color=red>     0..|                                   true;</font>
+<font color=red>     0..|                               _ -&gt; false</font>
+        |                           end
+        |                   end, Modules).
+        |  
+        |  
+        |  %% @doc Return the list of databases used
+        |  -spec get_db_used() -&gt; [atom()].
+        |  get_db_used() -&gt;
+        |      %% Retrieve domains with a database configured:
+<font color=red>     0..|      Domains =</font>
+        |          ets:match(local_config, #local_config{key={odbc_server, '$1'},
+        |                                                value='$2'}),
+        |      %% Check that odbc is the auth method used for those domains:
+        |      %% and return the database name
+<font color=red>     0..|      DBs = lists:foldr(</font>
+        |              fun([Domain, DB], Acc) -&gt;
+<font color=red>     0..|                      case check_odbc_option(</font>
+        |                             ejabberd_config:get_local_option(
+        |                               {auth_method, Domain})) of
+<font color=red>     0..|                          true -&gt; [get_db_type(DB)|Acc];</font>
+<font color=red>     0..|                          _ -&gt; Acc</font>
+        |                      end
+        |              end,
+        |              [], Domains),
+<font color=red>     0..|      lists:usort(DBs).</font>
+        |  
+        |  
+        |  %% @doc Depending in the DB definition, return which type of DB this is.
+        |  %% Note that MSSQL is detected as ODBC.
+        |  -spec get_db_type(list() | tuple()) -&gt; mysql | pgsql | odbc.
+        |  get_db_type(DB) when is_tuple(DB) -&gt;
+<font color=red>     0..|      element(1, DB);</font>
+        |  get_db_type(DB) when is_list(DB) -&gt;
+<font color=red>     0..|      odbc.</font>
+        |  
+        |  
+        |  %% @doc Return true if odbc option is used
+        |  -spec check_odbc_option(_) -&gt; boolean().
+        |  check_odbc_option(odbc) -&gt;
+<font color=red>     0..|      true;</font>
+        |  check_odbc_option(AuthMethods) when is_list(AuthMethods) -&gt;
+<font color=red>     0..|      lists:member(odbc, AuthMethods);</font>
+        |  check_odbc_option(_) -&gt;
+<font color=red>     0..|      false.</font>
+</pre>
+</body>
+</html>

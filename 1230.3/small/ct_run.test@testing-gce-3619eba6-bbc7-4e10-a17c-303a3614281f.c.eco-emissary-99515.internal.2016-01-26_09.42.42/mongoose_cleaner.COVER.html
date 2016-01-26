@@ -1,0 +1,99 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mongoose_cleaner.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_cleaner.erl by COVER 2016-01-26 at 09:43:11
+
+****************************************************************************
+
+        |  -module(mongoose_cleaner).
+        |  
+        |  -behaviour(gen_server).
+        |  
+        |  %% API
+        |  -export([start_link/0]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1,
+        |           handle_call/3,
+        |           handle_cast/2,
+        |           handle_info/2,
+        |           terminate/2,
+        |           code_change/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -define(NODE_CLEANUP_LOCK(Node), {node_cleanup_lock, Node}).
+        |  -define(SERVER, ?MODULE).
+        |  
+        |  -record(state, {}).
+        |  
+        |  %%%===================================================================
+        |  %%% API
+        |  %%%===================================================================
+        |  
+        |  start_link() -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).</font>
+        |  
+        |  %%%===================================================================
+        |  %%% gen_server callbacks
+        |  %%%===================================================================
+        |  
+        |  init([]) -&gt;
+<font color=red>     0..|      case net_kernel:monitor_nodes(true) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              {ok, #state{}};</font>
+        |          Error -&gt;
+<font color=red>     0..|              ?ERROR_MSG("can't monitor nodes: ~p~n", [Error]),</font>
+<font color=red>     0..|              {stop, Error}</font>
+        |      end.
+        |  
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, State}.</font>
+        |  
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  handle_info({nodedown, Node}, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("node=~p down", [Node]),</font>
+<font color=red>     0..|      cleanup_modules(Node),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%%===================================================================
+        |  %%% Internal functions
+        |  %%%===================================================================
+        |  
+        |  cleanup_modules(Node) -&gt;
+<font color=red>     0..|      LockRequest = {?NODE_CLEANUP_LOCK(Node), self()},</font>
+<font color=red>     0..|      C = fun () -&gt; run_node_cleanup(Node) end,</font>
+<font color=red>     0..|      Nodes = [node() | nodes()],</font>
+<font color=red>     0..|      Retries = 1,</font>
+<font color=red>     0..|      case global:trans(LockRequest, C, Nodes, Retries) of</font>
+        |          aborted -&gt;
+<font color=red>     0..|              ?DEBUG("could not get ~p~n" , [?NODE_CLEANUP_LOCK(Node)]),</font>
+<font color=red>     0..|              {ok, aborted};</font>
+        |          Result -&gt;
+<font color=red>     0..|              ?WARNING_MSG("cleanup result: ~p~n", [Result]),</font>
+<font color=red>     0..|              {ok, Result}</font>
+        |      end.
+        |  
+        |  run_node_cleanup(Node) -&gt;
+<font color=red>     0..|      {Elapsed, RetVal} = timer:tc(ejabberd_hooks, run, [node_cleanup, [Node]]),</font>
+<font color=red>     0..|      ?WARNING_MSG("cleanup took=~pms, result: ~p~n",</font>
+        |                   [erlang:round(Elapsed / 1000), RetVal]),
+<font color=red>     0..|      RetVal.</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,328 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mod_admin_extra_sessions.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_sessions.erl by COVER 2016-01-26 at 09:43:12
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_sessions.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_sessions).
+        |  -author('badlop@process-one.net').
+        |  
+        |  -export([
+        |      commands/0,
+        |  
+        |      num_resources/2,
+        |      resource_num/3,
+        |      kick_session/4,
+        |      kick_this_session/4,
+        |      prepare_reason/1,
+        |      status_num/2, status_num/1,
+        |      status_list/2, status_list/1,
+        |      connected_users_info/0,
+        |      connected_users_info/1,
+        |      set_presence/7,
+        |      user_sessions_info/2
+        |      ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml.hrl").
+        |  
+        |  -define(GEN_FSM, p1_fsm).
+        |  
+        |  -type status() :: binary().
+        |  -type u_s_r_p_st() :: { User    :: ejabberd:user(),
+        |                          Server  :: ejabberd:server(),
+        |                          Res     :: ejabberd:resource(),
+        |                          Prio    :: integer(),
+        |                          Status  :: status()}.
+        |  -type formatted_user_info() :: {U_S_R :: string(),
+        |                                  Conn :: string(),
+        |                                  IPS :: string(),
+        |                                  Port :: inet:port_number(),
+        |                                  Prio :: integer(),
+        |                                  NodeS :: string(),
+        |                                  Uptime :: integer()}.
+        |  -type usr_nowpid_p_i() :: {ejabberd:simple_jid(),
+        |                             {Now :: erlang:timestamp(), Pid :: identifier()},
+        |                             Prio :: integer(),
+        |                             Info :: string()}.
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      SessionDisplay = {list,</font>
+        |                        {sessions, {tuple,
+        |                                    [{jid, string},
+        |                                     {connection, string},
+        |                                     {ip, string},
+        |                                     {port, integer},
+        |                                     {priority, integer},
+        |                                     {node, string},
+        |                                     {uptime, integer}
+        |                                    ]}}
+        |                       },
+        |  
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = num_resources, tags = [session],
+        |                             desc = "Get the number of resources of a user",
+        |                             module = ?MODULE, function = num_resources,
+        |                             args = [{user, binary}, {host, binary}],
+        |                             result = {resources, integer}},
+        |          #ejabberd_commands{name = resource_num, tags = [session],
+        |                             desc = "Resource string of a session number",
+        |                             module = ?MODULE, function = resource_num,
+        |                             args = [{user, binary}, {host, binary}, {num, integer}],
+        |                             result = {resource, binary}},
+        |          #ejabberd_commands{name = kick_session, tags = [session],
+        |                             desc = "Kick a user session",
+        |                             module = ?MODULE, function = kick_session,
+        |                             args = [{user, binary}, {host, binary}, {resource, binary}, {reason, binary}],
+        |                             result = {res, rescode}},
+        |          #ejabberd_commands{name = status_num_host, tags = [session, stats],
+        |                             desc = "Number of logged users with this status in host",
+        |                             module = ?MODULE, function = status_num,
+        |                             args = [{host, binary}, {status, binary}],
+        |                             result = {users, integer}},
+        |          #ejabberd_commands{name = status_num, tags = [session, stats],
+        |                             desc = "Number of logged users with this status",
+        |                             module = ?MODULE, function = status_num,
+        |                             args = [{status, binary}],
+        |                             result = {users, integer}},
+        |          #ejabberd_commands{name = status_list_host, tags = [session],
+        |                             desc = "List of users logged in host with their statuses",
+        |                             module = ?MODULE, function = status_list,
+        |                             args = [{host, binary}, {status, binary}],
+        |                             result = {users, {list,
+        |                                               {userstatus, {tuple, [
+        |                                  {user, string},
+        |                                  {host, string},
+        |                                  {resource, string},
+        |                                  {priority, integer},
+        |                                  {status, string}
+        |                                  ]}}
+        |                                              }}},
+        |          #ejabberd_commands{name = status_list, tags = [session],
+        |                             desc = "List of logged users with this status",
+        |                             module = ?MODULE, function = status_list,
+        |                             args = [{status, binary}],
+        |                             result = {users, {list,
+        |                                               {userstatus, {tuple, [
+        |                                  {user, string},
+        |                                  {host, string},
+        |                                  {resource, string},
+        |                                  {priority, integer},
+        |                                  {status, string}
+        |                                  ]}}
+        |                                              }}},
+        |          #ejabberd_commands{name = connected_users_info,
+        |                             tags = [session],
+        |                             desc = "List all established sessions and their information",
+        |                             module = ?MODULE, function = connected_users_info,
+        |                             args = [],
+        |                             result = {connected_users_info, SessionDisplay}},
+        |          #ejabberd_commands{name = connected_users_vhost,
+        |                             tags = [session],
+        |                             desc = "Get the list of established sessions in a vhost",
+        |                             module = ?MODULE, function = connected_users_info,
+        |                             args = [{host, binary}],
+        |                             result = {connected_users_vhost, SessionDisplay}},
+        |          #ejabberd_commands{name = user_sessions_info,
+        |                             tags = [session],
+        |                             desc = "Get information about all sessions of a user",
+        |                             module = ?MODULE, function = user_sessions_info,
+        |                             args = [{user, binary}, {host, binary}],
+        |                             result = {user_sessions_info, SessionDisplay}},
+        |  
+        |          #ejabberd_commands{name = set_presence,
+        |                             tags = [session],
+        |                             desc = "Set presence of a session",
+        |                             module = ?MODULE, function = set_presence,
+        |                             args = [{user, binary}, {host, binary},
+        |                                     {resource, binary}, {type, binary},
+        |                                     {show, binary}, {status, binary},
+        |                                     {priority, binary}],
+        |                             result = {res, rescode}}
+        |          ].
+        |  
+        |  %%%
+        |  %%% Sessions
+        |  %%%
+        |  
+        |  -spec num_resources(ejabberd:user(), ejabberd:server()) -&gt; non_neg_integer().
+        |  num_resources(User, Host) -&gt;
+<font color=red>     0..|      length(ejabberd_sm:get_user_resources(User, Host)).</font>
+        |  
+        |  
+        |  -spec resource_num(ejabberd:user(), ejabberd:server(), integer()) -&gt; binary() | string().
+        |  resource_num(User, Host, Num) -&gt;
+<font color=red>     0..|      Resources = ejabberd_sm:get_user_resources(User, Host),</font>
+<font color=red>     0..|      case (0&lt;Num) and (Num=&lt;length(Resources)) of</font>
+        |          true -&gt;
+<font color=red>     0..|              lists:nth(Num, Resources);</font>
+        |          false -&gt;
+<font color=red>     0..|              lists:flatten(io_lib:format("Error: Wrong resource number: ~p", [Num]))</font>
+        |      end.
+        |  
+        |  
+        |  -spec kick_session(ejabberd:user(), ejabberd:server(), ejabberd:resource(),
+        |          ReasonText :: binary()) -&gt; ok.
+        |  kick_session(User, Server, Resource, ReasonText) -&gt;
+<font color=red>     0..|      kick_this_session(User, Server, Resource, prepare_reason(ReasonText)),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  -spec kick_this_session(ejabberd:user(), ejabberd:server(), ejabberd:resource(),
+        |          Reason :: binary()) -&gt; ok | {error, lager_not_started}.
+        |  kick_this_session(User, Server, Resource, Reason) -&gt;
+<font color=red>     0..|      ejabberd_sm:route(</font>
+        |          jid:make(&lt;&lt;""&gt;&gt;, &lt;&lt;""&gt;&gt;, &lt;&lt;""&gt;&gt;),
+        |          jid:make(User, Server, Resource),
+        |          {broadcast, {exit, Reason}}).
+        |  
+        |  
+        |  -spec prepare_reason(binary() | string()) -&gt; binary().
+        |  prepare_reason(&lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      &lt;&lt;"Kicked by administrator"&gt;&gt;;</font>
+        |  prepare_reason([Reason]) -&gt;
+<font color=red>     0..|      prepare_reason(Reason);</font>
+        |  prepare_reason(Reason) when is_list(Reason) -&gt;
+<font color=red>     0..|      list_to_binary(Reason);</font>
+        |  prepare_reason(Reason) when is_binary(Reason) -&gt;
+<font color=red>     0..|      Reason;</font>
+        |  prepare_reason(StringList) -&gt;
+<font color=red>     0..|      prepare_reason(string:join(StringList, "_")).</font>
+        |  
+        |  
+        |  -spec status_num('all' | ejabberd:server(), status()) -&gt; non_neg_integer().
+        |  status_num(Host, Status) -&gt;
+<font color=red>     0..|      length(get_status_list(Host, Status)).</font>
+        |  
+        |  
+        |  -spec status_num(status()) -&gt; non_neg_integer().
+        |  status_num(Status) -&gt;
+<font color=red>     0..|      status_num(all, Status).</font>
+        |  
+        |  
+        |  -spec status_list('all' | ejabberd:server(), status()) -&gt; [u_s_r_p_st()].
+        |  status_list(Host, Status) -&gt;
+<font color=red>     0..|      Res = get_status_list(Host, Status),</font>
+<font color=red>     0..|      [{U, S, R, P, St} || {U, S, R, P, St} &lt;- Res].</font>
+        |  
+        |  
+        |  -spec status_list(binary()) -&gt; [u_s_r_p_st()].
+        |  status_list(Status) -&gt;
+<font color=red>     0..|      status_list(all, Status).</font>
+        |  
+        |  
+        |  -spec get_status_list('all' | ejabberd:server(), status()) -&gt; [u_s_r_p_st()].
+        |  get_status_list(Host, StatusRequired) -&gt;
+<font color=red>     0..|      Sessions0 = case Host of</font>
+<font color=red>     0..|          all -&gt; ejabberd_sm:get_full_session_list();</font>
+<font color=red>     0..|          _ -&gt; ejabberd_sm:get_vh_session_list(Host)</font>
+        |      end,
+<font color=red>     0..|      Sessions = [ {catch ejabberd_c2s:get_presence(Pid), Server, Priority}</font>
+<font color=red>     0..|                   || {{_, Server, _}, {_, Pid}, Priority, _} &lt;- Sessions0 ],</font>
+        |  
+        |      %% Filter by status
+<font color=red>     0..|      Fstatus = case StatusRequired of</font>
+<font color=red>     0..|          all -&gt; fun(_, _) -&gt; true end;</font>
+<font color=red>     0..|          _ -&gt; fun(A, B) -&gt; A == B end</font>
+        |      end,
+<font color=red>     0..|      [{User, Server, Resource, Priority, StatusText}</font>
+<font color=red>     0..|       || {{User, Resource, Status, StatusText}, Server, Priority} &lt;- Sessions,</font>
+<font color=red>     0..|          apply(Fstatus, [Status, StatusRequired])].</font>
+        |  
+        |  
+        |  -spec connected_users_info() -&gt; [formatted_user_info()].
+        |  connected_users_info() -&gt;
+<font color=red>     0..|      connected_users_info(all).</font>
+        |  
+        |  
+        |  -spec connected_users_info('all' | ejabberd:server()) -&gt; [formatted_user_info()].
+        |  connected_users_info(Host) -&gt;
+<font color=red>     0..|      USRIs = case Host of</font>
+<font color=red>     0..|          all -&gt; ejabberd_sm:get_full_session_list();</font>
+<font color=red>     0..|          _ -&gt; ejabberd_sm:get_vh_session_list(Host)</font>
+        |      end,
+<font color=red>     0..|      lists:map(fun format_user_info/1, USRIs).</font>
+        |  
+        |  
+        |  -spec set_presence(ejabberd:user(), ejabberd:server(), ejabberd:resource(),
+        |          Type :: binary(), Show :: binary() | string(), Status :: binary() | string(),
+        |          Prio :: binary() | string()) -&gt; 'ok'.
+        |  set_presence(User, Host, Resource, Type, Show, Status, Priority) -&gt;
+<font color=red>     0..|      Pid = ejabberd_sm:get_session_pid(User, Host, Resource),</font>
+<font color=red>     0..|      USR = &lt;&lt;User/binary, $@, Host/binary, $/, Resource/binary&gt;&gt;,</font>
+<font color=red>     0..|      US = &lt;&lt;User/binary, $@, Host/binary&gt;&gt;,</font>
+<font color=red>     0..|      Message = {xmlstreamelement,</font>
+        |                 #xmlel{ name = &lt;&lt;"presence"&gt;&gt;,
+        |                        attrs = [{&lt;&lt;"from"&gt;&gt;, USR}, {&lt;&lt;"to"&gt;&gt;, US}, {&lt;&lt;"type"&gt;&gt;, Type}],
+        |                        children = [#xmlel{ name = &lt;&lt;"show"&gt;&gt;, children = [#xmlcdata{content = Show}]},
+        |                                    #xmlel{ name = &lt;&lt;"status"&gt;&gt;, children = [#xmlcdata{content = Status}]},
+        |                                    #xmlel{ name = &lt;&lt;"priority"&gt;&gt;, children = [#xmlcdata{content = Priority}]}]}},
+<font color=red>     0..|      ?GEN_FSM:send_event(Pid, Message).</font>
+        |  
+        |  
+        |  -spec user_sessions_info(ejabberd:user(), ejabberd:server()) -&gt; [formatted_user_info()].
+        |  user_sessions_info(User, Host) -&gt;
+<font color=red>     0..|      Resources = ejabberd_sm:get_user_resources(User, Host),</font>
+<font color=red>     0..|      lists:foldl(fun(Res, Acc) -&gt;</font>
+<font color=red>     0..|                  case ejabberd_sm:get_session(User, Host, Res) of</font>
+<font color=red>     0..|                      offline -&gt; Acc;</font>
+<font color=red>     0..|                      Session -&gt; [format_user_info(Session)|Acc]</font>
+        |                  end
+        |          end, [], Resources).
+        |  
+        |  
+        |  -spec format_user_info(usr_nowpid_p_i()) -&gt; formatted_user_info().
+        |  format_user_info(Usr) -&gt;
+<font color=red>     0..|      format_user_info(Usr, calendar:datetime_to_gregorian_seconds({date(), time()})).</font>
+        |  
+        |  
+        |  -spec format_user_info(usr_nowpid_p_i(), CurrentSec :: non_neg_integer()) -&gt; formatted_user_info().
+        |  format_user_info({{U, S, R}, {Now, Pid}, Priority, Info}, CurrentSec) -&gt;
+<font color=red>     0..|      Conn = proplists:get_value(conn, Info),</font>
+<font color=red>     0..|      {Ip, Port} = proplists:get_value(ip, Info),</font>
+<font color=red>     0..|      IPS = inet_parse:ntoa(Ip),</font>
+<font color=red>     0..|      NodeS = atom_to_list(node(Pid)),</font>
+<font color=red>     0..|      Uptime = CurrentSec - calendar:datetime_to_gregorian_seconds(</font>
+        |              calendar:now_to_local_time(Now)),
+<font color=red>     0..|      {[U, $@, S, $/, R], atom_to_list(Conn), IPS, Port, Priority, NodeS, Uptime}.</font>
+</pre>
+</body>
+</html>

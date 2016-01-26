@@ -1,0 +1,435 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mongoose_metrics_hooks.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_metrics_hooks.erl by COVER 2016-01-26 at 09:43:23
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% @author Michal Piotrowski &lt;michal.piotrowski@erlang-solutions.com&gt;
+        |  %%% @copyright (C) 2013, Erlang Solutions Ltd.
+        |  %%% @doc Ejabberd hooks for general metrics
+        |  %%%
+        |  %%% @end
+        |  %%% Created : 23 Apr 2013 by Michal Piotrowski &lt;michal.piotrowski@erlang-solutions.com&gt;
+        |  %%%-------------------------------------------------------------------
+        |  -module(mongoose_metrics_hooks).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -export([get_hooks/1]).
+        |  
+        |  %%-------------------
+        |  %% Internal exports
+        |  %%-------------------
+        |  -export([sm_register_connection_hook/3,
+        |           sm_remove_connection_hook/4,
+        |           auth_failed/2,
+        |           user_send_packet/3,
+        |           user_receive_packet/4,
+        |           xmpp_bounce_message/2,
+        |           xmpp_stanza_dropped/3,
+        |           xmpp_send_element/2,
+        |           roster_get/2,
+        |           roster_set/3,
+        |           roster_push/2,
+        |           roster_in_subscription/6,
+        |           register_user/2,
+        |           remove_user/2,
+        |           privacy_iq_get/5,
+        |           privacy_iq_set/4,
+        |           privacy_check_packet/6,
+        |           user_ping_timeout/1,
+        |           privacy_list_push/4,
+        |           mam_get_prefs/4,
+        |           mam_set_prefs/7,
+        |           mam_remove_archive/3,
+        |           mam_lookup_messages/14,
+        |           mam_archive_message/9,
+        |           mam_flush_messages/2,
+        |           mam_drop_message/1,
+        |           mam_drop_iq/5,
+        |           mam_drop_messages/2,
+        |           mam_purge_single_message/6,
+        |           mam_purge_multiple_messages/9,
+        |           mam_muc_get_prefs/4,
+        |           mam_muc_set_prefs/7,
+        |           mam_muc_remove_archive/3,
+        |           mam_muc_lookup_messages/14,
+        |           mam_muc_archive_message/9,
+        |           mam_muc_flush_messages/2,
+        |           mam_muc_drop_message/1,
+        |           mam_muc_drop_iq/5,
+        |           mam_muc_drop_messages/2,
+        |           mam_muc_purge_single_message/6,
+        |           mam_muc_purge_multiple_messages/9
+        |          ]).
+        |  
+        |  -type hook() :: [atom() | ejabberd:server() | integer(),...].
+        |  -type metrics_notify_return() ::
+        |                  'ok'
+        |                  | {'error',_,'nonexistent_metric' | 'unsupported_metric_type'}.
+        |  
+        |  %%-------------------
+        |  %% Implementation
+        |  %%-------------------
+        |  
+        |  %% @doc Here will be declared which hooks should be registered
+        |  -spec get_hooks(_) -&gt; [hook(),...].
+        |  get_hooks(Host) -&gt;
+<font color=red>     0..|      [[sm_register_connection_hook, Host, ?MODULE, sm_register_connection_hook, 50],</font>
+        |       [sm_remove_connection_hook, Host, ?MODULE, sm_remove_connection_hook, 50],
+        |       [auth_failed, Host, ?MODULE, auth_failed, 50],
+        |       [user_send_packet, Host, ?MODULE, user_send_packet, 50],
+        |       [user_receive_packet, Host, ?MODULE, user_receive_packet, 50],
+        |       [xmpp_stanza_dropped, Host, ?MODULE, xmpp_stanza_dropped, 50],
+        |       [xmpp_bounce_message, Host, ?MODULE, xmpp_bounce_message, 50],
+        |       [xmpp_send_element, Host, ?MODULE, xmpp_send_element, 50],
+        |       [roster_get, Host, ?MODULE, roster_get, 55],
+        |       [roster_set, Host, ?MODULE, roster_set, 50],
+        |       [roster_push, Host, ?MODULE, roster_push, 50],
+        |       [roster_in_subscription, Host, ?MODULE, roster_in_subscription, 55],
+        |       [register_user, Host, ?MODULE, register_user, 50],
+        |       [remove_user, Host, ?MODULE, remove_user, 50],
+        |       [privacy_iq_get,         Host, ?MODULE, privacy_iq_get, 1],
+        |       [privacy_iq_set,         Host, ?MODULE, privacy_iq_set, 1],
+        |       [privacy_check_packet,   Host, ?MODULE, privacy_check_packet, 55],
+        |       [sm_broadcast,           Host, ?MODULE, privacy_list_push, 1],
+        |       [user_ping_timeout,      Host, ?MODULE, user_ping_timeout, 50],
+        |       [mam_set_prefs, Host, ?MODULE, mam_set_prefs, 50],
+        |       [mam_get_prefs, Host, ?MODULE, mam_get_prefs, 50],
+        |       [mam_archive_message, Host, ?MODULE, mam_archive_message, 50],
+        |       [mam_flush_messages, Host, ?MODULE, mam_flush_messages, 50],
+        |       [mam_drop_message, Host, ?MODULE, mam_drop_message, 50],
+        |       [mam_drop_iq, Host, ?MODULE, mam_drop_iq, 50],
+        |       [mam_drop_messages, Host, ?MODULE, mam_drop_messages, 50],
+        |       [mam_remove_archive, Host, ?MODULE, mam_remove_archive, 50],
+        |       [mam_lookup_messages, Host, ?MODULE, mam_lookup_messages, 100],
+        |       [mam_purge_single_message, Host, ?MODULE, mam_purge_single_message, 50],
+        |       [mam_purge_multiple_message, Host, ?MODULE, mam_purge_multiple_message, 50],
+        |       [mam_muc_set_prefs, Host, ?MODULE, mam_muc_set_prefs, 50],
+        |       [mam_muc_get_prefs, Host, ?MODULE, mam_muc_get_prefs, 50],
+        |       [mam_muc_archive_message, Host, ?MODULE, mam_muc_archive_message, 50],
+        |       [mam_muc_remove_archive, Host, ?MODULE, mam_muc_remove_archive, 50],
+        |       [mam_muc_lookup_messages, Host, ?MODULE, mam_muc_lookup_messages, 100],
+        |       [mam_muc_purge_single_message, Host, ?MODULE, mam_muc_purge_single_message, 50],
+        |       [mam_muc_purge_multiple_message, Host, ?MODULE, mam_muc_purge_multiple_message, 50]].
+        |  
+        |  
+        |  -spec sm_register_connection_hook(tuple(), ejabberd:jid(), term()
+        |                                   ) -&gt; metrics_notify_return().
+        |  sm_register_connection_hook(_,#jid{server = Server}, _) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, sessionSuccessfulLogins}, 1),</font>
+<font color=red>     0..|      mongoose_metrics:update({Server, sessionCount}, 1).</font>
+        |  
+        |  -spec sm_remove_connection_hook(tuple(), ejabberd:jid(),
+        |                                  term(), ejabberd_sm:close_reason()
+        |                                 ) -&gt; metrics_notify_return().
+        |  sm_remove_connection_hook(_,#jid{server = Server},_, _Reason) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, sessionLogouts}, 1),</font>
+<font color=red>     0..|      mongoose_metrics:update({Server, sessionCount}, -1).</font>
+        |  
+        |  -spec auth_failed(binary(), binary()) -&gt; metrics_notify_return().
+        |  auth_failed(_,Server) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, sessionAuthFails},1).</font>
+        |  
+        |  -spec user_send_packet(ejabberd:jid(), tuple(), tuple()
+        |                        ) -&gt; metrics_notify_return().
+        |  user_send_packet(#jid{server = Server},_,Packet) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppStanzaSent}, 1),</font>
+<font color=red>     0..|      user_send_packet_type(Server, Packet).</font>
+        |  
+        |  -spec user_send_packet_type(Server :: ejabberd:server(),
+        |                              Packet :: jlib:xmlel()) -&gt; metrics_notify_return().
+        |  user_send_packet_type(Server, #xmlel{name = &lt;&lt;"message"&gt;&gt;}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppMessageSent}, 1);</font>
+        |  user_send_packet_type(Server, #xmlel{name = &lt;&lt;"iq"&gt;&gt;}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppIqSent}, 1);</font>
+        |  user_send_packet_type(Server, #xmlel{name = &lt;&lt;"presence"&gt;&gt;}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppPresenceSent}, 1).</font>
+        |  
+        |  -spec user_receive_packet(ejabberd:jid(), tuple(), tuple(), tuple()) -&gt; term().
+        |  user_receive_packet(#jid{server = Server} ,_,_,Packet) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppStanzaReceived},1),</font>
+<font color=red>     0..|      user_receive_packet_type(Server, Packet).</font>
+        |  
+        |  -spec user_receive_packet_type(Server :: ejabberd:server(),
+        |                                 Packet :: jlib:xmlel()) -&gt; metrics_notify_return().
+        |  user_receive_packet_type(Server, #xmlel{name = &lt;&lt;"message"&gt;&gt;}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppMessageReceived}, 1);</font>
+        |  user_receive_packet_type(Server, #xmlel{name = &lt;&lt;"iq"&gt;&gt;}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppIqReceived}, 1);</font>
+        |  user_receive_packet_type(Server, #xmlel{name = &lt;&lt;"presence"&gt;&gt;}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppPresenceReceived}, 1).</font>
+        |  
+        |  -spec xmpp_bounce_message(Server :: ejabberd:server(),
+        |                            tuple()) -&gt; metrics_notify_return().
+        |  xmpp_bounce_message(Server, _) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppMessageBounced}, 1).</font>
+        |  
+        |  -spec xmpp_stanza_dropped(ejabberd:jid(), tuple(), tuple()) -&gt; metrics_notify_return().
+        |  xmpp_stanza_dropped(#jid{server = Server} ,_,_) -&gt;
+<font color=red>     0..|     mongoose_metrics:update({Server, xmppStanzaDropped}, 1).</font>
+        |  
+        |  -spec xmpp_send_element(Server :: ejabberd:server(),
+        |                          Packet :: jlib:xmlel()) -&gt; ok | metrics_notify_return().
+        |  xmpp_send_element(Server, #xmlel{name = Name, attrs = Attrs}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, xmppStanzaCount}, 1),</font>
+<font color=red>     0..|      case lists:keyfind(&lt;&lt;"type"&gt;&gt;, 1, Attrs) of</font>
+        |          {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"error"&gt;&gt;} -&gt;
+<font color=red>     0..|              mongoose_metrics:update({Server, xmppErrorTotal}, 1),</font>
+<font color=red>     0..|              case Name of</font>
+        |                  &lt;&lt;"iq"&gt;&gt; -&gt;
+<font color=red>     0..|                      mongoose_metrics:update({Server, xmppErrorIq},1);</font>
+        |                  &lt;&lt;"message"&gt;&gt; -&gt;
+<font color=red>     0..|                      mongoose_metrics:update({Server, xmppErrorMessage},1);</font>
+        |                  &lt;&lt;"presence"&gt;&gt; -&gt;
+<font color=red>     0..|                      mongoose_metrics:update({Server, xmppErrorPresence}, 1)</font>
+        |              end;
+<font color=red>     0..|          _ -&gt; ok</font>
+        |      end;
+        |  xmpp_send_element(_, _) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% Roster
+        |  
+        |  -spec roster_get(list(), {_, ejabberd:server()}) -&gt; list().
+        |  roster_get(Acc, {_, Server}) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modRosterGets}, 1),</font>
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  -spec roster_set(JID :: ejabberd:jid(), tuple(), tuple()) -&gt; metrics_notify_return().
+        |  roster_set(#jid{server = Server},_,_) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modRosterSets}, 1).</font>
+        |  
+        |  -spec roster_in_subscription(term(), binary(), binary(), tuple(), atom(), term()) -&gt; term().
+        |  roster_in_subscription(Acc,_,Server,_,subscribed,_) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modPresenceSubscriptions}, 1),</font>
+<font color=red>     0..|      Acc;</font>
+        |  roster_in_subscription(Acc,_,Server,_,unsubscribed,_) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modPresenceUnsubscriptions}, 1),</font>
+<font color=red>     0..|      Acc;</font>
+        |  roster_in_subscription(Acc,_,_,_,_,_) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  -spec roster_push(ejabberd:jid(),term()) -&gt; metrics_notify_return().
+        |  roster_push(#jid{server = Server},_) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modRosterPush}, 1).</font>
+        |  
+        |  %% Register
+        |  
+        |  -spec register_user(binary(), ejabberd:server()) -&gt; metrics_notify_return().
+        |  register_user(_,Server) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modRegisterCount}, 1).</font>
+        |  
+        |  -spec remove_user(binary(), ejabberd:server()) -&gt; metrics_notify_return().
+        |  remove_user(_,Server) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modUnregisterCount}, 1).</font>
+        |  
+        |  %% Privacy
+        |  
+        |  -spec privacy_iq_get(term(), ejabberd:jid(), ejabberd:jid(), term(), term()) -&gt; term().
+        |  privacy_iq_get(Acc, #jid{server  = Server}, _, _, _) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modPrivacyGets}, 1),</font>
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  -spec privacy_iq_set(Acc :: term(),
+        |                       From :: ejabberd:jid(),
+        |                       _To :: ejabberd:jid(),
+        |                       _IQ :: ejabberd:iq()) -&gt; ok | metrics_notify_return() | term().
+        |  privacy_iq_set(Acc, #jid{server = Server}, _To, #iq{sub_el = SubEl}) -&gt;
+<font color=red>     0..|      #xmlel{children = Els} = SubEl,</font>
+<font color=red>     0..|      case xml:remove_cdata(Els) of</font>
+        |          [#xmlel{name = &lt;&lt;"active"&gt;&gt;}] -&gt;
+<font color=red>     0..|              mongoose_metrics:update({Server, modPrivacySetsActive}, 1);</font>
+        |          [#xmlel{name = &lt;&lt;"default"&gt;&gt;}] -&gt;
+<font color=red>     0..|              mongoose_metrics:update({Server, modPrivacySetsDefault}, 1);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      mongoose_metrics:update({Server, modPrivacySets}, 1),</font>
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  -spec privacy_list_push(_From :: ejabberd:jid(),
+        |                          To :: ejabberd:jid(),
+        |                          Broadcast :: ejabberd_c2s:broadcast(),
+        |                          SessionCount :: non_neg_integer()) -&gt; ok | metrics_notify_return().
+        |  privacy_list_push(_From, #jid{server = Server} = _To, _Broadcast, SessionCount) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modPrivacyPush}, SessionCount).</font>
+        |  
+        |  user_ping_timeout(_JID) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec privacy_check_packet(Acc :: allow | deny,
+        |                            binary(),
+        |                            Server :: ejabberd:server(),
+        |                            term(), term(), term()) -&gt; allow | deny.
+        |  privacy_check_packet(Acc, _, Server, _, _, _) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Server, modPrivacyStanzaAll}, 1),</font>
+<font color=red>     0..|      case Acc of</font>
+        |          deny -&gt;
+<font color=red>     0..|              mongoose_metrics:update({Server, modPrivacyStanzaBlocked}, 1);</font>
+        |          allow -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  %% ----------------------------------------------------------------------------
+        |  %% mod_mam
+        |  
+        |  -spec mam_get_prefs(Result :: any(),
+        |                      Host :: ejabberd:server(),
+        |                      _ArcID :: mod_mam:archive_id(),
+        |                      _ArcJID :: ejabberd:jid()) -&gt; any().
+        |  mam_get_prefs(Result, Host, _ArcID, _ArcJID) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamPrefsGets}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  -spec mam_set_prefs(Result :: any(), Host :: ejabberd:server(),
+        |      _ArcID :: mod_mam:archive_id(), _ArcJID :: ejabberd:jid(),
+        |      _DefaultMode :: any(), _AlwaysJIDs :: [ejabberd:literal_jid()],
+        |      _NeverJIDs :: [ejabberd:literal_jid()]) -&gt; any().
+        |  mam_set_prefs(Result, Host, _ArcID, _ArcJID, _DefaultMode, _AlwaysJIDs, _NeverJIDs) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamPrefsSets}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  -spec mam_remove_archive(Host :: ejabberd:server(),
+        |                           _ArcID :: mod_mam:archive_id(),
+        |                           _ArcJID :: ejabberd:jid()) -&gt; metrics_notify_return().
+        |  mam_remove_archive(Host, _ArcID, _ArcJID) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamArchiveRemoved}, 1).</font>
+        |  
+        |  mam_lookup_messages(Result = {ok, {_TotalCount, _Offset, MessageRows}},
+        |      Host, _ArcID, _ArcJID,
+        |      _RSM, _Borders,
+        |      _Start, _End, _Now, _WithJID,
+        |      _PageSize, _LimitPassed, _MaxResultLimit, IsSimple) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamForwarded}, length(MessageRows)),</font>
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamLookups}, 1),</font>
+<font color=red>     0..|      case IsSimple of</font>
+        |          true -&gt;
+<font color=red>     0..|              mongoose_metrics:update([Host, modMamLookups, simple], 1);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      Result;</font>
+        |  mam_lookup_messages(Result = {error, _},
+        |      _Host, _ArcID, _ArcJID,
+        |      _RSM, _Borders,
+        |      _Start, _End, _Now, _WithJID,
+        |      _PageSize, _LimitPassed, _MaxResultLimit, _IsSimple) -&gt;
+<font color=red>     0..|      Result.</font>
+        |  
+        |  -spec mam_archive_message(Result :: any(), Host :: ejabberd:server(),
+        |      _MessId :: mod_mam:message_id(), _ArcID :: mod_mam:archive_id(),
+        |      _LocJID :: ejabberd:jid(), _RemJID :: ejabberd:jid(),
+        |      _SrcJID :: ejabberd:jid(), _Dir :: atom(), _Packet :: jlib:xmlel()) -&gt; any().
+        |  mam_archive_message(Result, Host,
+        |      _MessID, _ArcID, _LocJID, _RemJID, _SrcJID, _Dir, _Packet) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamArchived}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  -spec mam_flush_messages(Host :: ejabberd:server(),
+        |                           MessageCount :: integer()) -&gt; metrics_notify_return().
+        |  mam_flush_messages(Host, MessageCount) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamFlushed}, MessageCount).</font>
+        |  
+        |  -spec mam_drop_message(Host :: ejabberd:server()) -&gt; metrics_notify_return().
+        |  mam_drop_message(Host) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamDropped}, 1).</font>
+        |  
+        |  -spec mam_drop_iq(Host :: ejabberd:server(), _To :: ejabberd:jid(),
+        |      _IQ :: ejabberd:iq(), _Action :: any(), _Reason :: any()) -&gt; metrics_notify_return().
+        |  mam_drop_iq(Host, _To, _IQ, _Action, _Reason) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamDroppedIQ}, 1).</font>
+        |  
+        |  -spec mam_drop_messages(Host :: ejabberd:server(),
+        |                          Count :: integer()) -&gt; metrics_notify_return().
+        |  mam_drop_messages(Host, Count) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamDropped2}, Count).</font>
+        |  
+        |  mam_purge_single_message(Result, Host, _MessID, _ArcID, _ArcJID, _Now) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamSinglePurges}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  mam_purge_multiple_messages(Result, Host,
+        |      _ArcID, _ArcJID, _Borders, _Start, _End, _Now, _WithJID) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMamMultiplePurges}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  
+        |  %% ----------------------------------------------------------------------------
+        |  %% mod_mam_muc
+        |  
+        |  mam_muc_get_prefs(Result, Host, _ArcID, _ArcJID) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamPrefsGets}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  mam_muc_set_prefs(Result, Host, _ArcID, _ArcJID, _DefaultMode, _AlwaysJIDs, _NeverJIDs) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamPrefsSets}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  mam_muc_remove_archive(Host, _ArcID, _ArcJID) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamArchiveRemoved}, 1).</font>
+        |  
+        |  mam_muc_lookup_messages(Result = {ok, {_TotalCount, _Offset, MessageRows}},
+        |      Host, _ArcID, _ArcJID,
+        |      _RSM, _Borders,
+        |      _Start, _End, _Now, _WithJID,
+        |      _PageSize, _LimitPassed, _MaxResultLimit, _IsSimple) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamForwarded}, length(MessageRows)),</font>
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamLookups}, 1),</font>
+<font color=red>     0..|      Result;</font>
+        |  mam_muc_lookup_messages(Result = {error, _},
+        |      _Host, _ArcID, _ArcJID,
+        |      _RSM, _Borders,
+        |      _Start, _End, _Now, _WithJID,
+        |      _PageSize, _LimitPassed, _MaxResultLimit, _IsSimple) -&gt;
+<font color=red>     0..|      Result.</font>
+        |  
+        |  
+        |  mam_muc_archive_message(Result, Host,
+        |      _MessID, _ArcID, _LocJID, _RemJID, _SrcJID, _Dir, _Packet) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamArchived}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  mam_muc_flush_messages(Host, MessageCount) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamFlushed}, MessageCount).</font>
+        |  
+        |  mam_muc_drop_message(Host) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamDropped}, 1).</font>
+        |  
+        |  mam_muc_drop_iq(Host, _To, _IQ, _Action, _Reason) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamDroppedIQ}, 1).</font>
+        |  
+        |  mam_muc_drop_messages(Host, Count) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamDropped2}, Count).</font>
+        |  
+        |  -spec mam_muc_purge_single_message(Result :: any(), Host :: ejabberd:server(),
+        |      _MessID :: mod_mam:message_id(), _ArcID :: mod_mam:archive_id(),
+        |      _ArcJID :: ejabberd:jid(), _Now :: mod_mam:unix_timestamp()) -&gt; any().
+        |  mam_muc_purge_single_message(Result, Host, _MessID, _ArcID, _ArcJID, _Now) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamSinglePurges}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  -spec mam_muc_purge_multiple_messages(Result :: any(),
+        |      Host :: ejabberd:server(), _ArcID :: mod_mam:archive_id(),
+        |      _ArcJID :: ejabberd:jid(), _Borders :: any(), _Start :: any(),
+        |      _End :: any(), _Now :: mod_mam:unix_timestamp(), _WithJID :: any()) -&gt; any().
+        |  mam_muc_purge_multiple_messages(Result, Host,
+        |      _ArcID, _ArcJID, _Borders, _Start, _End, _Now, _WithJID) -&gt;
+<font color=red>     0..|      mongoose_metrics:update({Host, modMucMamMultiplePurges}, 1),</font>
+<font color=red>     0..|      Result.</font>
+        |  
+        |  
+        |  
+        |  %%% vim: set sts=4 ts=4 sw=4 et filetype=erlang foldmarker=%%%',%%%. foldmethod=marker:
+</pre>
+</body>
+</html>

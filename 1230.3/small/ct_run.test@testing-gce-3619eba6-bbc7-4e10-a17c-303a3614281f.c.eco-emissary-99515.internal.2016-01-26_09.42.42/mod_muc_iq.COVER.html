@@ -1,0 +1,158 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mod_muc_iq.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_muc_iq.erl by COVER 2016-01-26 at 09:43:12
+
+****************************************************************************
+
+        |  %% @doc Stores a table of custom IQ-handlers for mod_muc_room.
+        |  -module(mod_muc_iq).
+        |  -export([start_link/0,
+        |           process_iq/4,
+        |           register_iq_handler/4,
+        |           register_iq_handler/5,
+        |           unregister_iq_handler/2]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  -compile({inline, [srv_name/0, tbl_name/0]}).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  -record(state, {}).
+        |  
+        |  %% @private
+        |  srv_name() -&gt;
+<font color=red>     0..|      ejabberd_mod_muc_iq.</font>
+        |  
+        |  tbl_name() -&gt;
+<font color=red>     0..|      ejabberd_mod_muc_iq_table.</font>
+        |  
+        |  %%====================================================================
+        |  %% API
+        |  %%====================================================================
+        |  
+        |  -spec start_link() -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link() -&gt;
+<font color=red>     0..|      gen_server:start_link({local, srv_name()}, ?MODULE, [], []).</font>
+        |  
+        |  
+        |  %% @doc Handle custom IQ.
+        |  %% Called from mod_muc_room.
+        |  -spec process_iq(ejabberd:server(), ejabberd:jid(), ejabberd:jid(),
+        |          ejabberd:iq()) -&gt; error | ignore | any().
+        |  process_iq(Host, From, RoomJID, IQ = #iq{xmlns = XMLNS}) -&gt;
+<font color=red>     0..|      case ets:lookup(tbl_name(), {XMLNS, Host}) of</font>
+        |          [{_, Module, Function}] -&gt;
+        |              %% TODO: Introduce some stricter type checking here
+<font color=red>     0..|              Module:Function(From, RoomJID, IQ);</font>
+        |          [{_, Module, Function, Opts}] -&gt;
+<font color=red>     0..|              gen_iq_handler:handle(Host, Module, Function, Opts, From,</font>
+        |                                    RoomJID, IQ),
+<font color=red>     0..|              ignore;</font>
+<font color=red>     0..|          [] -&gt; error</font>
+        |      end.
+        |  
+        |  
+        |  -spec register_iq_handler(ejabberd:server(), binary(), module(), atom()) -&gt; 'ok'.
+        |  register_iq_handler(Host, XMLNS, Module, Fun) -&gt;
+<font color=red>     0..|      gen_server:cast(srv_name(),</font>
+        |                      {register_iq_handler, Host, XMLNS, Module, Fun}).
+        |  
+        |  
+        |  -spec register_iq_handler(ejabberd:server(), binary(), module(), atom(), any())
+        |              -&gt; 'ok'.
+        |  register_iq_handler(Host, XMLNS, Module, Fun, Opts) -&gt;
+<font color=red>     0..|      gen_server:cast(srv_name(),</font>
+        |                      {register_iq_handler, Host, XMLNS, Module, Fun, Opts}).
+        |  
+        |  
+        |  -spec unregister_iq_handler(ejabberd:server(), binary()) -&gt; 'ok'.
+        |  unregister_iq_handler(Host, XMLNS) -&gt;
+<font color=red>     0..|      gen_server:cast(srv_name(),</font>
+        |                      {unregister_iq_handler, Host, XMLNS}).
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  init([]) -&gt;
+<font color=red>     0..|      ets:new(tbl_name(), [named_table, protected]),</font>
+<font color=red>     0..|      {ok, #state{}}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_cast({register_iq_handler, Host, XMLNS, Module, Function}, State) -&gt;
+<font color=red>     0..|      ets:insert(tbl_name(), {{XMLNS, Host}, Module, Function}),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_cast({register_iq_handler, Host, XMLNS, Module, Function, Opts}, State) -&gt;
+<font color=red>     0..|      ets:insert(tbl_name(), {{XMLNS, Host}, Module, Function, Opts}),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_cast({unregister_iq_handler, Host, XMLNS}, State) -&gt;
+<font color=red>     0..|      ets:delete(tbl_name(), {XMLNS, Host}),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_info(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+</pre>
+</body>
+</html>

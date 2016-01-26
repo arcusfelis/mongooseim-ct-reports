@@ -1,0 +1,59 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/amp_resolver.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/amp_resolver.erl by COVER 2016-01-26 at 09:43:10
+
+****************************************************************************
+
+        |  -module(amp_resolver).
+        |  %% @doc This module is responsible for checking whether particular AMP semantics
+        |  %%      apply for a given message.
+        |  
+        |  -export([check_condition/4,
+        |           verify_support/2
+        |          ]).
+        |  
+        |  -include_lib("ejabberd/include/amp.hrl").
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -include_lib("ejabberd/include/jlib.hrl").
+        |  
+        |  -spec verify_support(any(), amp_rules()) -&gt; [ amp_rule_support() ].
+        |  verify_support(HookAcc, Rules) -&gt;
+<font color=red>     0..|      HookAcc ++ [ verify_rule_support(Rule) || Rule &lt;- Rules ].</font>
+        |  
+        |  -spec verify_rule_support(amp_rule()) -&gt; amp_rule_support().
+        |  verify_rule_support(#amp_rule{action = drop} = Rule) -&gt;
+<font color=red>     0..|      {error, 'unsupported-actions', Rule};</font>
+        |  verify_rule_support(#amp_rule{action = alert} = Rule) -&gt;
+<font color=red>     0..|      {error, 'unsupported-actions', Rule};</font>
+        |  verify_rule_support(#amp_rule{condition = 'expire-at'} = Rule) -&gt;
+<font color=red>     0..|      {error, 'unsupported-conditions', Rule};</font>
+        |  verify_rule_support(Rule) -&gt;
+<font color=red>     0..|      {supported, Rule}.</font>
+        |  
+        |  -spec check_condition(any(), amp_strategy(), amp_condition(), amp_value())
+        |                            -&gt; boolean().
+        |  check_condition(HookAcc, Strategy, Condition, Value) -&gt;
+<font color=red>     0..|      case HookAcc of</font>
+<font color=red>     0..|          true -&gt; true;</font>
+<font color=red>     0..|          _    -&gt; resolve(Strategy, Condition, Value)</font>
+        |      end.
+        |  
+        |  -spec resolve(amp_strategy(), amp_condition(), amp_value()) -&gt; boolean().
+        |  resolve(#amp_strategy{} = S , 'deliver', Value) -&gt;
+<font color=red>     0..|      S#amp_strategy.deliver =:= Value;</font>
+        |  resolve(#amp_strategy{} = S , 'match-resource', Value) when Value =:= 'any' -&gt;
+<font color=red>     0..|      S#amp_strategy.'match-resource' =/= undefined;</font>
+        |  resolve(#amp_strategy{} = S , 'match-resource', Value)  -&gt;
+<font color=red>     0..|      S#amp_strategy.'match-resource' =:= Value;</font>
+        |  resolve(#amp_strategy{} = S , 'expire-at', Value) -&gt;
+        |      %% WARNING: This rule is not supported by mod_amp
+<font color=red>     0..|      S#amp_strategy.'expire-at' =:= Value;</font>
+<font color=red>     0..|  resolve(#amp_strategy{}, _, _) -&gt; false.</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/ejabberd_hooks.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_hooks.erl by COVER 2016-01-26 at 09:43:12
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_hooks.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Manage hooks
+        |  %%% Created :  8 Aug 2004 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_hooks).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(gen_server).
+        |  
+        |  %% External exports
+        |  -export([start_link/0,
+        |           add/4,
+        |           add/5,
+        |           delete/4,
+        |           delete/5,
+        |           run/2,
+        |           run/3,
+        |           run_fold/3,
+        |           run_fold/4]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1,
+        |           handle_call/3,
+        |           handle_cast/2,
+        |           code_change/3,
+        |           handle_info/2,
+        |           terminate/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  
+        |  -record(state, {}).
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  start_link() -&gt;
+<font color=red>     0..|      gen_server:start_link({local, ejabberd_hooks}, ejabberd_hooks, [], []).</font>
+        |  
+        |  %% @doc Add a fun to the given hook.
+        |  %% The integer sequence is used to sort the calls:
+        |  %% low numbers are executed before high numbers.
+        |  -spec add(Hook :: atom(),
+        |            Host :: ejabberd:server() | global,
+        |            Function :: fun() | atom(),
+        |            Seq :: integer()) -&gt; ok.
+        |  add(Hook, Host, Function, Seq) when is_function(Function) -&gt;
+<font color=red>     0..|      add(Hook, Host, undefined, Function, Seq).</font>
+        |  
+        |  %% @doc Add a module and function to the given hook.
+        |  %% The integer sequence is used to sort the calls:
+        |  %% low numbers are executed before high numbers.
+        |  -spec add(Hook :: atom(),
+        |            Host :: ejabberd:server() | global,
+        |            Module :: atom(),
+        |            Function :: fun() | atom(),
+        |            Seq :: integer()) -&gt; ok.
+        |  add(Hook, Host, Module, Function, Seq) -&gt;
+<font color=red>     0..|      gen_server:call(ejabberd_hooks, {add, Hook, Host, Module, Function, Seq}).</font>
+        |  
+        |  %% @doc Delete a module and function from this hook.
+        |  %% It is important to indicate exactly the same information than when the call was added.
+        |  -spec delete(Hook :: atom(),
+        |               Host :: ejabberd:server() | global,
+        |               Function :: fun() | atom(),
+        |               Seq :: integer()) -&gt; ok.
+        |  delete(Hook, Host, Function, Seq) when is_function(Function) -&gt;
+<font color=red>     0..|      delete(Hook, Host, undefined, Function, Seq).</font>
+        |  
+        |  -spec delete(Hook :: atom(),
+        |               Host :: ejabberd:server() | global,
+        |               Module :: atom(),
+        |               Function :: fun() | atom(),
+        |               Seq :: integer()) -&gt; ok.
+        |  delete(Hook, Host, Module, Function, Seq) -&gt;
+<font color=red>     0..|      gen_server:call(ejabberd_hooks, {delete, Hook, Host, Module, Function, Seq}).</font>
+        |  
+        |  %% @doc Run the calls of this hook in order, don't care about function results.
+        |  %% If a call returns stop, no more calls are performed.
+        |  -spec run(Hook :: atom(),
+        |            Args :: [any()]) -&gt; ok.
+        |  run(Hook, Args) -&gt;
+<font color=red>     0..|      run(Hook, global, Args).</font>
+        |  
+        |  -spec run(Hook :: atom(),
+        |            Host :: ejabberd:server() | global,
+        |            Args :: [any()]) -&gt; ok.
+        |  run(Hook, Host, Args) -&gt;
+<font color=red>     0..|      case ets:lookup(hooks, {Hook, Host}) of</font>
+        |          [{_, Ls}] -&gt;
+<font color=red>     0..|              mongoose_metrics:increment_generic_hook_metric(Host, Hook),</font>
+<font color=red>     0..|              run1(Ls, Hook, Args);</font>
+        |          [] -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  %% @spec (Hook::atom(), Val, Args) -&gt; Val | stopped | NewVal
+        |  %% @doc Run the calls of this hook in order.
+        |  %% The arguments passed to the function are: [Val | Args].
+        |  %% The result of a call is used as Val for the next call.
+        |  %% If a call returns 'stop', no more calls are performed and 'stopped' is returned.
+        |  %% If a call returns {stopped, NewVal}, no more calls are performed and NewVal is returned.
+        |  run_fold(Hook, Val, Args) -&gt;
+<font color=red>     0..|      run_fold(Hook, global, Val, Args).</font>
+        |  
+        |  run_fold(Hook, Host, Val, Args) -&gt;
+<font color=red>     0..|      case ets:lookup(hooks, {Hook, Host}) of</font>
+        |          [{_, Ls}] -&gt;
+<font color=red>     0..|              mongoose_metrics:increment_generic_hook_metric(Host, Hook),</font>
+<font color=red>     0..|              run_fold1(Ls, Hook, Val, Args);</font>
+        |          [] -&gt;
+<font color=red>     0..|              Val</font>
+        |      end.
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Callback functions from gen_server
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: init/1
+        |  %% Returns: {ok, State}          |
+        |  %%          {ok, State, Timeout} |
+        |  %%          ignore               |
+        |  %%          {stop, Reason}
+        |  %%----------------------------------------------------------------------
+        |  init([]) -&gt;
+<font color=red>     0..|      ets:new(hooks, [named_table, {read_concurrency,true}]),</font>
+<font color=red>     0..|      {ok, #state{}}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_call/3
+        |  %% Returns: {reply, Reply, State}          |
+        |  %%          {reply, Reply, State, Timeout} |
+        |  %%          {noreply, State}               |
+        |  %%          {noreply, State, Timeout}      |
+        |  %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
+        |  %%          {stop, Reason, State}            (terminate/2 is called)
+        |  %%----------------------------------------------------------------------
+        |  handle_call({add, Hook, Host, Module, Function, Seq}, _From, State) -&gt;
+<font color=red>     0..|      Reply = case ets:lookup(hooks, {Hook, Host}) of</font>
+        |                  [{_, Ls}] -&gt;
+<font color=red>     0..|                      El = {Seq, Module, Function},</font>
+<font color=red>     0..|                      case lists:member(El, Ls) of</font>
+        |                          true -&gt;
+<font color=red>     0..|                              ok;</font>
+        |                          false -&gt;
+<font color=red>     0..|                              NewLs = lists:merge(Ls, [El]),</font>
+<font color=red>     0..|                              ets:insert(hooks, {{Hook, Host}, NewLs}),</font>
+<font color=red>     0..|                              ok</font>
+        |                      end;
+        |                  [] -&gt;
+<font color=red>     0..|                      NewLs = [{Seq, Module, Function}],</font>
+<font color=red>     0..|                      ets:insert(hooks, {{Hook, Host}, NewLs}),</font>
+<font color=red>     0..|                      mongoose_metrics:create_generic_hook_metric(Host, Hook),</font>
+<font color=red>     0..|                      ok</font>
+        |              end,
+<font color=red>     0..|      {reply, Reply, State};</font>
+        |  
+        |  handle_call({delete, Hook, Host, Module, Function, Seq}, _From, State) -&gt;
+<font color=red>     0..|      Reply = case ets:lookup(hooks, {Hook, Host}) of</font>
+        |                  [{_, Ls}] -&gt;
+<font color=red>     0..|                      NewLs = lists:delete({Seq, Module, Function}, Ls),</font>
+<font color=red>     0..|                      ets:insert(hooks, {{Hook, Host}, NewLs}),</font>
+<font color=red>     0..|                      ok;</font>
+        |                  [] -&gt;
+<font color=red>     0..|                      ok</font>
+        |              end,
+<font color=red>     0..|      {reply, Reply, State};</font>
+        |  
+        |  handle_call(_Request, _From, State) -&gt;
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, State}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_cast/2
+        |  %% Returns: {noreply, State}          |
+        |  %%          {noreply, State, Timeout} |
+        |  %%          {stop, Reason, State}            (terminate/2 is called)
+        |  %%----------------------------------------------------------------------
+        |  handle_cast(_Msg, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: handle_info/2
+        |  %% Returns: {noreply, State}          |
+        |  %%          {noreply, State, Timeout} |
+        |  %%          {stop, Reason, State}            (terminate/2 is called)
+        |  %%----------------------------------------------------------------------
+        |  handle_info(_Info, State) -&gt;
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%----------------------------------------------------------------------
+        |  %% Func: terminate/2
+        |  %% Purpose: Shutdown the server
+        |  %% Returns: any (ignored by gen_server)
+        |  %%----------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% Internal functions
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  run1([], _Hook, _Args) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  run1([{_Seq, Module, Function} | Ls], Hook, Args) -&gt;
+<font color=red>     0..|      Res = if is_function(Function) -&gt;</font>
+<font color=red>     0..|                    safely:apply(Function, Args);</font>
+        |               true -&gt;
+<font color=red>     0..|                    safely:apply(Module, Function, Args)</font>
+        |            end,
+<font color=red>     0..|      case Res of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p~n    Running hook: ~p~n    Callback: ~p:~p",</font>
+        |                         [Reason, {Hook, Args}, Module, Function]),
+<font color=red>     0..|              run1(Ls, Hook, Args);</font>
+        |          stop -&gt;
+<font color=red>     0..|              ok;</font>
+        |          _ -&gt;
+<font color=red>     0..|              run1(Ls, Hook, Args)</font>
+        |      end.
+        |  
+        |  run_fold1([], _Hook, Val, _Args) -&gt;
+<font color=red>     0..|      Val;</font>
+        |  run_fold1([{_Seq, Module, Function} | Ls], Hook, Val, Args) -&gt;
+<font color=red>     0..|      Res = if is_function(Function) -&gt;</font>
+<font color=red>     0..|                    safely:apply(Function, [Val | Args]);</font>
+        |               true -&gt;
+<font color=red>     0..|                    safely:apply(Module, Function, [Val | Args])</font>
+        |            end,
+<font color=red>     0..|      case Res of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~p~nrunning hook: ~p",</font>
+        |                         [Reason, {Hook, Args}]),
+<font color=red>     0..|              run_fold1(Ls, Hook, Val, Args);</font>
+        |          stop -&gt;
+<font color=red>     0..|              stopped;</font>
+        |          {stop, NewVal} -&gt;
+<font color=red>     0..|              NewVal;</font>
+        |          NewVal -&gt;
+<font color=red>     0..|              run_fold1(Ls, Hook, NewVal, Args)</font>
+        |      end.
+</pre>
+</body>
+</html>

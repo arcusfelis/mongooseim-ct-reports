@@ -1,0 +1,542 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mod_offline.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_offline.erl by COVER 2016-01-26 at 09:43:22
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_offline.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Store and manage offline messages
+        |  %%% See     : XEP-0160: Best Practices for Handling Offline Messages
+        |  %%% Created :  5 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_offline).
+        |  -author('alexey@process-one.net').
+        |  -xep([{xep, 160}, {version, "1.0"}]).
+        |  -xep([{xep, 23}, {version, "1.3"}]).
+        |  -xep([{xep, 22}, {version, "1.4"}]).
+        |  -xep([{xep, 85}, {version, "2.1"}]).
+        |  -behaviour(gen_mod).
+        |  
+        |  %% gen_mod handlers
+        |  -export([start/2, stop/1]).
+        |  
+        |  %% Hook handlers
+        |  -export([inspect_packet/3,
+        |           pop_offline_messages/3,
+        |           get_sm_features/5,
+        |           remove_expired_messages/1,
+        |           remove_old_messages/2,
+        |           remove_user/2]).
+        |  
+        |  %% Internal exports
+        |  -export([start_link/3]).
+        |  
+        |  %% gen_server callbacks
+        |  -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        |           terminate/2, code_change/3]).
+        |  
+        |  %% helpers to be used from backend moudules
+        |  -export([is_expired_message/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("mod_offline.hrl").
+        |  
+        |  -define(PROCNAME, ejabberd_offline).
+        |  
+        |  %% default value for the maximum number of user messages
+        |  -define(MAX_USER_MESSAGES, infinity).
+        |  -define(BACKEND, mod_offline_backend).
+        |  
+        |  -type msg() :: #offline_msg{us :: {ejabberd:luser(), ejabberd:lserver()},
+        |                            timestamp :: erlang:timestamp(),
+        |                            expire :: erlang:timestamp() | never,
+        |                            from :: jid(),
+        |                            to :: jid(),
+        |                            packet :: exml:element()}.
+        |  
+        |  -export_type([msg/0]).
+        |  
+        |  -record(state, {host, access_max_user_messages}).
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Backend callbacks
+        |  
+        |  -callback init(Host, Opts) -&gt; ok when
+        |      Host :: binary(),
+        |      Opts :: list().
+        |  -callback pop_messages(LUser, LServer) -&gt; {ok, Result} | {error, Reason} when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Reason :: term(),
+        |      Result :: list(#offline_msg{}).
+        |  -callback write_messages(LUser, LServer, Msgs) -&gt;
+        |      ok | {error, Reason}  when
+        |      LUser :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Msgs :: list(),
+        |      Reason :: term().
+        |  -callback count_offline_messages(LUser, LServer, MaxToArchive) -&gt; integer() when
+        |        LUser :: ejabberd:luser(),
+        |        LServer :: ejabberd:lserver(),
+        |        MaxToArchive :: integer().
+        |  -callback remove_expired_messages(Host) -&gt; {error, Reason} | {ok, Count} when
+        |      Host :: ejabberd:lserver(),
+        |      Reason :: term(),
+        |      Count :: integer().
+        |  -callback remove_old_messages(Host, Timestamp) -&gt; {error, Reason} | {ok, Count} when
+        |      Host :: ejabberd:lserver(),
+        |      Timestamp :: erlang:timestamp(),
+        |      Reason :: term(),
+        |      Count :: integer().
+        |  -callback remove_user(LUser, LServer) -&gt; any() when
+        |      LUser :: binary(),
+        |      LServer :: binary().
+        |  
+        |  %% gen_mod callbacks
+        |  %% ------------------------------------------------------------------
+        |  
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      AccessMaxOfflineMsgs = gen_mod:get_opt(access_max_user_messages, Opts,</font>
+        |                                             max_user_offline_messages),
+<font color=red>     0..|      gen_mod:start_backend_module(?MODULE, Opts, [pop_messages, write_messages]),</font>
+<font color=red>     0..|      ?BACKEND:init(Host, Opts),</font>
+<font color=red>     0..|      start_worker(Host, AccessMaxOfflineMsgs),</font>
+<font color=red>     0..|      ejabberd_hooks:add(offline_message_hook, Host,</font>
+        |  		       ?MODULE, inspect_packet, 50),
+<font color=red>     0..|      ejabberd_hooks:add(resend_offline_messages_hook, Host,</font>
+        |  		       ?MODULE, pop_offline_messages, 50),
+<font color=red>     0..|      ejabberd_hooks:add(remove_user, Host,</font>
+        |  		       ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:add(anonymous_purge_hook, Host,</font>
+        |  		       ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:add(disco_sm_features, Host,</font>
+        |  		       ?MODULE, get_sm_features, 50),
+<font color=red>     0..|      ejabberd_hooks:add(disco_local_features, Host,</font>
+        |  		       ?MODULE, get_sm_features, 50),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(offline_message_hook, Host,</font>
+        |  			  ?MODULE, inspect_packet, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(resend_offline_messages_hook, Host,</font>
+        |  			  ?MODULE, pop_offline_messages, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(remove_user, Host,</font>
+        |  			  ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(anonymous_purge_hook, Host,</font>
+        |  			  ?MODULE, remove_user, 50),
+<font color=red>     0..|      ejabberd_hooks:delete(disco_sm_features, Host, ?MODULE, get_sm_features, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(disco_local_features, Host, ?MODULE, get_sm_features, 50),</font>
+<font color=red>     0..|      stop_worker(Host),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %% Server side functions
+        |  %% ------------------------------------------------------------------
+        |  
+        |  handle_offline_msg(#offline_msg{us=US} = Msg, AccessMaxOfflineMsgs) -&gt;
+<font color=red>     0..|      {LUser, LServer} = US,</font>
+<font color=red>     0..|      Msgs = receive_all(US, [Msg]),</font>
+<font color=red>     0..|      MaxOfflineMsgs = get_max_user_messages(AccessMaxOfflineMsgs, LUser, LServer),</font>
+<font color=red>     0..|      Len = length(Msgs),</font>
+<font color=red>     0..|      case is_message_count_threshold_reached(MaxOfflineMsgs, LUser, LServer, Len) of</font>
+        |          false -&gt;
+<font color=red>     0..|              write_messages(LUser, LServer, Msgs);</font>
+        |          true -&gt;
+<font color=red>     0..|              discard_warn_sender(Msgs)</font>
+        |      end.
+        |  
+        |  write_messages(LUser, LServer, Msgs) -&gt;
+<font color=red>     0..|      case ?BACKEND:write_messages(LUser, LServer, Msgs) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              ok;</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~ts@~ts: write_messages failed with ~p.",</font>
+        |                  [LUser, LServer, Reason]),
+<font color=red>     0..|              discard_warn_sender(Msgs)</font>
+        |      end.
+        |  
+        |  -spec is_message_count_threshold_reached(integer(), ejabberd:luser(),
+        |                                           ejabberd:lserver(), integer()) -&gt;
+        |      boolean().
+        |  is_message_count_threshold_reached(infinity, _LUser, _LServer, _Len) -&gt;
+<font color=red>     0..|      false;</font>
+        |  is_message_count_threshold_reached(MaxOfflineMsgs, _LUser, _LServer, Len) when Len &gt; MaxOfflineMsgs -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_message_count_threshold_reached(MaxOfflineMsgs, LUser, LServer, Len) -&gt;
+        |      %% Only count messages if needed.
+<font color=red>     0..|      MaxArchivedMsg = MaxOfflineMsgs - Len,</font>
+        |      %% Maybe do not need to count all messages in archive
+<font color=red>     0..|      MaxArchivedMsg &lt; ?BACKEND:count_offline_messages(LUser, LServer, MaxArchivedMsg + 1).</font>
+        |  
+        |  
+        |  
+        |  get_max_user_messages(AccessRule, LUser, Host) -&gt;
+<font color=red>     0..|      case acl:match_rule(Host, AccessRule, jid:make(LUser, Host, &lt;&lt;&gt;&gt;)) of</font>
+<font color=red>     0..|          Max when is_integer(Max) -&gt; Max;</font>
+<font color=red>     0..|          infinity -&gt; infinity;</font>
+<font color=red>     0..|          _ -&gt; ?MAX_USER_MESSAGES</font>
+        |      end.
+        |  
+        |  receive_all(US, Msgs) -&gt;
+<font color=red>     0..|      receive</font>
+        |          #offline_msg{us=US} = Msg -&gt;
+<font color=red>     0..|              receive_all(US, [Msg | Msgs])</font>
+        |      after 0 -&gt;
+<font color=red>     0..|                Msgs</font>
+        |      end.
+        |  
+        |  %% Supervision
+        |  %% ------------------------------------------------------------------
+        |  
+        |  start_worker(Host, AccessMaxOfflineMsgs) -&gt;
+<font color=red>     0..|      Proc = srv_name(Host),</font>
+<font color=red>     0..|      ChildSpec =</font>
+        |      {Proc,
+        |       {?MODULE, start_link, [Proc, Host, AccessMaxOfflineMsgs]},
+        |       permanent,
+        |       5000,
+        |       worker,
+        |       [?MODULE]},
+<font color=red>     0..|      supervisor:start_child(ejabberd_sup, ChildSpec),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  stop_worker(Host) -&gt;
+<font color=red>     0..|      Proc = srv_name(Host),</font>
+<font color=red>     0..|      supervisor:terminate_child(ejabberd_sup, Proc),</font>
+<font color=red>     0..|      supervisor:delete_child(ejabberd_sup, Proc).</font>
+        |  
+        |  start_link(Name, Host, AccessMaxOfflineMsgs) -&gt;
+<font color=red>     0..|      gen_server:start_link({local, Name}, ?MODULE, [Host, AccessMaxOfflineMsgs], []).</font>
+        |  
+        |  srv_name() -&gt;
+<font color=red>     0..|      mod_offline.</font>
+        |  
+        |  srv_name(Host) -&gt;
+<font color=red>     0..|      gen_mod:get_module_proc(Host, srv_name()).</font>
+        |  
+        |  %%====================================================================
+        |  %% gen_server callbacks
+        |  %%====================================================================
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: init(Args) -&gt; {ok, State} |
+        |  %%                         {ok, State, Timeout} |
+        |  %%                         ignore               |
+        |  %%                         {stop, Reason}
+        |  %% Description: Initiates the server
+        |  %%--------------------------------------------------------------------
+        |  init([Host, AccessMaxOfflineMsgs]) -&gt;
+<font color=red>     0..|      random:seed(os:timestamp()),</font>
+<font color=red>     0..|      {ok, #state{</font>
+        |              host = Host,
+        |              access_max_user_messages = AccessMaxOfflineMsgs}}.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: %% handle_call(Request, From, State) -&gt; {reply, Reply, State} |
+        |  %%                                      {reply, Reply, State, Timeout} |
+        |  %%                                      {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, Reply, State} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling call messages
+        |  %%--------------------------------------------------------------------
+        |  handle_call(_, _, State) -&gt;
+<font color=red>     0..|      {reply, ok, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_cast(Msg, State) -&gt; {noreply, State} |
+        |  %%                                      {noreply, State, Timeout} |
+        |  %%                                      {stop, Reason, State}
+        |  %% Description: Handling cast messages
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_cast(Msg, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("Strange message ~p.", [Msg]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: handle_info(Info, State) -&gt; {noreply, State} |
+        |  %%                                       {noreply, State, Timeout} |
+        |  %%                                       {stop, Reason, State}
+        |  %% Description: Handling all non call/cast messages
+        |  %%--------------------------------------------------------------------
+        |  handle_info(Msg=#offline_msg{},
+        |              State=#state{access_max_user_messages = AccessMaxOfflineMsgs}) -&gt;
+<font color=red>     0..|      handle_offline_msg(Msg, AccessMaxOfflineMsgs),</font>
+<font color=red>     0..|      {noreply, State};</font>
+        |  handle_info(Msg, State) -&gt;
+<font color=red>     0..|      ?WARNING_MSG("Strange message ~p.", [Msg]),</font>
+<font color=red>     0..|      {noreply, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Function: terminate(Reason, State) -&gt; void()
+        |  %% Description: This function is called by a gen_server when it is about to
+        |  %% terminate. It should be the opposite of Module:init/1 and do any necessary
+        |  %% cleaning up. When it returns, the gen_server terminates with Reason.
+        |  %% The return value is ignored.
+        |  %%--------------------------------------------------------------------
+        |  terminate(_Reason, _State) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Func: code_change(OldVsn, State, Extra) -&gt; {ok, NewState}
+        |  %% Description: Convert process state when code is changed
+        |  %%--------------------------------------------------------------------
+        |  code_change(_OldVsn, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, State}.</font>
+        |  
+        |  
+        |  %% Handlers
+        |  %% ------------------------------------------------------------------
+        |  
+        |  get_sm_features(Acc, _From, _To, &lt;&lt;""&gt;&gt; = _Node, _Lang) -&gt;
+<font color=red>     0..|      add_feature(Acc, ?NS_FEATURE_MSGOFFLINE);</font>
+        |  get_sm_features(_Acc, _From, _To, ?NS_FEATURE_MSGOFFLINE, _Lang) -&gt;
+        |      %% override all lesser features...
+<font color=red>     0..|      {result, []};</font>
+        |  get_sm_features(Acc, _From, _To, _Node, _Lang) -&gt;
+<font color=red>     0..|      Acc.</font>
+        |  
+        |  add_feature({result, Features}, Feature) -&gt;
+<font color=red>     0..|      {result, Features ++ [Feature]};</font>
+        |  add_feature(_, Feature) -&gt;
+<font color=red>     0..|      {result, [Feature]}.</font>
+        |  
+        |  %% This function should be called only from hook
+        |  %% Calling it directly is dangerous and my store unwanted message
+        |  %% in the offline storage (f.e. messages of type error or groupchat)
+        |  inspect_packet(From, To, Packet) -&gt;
+<font color=red>     0..|      case check_event_chatstates(From, To, Packet) of</font>
+        |          true -&gt;
+<font color=red>     0..|              store_packet(From, To, Packet),</font>
+<font color=red>     0..|              stop;</font>
+        |          false -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  store_packet(
+        |          From,
+        |          To = #jid{luser = LUser, lserver = LServer},
+        |          Packet = #xmlel{children = Els}) -&gt;
+<font color=red>     0..|      TimeStamp =</font>
+        |      case xml:get_subtag(Packet, &lt;&lt;"delay"&gt;&gt;) of
+        |          false -&gt;
+<font color=red>     0..|              now();</font>
+        |  
+        |          #xmlel{name= &lt;&lt;"delay"&gt;&gt;, attrs=Attr} -&gt;
+<font color=red>     0..|              case xml:get_attr_s(&lt;&lt;"stamp"&gt;&gt;, Attr) of</font>
+        |                  &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|                      now();</font>
+        |                  Stamp -&gt;
+<font color=red>     0..|                      jlib:datetime_binary_to_timestamp(Stamp)</font>
+        |              end
+        |      end,
+        |  
+<font color=red>     0..|      Expire = find_x_expire(TimeStamp, Els),</font>
+<font color=red>     0..|      Pid = srv_name(LServer),</font>
+<font color=red>     0..|      Msg = #offline_msg{us = {LUser, LServer},</font>
+        |               timestamp = TimeStamp,
+        |               expire = Expire,
+        |               from = From,
+        |               to = To,
+        |               packet = jlib:remove_delay_tags(Packet)},
+<font color=red>     0..|      Pid ! Msg,</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  %% Check if the packet has any content about XEP-0022 or XEP-0085
+        |  check_event_chatstates(From, To, Packet) -&gt;
+<font color=red>     0..|      #xmlel{children = Els} = Packet,</font>
+<font color=red>     0..|      case find_x_event_chatstates(Els, {false, false, false}) of</font>
+        |  	%% There wasn't any x:event or chatstates subelements
+        |  	{false, false, _} -&gt;
+<font color=red>     0..|  	    true;</font>
+        |  	%% There a chatstates subelement and other stuff, but no x:event
+        |  	{false, CEl, true} when CEl /= false -&gt;
+<font color=red>     0..|  	    true;</font>
+        |  	%% There was only a subelement: a chatstates
+        |  	{false, CEl, false} when CEl /= false -&gt;
+        |  	    %% Don't allow offline storage
+<font color=red>     0..|  	    false;</font>
+        |  	%% There was an x:event element, and maybe also other stuff
+        |  	{El, _, _} when El /= false -&gt;
+<font color=red>     0..|  	    case xml:get_subtag(El, &lt;&lt;"id"&gt;&gt;) of</font>
+        |  		false -&gt;
+<font color=red>     0..|  		    case xml:get_subtag(El, &lt;&lt;"offline"&gt;&gt;) of</font>
+        |  			false -&gt;
+<font color=red>     0..|  			    true;</font>
+        |  			_ -&gt;
+<font color=red>     0..|                  ejabberd_router:route(To, From, patch_offline_message(Packet)),</font>
+<font color=red>     0..|  			    true</font>
+        |  		    end;
+        |  		_ -&gt;
+<font color=red>     0..|  		    false</font>
+        |  	    end
+        |      end.
+        |  
+        |  patch_offline_message(Packet) -&gt;
+<font color=red>     0..|      ID = case xml:get_tag_attr_s(&lt;&lt;"id"&gt;&gt;, Packet) of</font>
+        |           &lt;&lt;""&gt;&gt; -&gt;
+<font color=red>     0..|           #xmlel{name = &lt;&lt;"id"&gt;&gt;};</font>
+        |           S -&gt;
+<font color=red>     0..|           #xmlel{name = &lt;&lt;"id"&gt;&gt;,</font>
+        |                  children = [#xmlcdata{content = S}]}
+        |       end,
+<font color=red>     0..|      Packet#xmlel{children = [x_elem(ID)]}.</font>
+        |  
+        |  x_elem(ID) -&gt;
+<font color=red>     0..|      #xmlel{</font>
+        |          name = &lt;&lt;"x"&gt;&gt;,
+        |          attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_EVENT}],
+        |          children = [ID, #xmlel{name = &lt;&lt;"offline"&gt;&gt;}]}.
+        |  
+        |  %% Check if the packet has subelements about XEP-0022, XEP-0085 or other
+        |  find_x_event_chatstates([], Res) -&gt;
+<font color=red>     0..|      Res;</font>
+        |  find_x_event_chatstates([#xmlcdata{} | Els], Res) -&gt;
+<font color=red>     0..|      find_x_event_chatstates(Els, Res);</font>
+        |  find_x_event_chatstates([El | Els], {A, B, C}) -&gt;
+<font color=red>     0..|      case xml:get_tag_attr_s(&lt;&lt;"xmlns"&gt;&gt;, El) of</font>
+        |  	?NS_EVENT -&gt;
+<font color=red>     0..|  	    find_x_event_chatstates(Els, {El, B, C});</font>
+        |  	?NS_CHATSTATES -&gt;
+<font color=red>     0..|  	    find_x_event_chatstates(Els, {A, El, C});</font>
+        |  	_ -&gt;
+<font color=red>     0..|  	    find_x_event_chatstates(Els, {A, B, true})</font>
+        |      end.
+        |  
+        |  find_x_expire(_, []) -&gt;
+<font color=red>     0..|      never;</font>
+        |  find_x_expire(TimeStamp, [#xmlcdata{} | Els]) -&gt;
+<font color=red>     0..|      find_x_expire(TimeStamp, Els);</font>
+        |  find_x_expire(TimeStamp, [El | Els]) -&gt;
+<font color=red>     0..|      case xml:get_tag_attr_s(&lt;&lt;"xmlns"&gt;&gt;, El) of</font>
+        |  	?NS_EXPIRE -&gt;
+<font color=red>     0..|  	    Val = xml:get_tag_attr_s(&lt;&lt;"seconds"&gt;&gt;, El),</font>
+<font color=red>     0..|  	    case catch list_to_integer(binary_to_list(Val)) of</font>
+        |  		{'EXIT', _} -&gt;
+<font color=red>     0..|  		    never;</font>
+        |  		Int when Int &gt; 0 -&gt;
+<font color=red>     0..|  		    {MegaSecs, Secs, MicroSecs} = TimeStamp,</font>
+<font color=red>     0..|  		    S = MegaSecs * 1000000 + Secs + Int,</font>
+<font color=red>     0..|  		    MegaSecs1 = S div 1000000,</font>
+<font color=red>     0..|  		    Secs1 = S rem 1000000,</font>
+<font color=red>     0..|  		    {MegaSecs1, Secs1, MicroSecs};</font>
+        |  		_ -&gt;
+<font color=red>     0..|  		    never</font>
+        |  	    end;
+        |  	_ -&gt;
+<font color=red>     0..|  	    find_x_expire(TimeStamp, Els)</font>
+        |      end.
+        |  
+        |  pop_offline_messages(Ls, User, Server) -&gt;
+<font color=red>     0..|      Ls ++ pop_offline_messages(User, Server).</font>
+        |  
+        |  pop_offline_messages(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      case pop_messages(LUser, LServer) of</font>
+        |          {ok, Rs} -&gt;
+<font color=red>     0..|              lists:map(fun(R) -&gt;</font>
+<font color=red>     0..|                  Packet = resend_offline_message_packet(Server, R),</font>
+<font color=red>     0..|                  compose_offline_message(R, Packet)</font>
+        |                end, Rs);
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("~ts@~ts: pop_messages failed with ~p.", [LUser, LServer, Reason]),</font>
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  pop_messages(LUser, LServer) -&gt;
+<font color=red>     0..|      case ?BACKEND:pop_messages(LUser, LServer) of</font>
+        |          {ok, RsAll} -&gt;
+<font color=red>     0..|              TimeStamp = os:timestamp(),</font>
+<font color=red>     0..|              Rs = skip_expired_messages(TimeStamp, lists:keysort(#offline_msg.timestamp, RsAll)),</font>
+<font color=red>     0..|              {ok, Rs};</font>
+        |          Other -&gt;
+<font color=red>     0..|              Other</font>
+        |      end.
+        |  
+        |  skip_expired_messages(TimeStamp, Rs) -&gt;
+<font color=red>     0..|      [R || R &lt;- Rs, not is_expired_message(TimeStamp, R)].</font>
+        |  
+        |  is_expired_message(_TimeStamp, #offline_msg{expire=never}) -&gt;
+<font color=red>     0..|      false;</font>
+        |  is_expired_message(TimeStamp, #offline_msg{expire=ExpireTimeStamp}) -&gt;
+<font color=red>     0..|     ExpireTimeStamp &lt; TimeStamp.</font>
+        |  
+        |  compose_offline_message(#offline_msg{from=From, to=To}, Packet) -&gt;
+<font color=red>     0..|      {route, From, To, Packet}.</font>
+        |  
+        |  resend_offline_message_packet(Server,
+        |          #offline_msg{timestamp=TimeStamp, packet = Packet}) -&gt;
+<font color=red>     0..|      add_timestamp(TimeStamp, Server, Packet).</font>
+        |  
+        |  add_timestamp(undefined, _Server, Packet) -&gt;
+<font color=red>     0..|      Packet;</font>
+        |  add_timestamp({_,_,Micro} = TimeStamp, Server, Packet) -&gt;
+<font color=red>     0..|      {D,{H,M,S}} = calendar:now_to_universal_time(TimeStamp),</font>
+<font color=red>     0..|      Time = {D,{H,M,S, Micro}},</font>
+<font color=red>     0..|      TimeStampXML = timestamp_xml(Server, Time),</font>
+<font color=red>     0..|      xml:append_subtags(Packet, [TimeStampXML]).</font>
+        |  
+        |  timestamp_xml(Server, Time) -&gt;
+<font color=red>     0..|      FromJID = jid:make(&lt;&lt;&gt;&gt;, Server, &lt;&lt;&gt;&gt;),</font>
+<font color=red>     0..|      jlib:timestamp_to_xml(Time, utc, FromJID, &lt;&lt;"Offline Storage"&gt;&gt;).</font>
+        |  
+        |  remove_expired_messages(Host) -&gt;
+<font color=red>     0..|      ?BACKEND:remove_expired_messages(Host).</font>
+        |  
+        |  remove_old_messages(Host, Days) -&gt;
+<font color=red>     0..|      Timestamp = fallback_timestamp(Days, os:timestamp()),</font>
+<font color=red>     0..|      ?BACKEND:remove_old_messages(Host, Timestamp).</font>
+        |  
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      ?BACKEND:remove_user(User, Server).</font>
+        |  
+        |  %% Warn senders that their messages have been discarded:
+        |  discard_warn_sender(Msgs) -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(#offline_msg{from=From, to=To, packet=Packet}) -&gt;
+<font color=red>     0..|                ErrText = &lt;&lt;"Your contact offline message queue is full. The message has been discarded."&gt;&gt;,</font>
+<font color=red>     0..|                Lang = xml:get_tag_attr_s(&lt;&lt;"xml:lang"&gt;&gt;, Packet),</font>
+<font color=red>     0..|                Err = jlib:make_error_reply(</font>
+        |                        Packet, ?ERRT_RESOURCE_CONSTRAINT(Lang, ErrText)),
+<font color=red>     0..|                ejabberd_router:route(To, From, Err)</font>
+        |        end, Msgs).
+        |  
+        |  fallback_timestamp(Days, {MegaSecs, Secs, _MicroSecs}) -&gt;
+<font color=red>     0..|      S = MegaSecs * 1000000 + Secs - 60 * 60 * 24 * Days,</font>
+<font color=red>     0..|      MegaSecs1 = S div 1000000,</font>
+<font color=red>     0..|      Secs1 = S rem 1000000,</font>
+<font color=red>     0..|      {MegaSecs1, Secs1, 0}.</font>
+        |  
+</pre>
+</body>
+</html>

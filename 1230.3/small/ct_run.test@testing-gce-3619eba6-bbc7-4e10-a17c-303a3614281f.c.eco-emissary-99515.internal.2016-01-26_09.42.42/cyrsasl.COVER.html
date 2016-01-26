@@ -1,0 +1,269 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/cyrsasl.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/cyrsasl.erl by COVER 2016-01-26 at 09:43:09
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : cyrsasl.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Cyrus SASL-like library
+        |  %%% Created :  8 Mar 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(cyrsasl).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -export([start/0,
+        |           register_mechanism/3,
+        |           listmech/1,
+        |           server_new/7,
+        |           server_start/3,
+        |           server_step/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -record(sasl_mechanism, {
+        |            mechanism,
+        |            module,
+        |            password_type
+        |           }).
+        |  -type sasl_module() :: module().
+        |  -type sasl_mechanism() :: #sasl_mechanism{
+        |                               mechanism :: mechanism(),
+        |                               module :: sasl_module(),
+        |                               password_type :: plain | digest | scram
+        |                              }.
+        |  
+        |  -type mechanism() :: binary().
+        |  
+        |  -record(sasl_state, {service :: binary(),
+        |                       myname :: ejabberd:server(),
+        |                       realm :: binary(),
+        |                       get_password :: get_password_fun(),
+        |                       check_password :: check_password_fun(),
+        |                       check_password_digest :: check_pass_digest_fun(),
+        |                       mech_mod :: sasl_module(),
+        |                       mech_state :: tuple()
+        |                       }).
+        |  -type sasl_state() :: #sasl_state{}.
+        |  
+        |  -type get_password_fun() :: fun((ejabberd:user()) -&gt;
+        |                            {binary(), ejabberd_auth:authmodule()} | {false, none}
+        |                          ).
+        |  -type check_password_fun() :: fun((User :: ejabberd:user(),
+        |                                     Password :: binary()) -&gt;
+        |                                        'false' | {'true', ejabberd_auth:authmodule()}
+        |                                   ).
+        |  -type check_pass_digest_fun() :: fun((User :: ejabberd:user(),
+        |                                      Password :: binary(),
+        |                                      Digest :: binary(),
+        |                                      DigestGen :: fun()) -&gt;
+        |                                        'false' | {'true', ejabberd_auth:authmodule()}
+        |                                    ).
+        |  -export_type([get_password_fun/0,
+        |                check_password_fun/0,
+        |                check_pass_digest_fun/0]).
+        |  
+        |  -callback mech_new(Host :: ejabberd:server(),
+        |                     GetPassword :: get_password_fun(),
+        |                     CheckPassword :: check_password_fun(),
+        |                     CheckPasswordDigest :: check_pass_digest_fun()
+        |                     ) -&gt; {ok, tuple()}.
+        |  -callback mech_step(State :: tuple(),
+        |                      ClientIn :: binary()
+        |                      ) -&gt; {ok, proplists:proplist()} | {error, binary()}.
+        |  
+        |  -spec start() -&gt; 'ok'.
+        |  start() -&gt;
+<font color=red>     0..|      ets:new(sasl_mechanism, [named_table,</font>
+        |                               public,
+        |                               {keypos, #sasl_mechanism.mechanism}]),
+<font color=red>     0..|      cyrsasl_plain:start([]),</font>
+<font color=red>     0..|      cyrsasl_digest:start([]),</font>
+<font color=red>     0..|      cyrsasl_scram:start([]),</font>
+<font color=red>     0..|      cyrsasl_anonymous:start([]),</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec register_mechanism(Mechanism :: mechanism(),
+        |                           Module :: sasl_module(),
+        |                           PasswordType :: plain | digest | scram) -&gt; true.
+        |  register_mechanism(Mechanism, Module, PasswordType) -&gt;
+<font color=red>     0..|      ets_insert_mechanism(#sasl_mechanism{mechanism = Mechanism,</font>
+        |                                           module = Module,
+        |                                           password_type = PasswordType}).
+        |  
+        |  -spec ets_insert_mechanism(MechanismRec :: sasl_mechanism()) -&gt; true.
+        |  ets_insert_mechanism(MechanismRec) -&gt;
+<font color=red>     0..|      ets:insert(sasl_mechanism, MechanismRec).</font>
+        |  
+        |  %%% TODO: use callbacks
+        |  %%-include("ejabberd.hrl").
+        |  %%-include("jlib.hrl").
+        |  %%check_authzid(_State, Props) -&gt;
+        |  %%    AuthzId = xml:get_attr_s(authzid, Props),
+        |  %%    case jlib:binary_to_jid(AuthzId) of
+        |  %%      error -&gt;
+        |  %%          {error, "invalid-authzid"};
+        |  %%      JID -&gt;
+        |  %%          LUser = jlib:nodeprep(xml:get_attr_s(username, Props)),
+        |  %%          {U, S, R} = jlib:jid_tolower(JID),
+        |  %%          case R of
+        |  %%              "" -&gt;
+        |  %%                  {error, "invalid-authzid"};
+        |  %%              _ -&gt;
+        |  %%                  case {LUser, ?MYNAME} of
+        |  %%                      {U, S} -&gt;
+        |  %%                          ok;
+        |  %%                      _ -&gt;
+        |  %%                          {error, "invalid-authzid"}
+        |  %%                  end
+        |  %%          end
+        |  %%    end.
+        |  
+        |  -spec check_credentials(sasl_state(), list()) -&gt; 'ok' | {'error', binary()}.
+        |  check_credentials(_State, Props) -&gt;
+<font color=red>     0..|      case jid:nodeprep(proplists:get_value(username, Props, &lt;&lt;&gt;&gt;)) of</font>
+        |          error -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"not-authorized"&gt;&gt;};</font>
+        |          &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"not-authorized"&gt;&gt;};</font>
+        |          _LUser -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  -spec listmech(ejabberd:server()) -&gt; [mechanism()].
+        |  listmech(Host) -&gt;
+<font color=red>     0..|      Mechs = ets:select(sasl_mechanism,</font>
+        |                         [{#sasl_mechanism{mechanism = '$1',
+        |                                           password_type = '$2',
+        |                                           _ = '_'},
+        |                           case catch ejabberd_auth:store_type(Host) of
+        |                               external -&gt;
+<font color=red>     0..|                                   [{'==', '$2', plain}];</font>
+        |                               scram -&gt;
+<font color=red>     0..|                                   [{'/=', '$2', digest}];</font>
+        |                               {'EXIT',{undef,[{Module,store_type,[]} | _]}} -&gt;
+<font color=red>     0..|                                   ?WARNING_MSG("~p doesn't implement the function store_type/0", [Module]),</font>
+<font color=red>     0..|                                   [];</font>
+        |                               _Else -&gt;
+<font color=red>     0..|                                   []</font>
+        |                           end,
+        |                           ['$1']}]),
+<font color=red>     0..|      filter_anonymous(Host, Mechs).</font>
+        |  
+        |  -spec server_new(Service :: binary(),
+        |                   ServerFQDN :: ejabberd:server(),
+        |                   UserRealm :: binary(),
+        |                   _SecFlags :: [any()],
+        |                   GetPassword :: get_password_fun(),
+        |                   CheckPassword :: check_password_fun(),
+        |                   CheckPasswordDigest :: check_pass_digest_fun()) -&gt; sasl_state().
+        |  server_new(Service, ServerFQDN, UserRealm, _SecFlags,
+        |             GetPassword, CheckPassword, CheckPasswordDigest) -&gt;
+<font color=red>     0..|      #sasl_state{service = Service,</font>
+        |                  myname = ServerFQDN,
+        |                  realm = UserRealm,
+        |                  get_password = GetPassword,
+        |                  check_password = CheckPassword,
+        |                  check_password_digest= CheckPasswordDigest}.
+        |  
+        |  -spec server_start(sasl_state(),
+        |                   Mech :: mechanism(),
+        |                   ClientIn :: binary()) -&gt; {ok, _}
+        |                                          | {ok, term(), term()}
+        |                                          | {error, binary()}
+        |                                          | {'continue',_,sasl_state()}
+        |                                          | {'error',binary(),ejabberd:user()}.
+        |  server_start(State, Mech, ClientIn) -&gt;
+<font color=red>     0..|      case lists:member(Mech, listmech(State#sasl_state.myname)) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case lookup_mech(Mech) of</font>
+        |                  [#sasl_mechanism{module = Module}] -&gt;
+<font color=red>     0..|                      {ok, MechState} = Module:mech_new(</font>
+        |                                          State#sasl_state.myname,
+        |                                          State#sasl_state.get_password,
+        |                                          State#sasl_state.check_password,
+        |                                          State#sasl_state.check_password_digest),
+<font color=red>     0..|                      server_step(State#sasl_state{mech_mod = Module,</font>
+        |                                                   mech_state = MechState},
+        |                                  ClientIn);
+        |                  _ -&gt;
+<font color=red>     0..|                      {error, &lt;&lt;"no-mechanism"&gt;&gt;}</font>
+        |              end;
+        |          false -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"no-mechanism"&gt;&gt;}</font>
+        |      end.
+        |  
+        |  -spec lookup_mech(Mech :: mechanism()) -&gt; [sasl_mechanism()].
+        |  lookup_mech(Mech) -&gt;
+<font color=red>     0..|      ets:lookup(sasl_mechanism, Mech).</font>
+        |  
+        |  -spec server_step(State :: sasl_state(), ClientIn :: binary()) -&gt;
+        |                                            {'error', _}
+        |                                            | {'ok', [any()]}
+        |                                            | {'ok', [any()], term()}
+        |                                            | {'continue', _, sasl_state()}
+        |                                            | {'error', binary(), ejabberd:user()}.
+        |  server_step(State, ClientIn) -&gt;
+<font color=red>     0..|      Module = State#sasl_state.mech_mod,</font>
+<font color=red>     0..|      MechState = State#sasl_state.mech_state,</font>
+<font color=red>     0..|      case Module:mech_step(MechState, ClientIn) of</font>
+        |  	{ok, Props} -&gt;
+<font color=red>     0..|  	    case check_credentials(State, Props) of</font>
+        |  		ok -&gt;
+<font color=red>     0..|  		    {ok, Props};</font>
+        |  		{error, Error} -&gt;
+<font color=red>     0..|  		    {error, Error}</font>
+        |  	    end;
+        |  	{ok, Props, ServerOut} -&gt;
+<font color=red>     0..|  	    case check_credentials(State, Props) of</font>
+        |  		ok -&gt;
+<font color=red>     0..|  		    {ok, Props, ServerOut};</font>
+        |  		{error, Error} -&gt;
+<font color=red>     0..|  		    {error, Error}</font>
+        |  	    end;
+        |  	{continue, ServerOut, NewMechState} -&gt;
+<font color=red>     0..|  	    {continue, ServerOut,</font>
+        |  	     State#sasl_state{mech_state = NewMechState}};
+        |  	{error, Error, Username} -&gt;
+<font color=red>     0..|  	    {error, Error, Username};</font>
+        |  	{error, Error} -&gt;
+<font color=red>     0..|  	    {error, Error}</font>
+        |      end.
+        |  
+        |  %% @doc Remove the anonymous mechanism from the list if not enabled for the
+        |  %% given host
+        |  -spec filter_anonymous(ejabberd:server(), [mechanism()]) -&gt; [mechanism()].
+        |  filter_anonymous(Host, Mechs) -&gt;
+<font color=red>     0..|      case ejabberd_auth_anonymous:is_sasl_anonymous_enabled(Host) of</font>
+<font color=red>     0..|          true  -&gt; Mechs;</font>
+<font color=red>     0..|          false -&gt; Mechs -- [&lt;&lt;"ANONYMOUS"&gt;&gt;]</font>
+        |      end.
+</pre>
+</body>
+</html>

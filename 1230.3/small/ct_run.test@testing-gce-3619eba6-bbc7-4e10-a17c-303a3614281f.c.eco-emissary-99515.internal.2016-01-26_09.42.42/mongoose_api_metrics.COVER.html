@@ -1,0 +1,178 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/mongoose_api_metrics.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mongoose_api_metrics.erl by COVER 2016-01-26 at 09:43:12
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2014 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(mongoose_api_metrics).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %% mongoose_api callbacks
+        |  -export([prefix/0,
+        |           routes/0,
+        |           handle_options/2,
+        |           handle_get/2]).
+        |  
+        |  %% internal exports
+        |  -export([available_metrics/1,
+        |           sum_metrics/1,
+        |           sum_metric/1,
+        |           host_metric/1,
+        |           host_metrics/1,
+        |           global_metric/1,
+        |           global_metrics/1
+        |  ]).
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mongoose_api callbacks
+        |  %%--------------------------------------------------------------------
+        |  -spec prefix() -&gt; mongoose_api:prefix().
+        |  prefix() -&gt;
+<font color=red>     0..|      "/metrics".</font>
+        |  
+        |  -spec routes() -&gt; mongoose_api:routes().
+        |  routes() -&gt;
+<font color=red>     0..|      [{"/", [available_metrics]},</font>
+        |       {"/all", [sum_metrics]},
+        |       {"/all/:metric", [sum_metric]},
+        |       {"/global", [global_metrics]},
+        |       {"/global/:metric", [global_metric]},
+        |       {"/host/:host/:metric", [host_metric]},
+        |       {"/host/:host", [host_metrics]}].
+        |  
+        |  -spec handle_options(mongoose_api:bindings(), mongoose_api:options()) -&gt;
+        |      mongoose_api:methods().
+        |  handle_options(_Bindings, [_Command]) -&gt;
+<font color=red>     0..|      [get].</font>
+        |  
+        |  -spec handle_get(mongoose_api:bindings(), mongoose_api:options()) -&gt;
+        |      mongoose_api:response().
+        |  handle_get(Bindings, [Command]) -&gt;
+<font color=red>     0..|      ?MODULE:Command(Bindings).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% mongoose_api commands actual handlers
+        |  %%--------------------------------------------------------------------
+        |  available_metrics(_Bindings) -&gt;
+<font color=red>     0..|      {Hosts, Metrics} = get_available_hosts_metrics(),</font>
+<font color=red>     0..|      Global = get_available_global_metrics(),</font>
+<font color=red>     0..|      Reply = [{hosts, Hosts}, {metrics, Metrics}, {global, Global}],</font>
+<font color=red>     0..|      {ok, Reply}.</font>
+        |  
+        |  sum_metrics(_Bindings) -&gt;
+<font color=red>     0..|      Metrics = {metrics, get_sum_metrics()},</font>
+<font color=red>     0..|      {ok, Metrics}.</font>
+        |  
+        |  sum_metric(Bindings) -&gt;
+<font color=red>     0..|      {metric, Metric} = lists:keyfind(metric, 1, Bindings),</font>
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          case get_sum_metric(binary_to_existing_atom(Metric, utf8)) of</font>
+        |              [] -&gt;
+<font color=red>     0..|                  {error, not_found};</font>
+        |              Value -&gt;
+<font color=red>     0..|                  {ok, {metric, Value}}</font>
+        |          end
+        |      catch error:badarg -&gt;
+<font color=red>     0..|          {error, not_found}</font>
+        |      end.
+        |  
+        |  host_metric(Bindings) -&gt;
+<font color=red>     0..|      {host, Host} = lists:keyfind(host, 1, Bindings),</font>
+<font color=red>     0..|      {metric, Metric} = lists:keyfind(metric, 1, Bindings),</font>
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          MetricAtom = binary_to_existing_atom(Metric, utf8),</font>
+<font color=red>     0..|          {ok, Value} = mongoose_metrics:get_metric_value({Host, MetricAtom}),</font>
+<font color=red>     0..|          {ok, {metric, Value}}</font>
+        |      catch error:badarg -&gt;
+<font color=red>     0..|          {error, not_found}</font>
+        |      end.
+        |  
+        |  host_metrics(Bindings) -&gt;
+<font color=red>     0..|      {host, Host} = lists:keyfind(host, 1, Bindings),</font>
+<font color=red>     0..|      case get_host_metrics(Host) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              {error, not_found};</font>
+        |          Metrics -&gt;
+<font color=red>     0..|              {ok, {metrics, Metrics}}</font>
+        |      end.
+        |  
+        |  global_metric(Bindings) -&gt;
+<font color=red>     0..|      {metric, Metric} = lists:keyfind(metric, 1, Bindings),</font>
+<font color=red>     0..|      MetricAtom = binary_to_existing_atom(Metric, utf8),</font>
+<font color=red>     0..|      case mongoose_metrics:get_metric_value({global, MetricAtom}) of</font>
+        |          {ok, Value} -&gt;
+<font color=red>     0..|              {ok, {metric, Value}};</font>
+        |          _Other -&gt;
+<font color=red>     0..|              {error, not_found}</font>
+        |      end.
+        |  
+        |  global_metrics(_Bindings) -&gt;
+<font color=red>     0..|      case get_host_metrics(global) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              {error, not_found};</font>
+        |          Metrics -&gt;
+<font color=red>     0..|              {ok, {metrics, Metrics}}</font>
+        |      end.
+        |  
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% internal functions
+        |  %%--------------------------------------------------------------------
+        |  -spec get_available_hosts() -&gt; [ejabberd:server()].
+        |  get_available_hosts() -&gt;
+<font color=red>     0..|      ?MYHOSTS.</font>
+        |  
+        |  -spec get_available_metrics(Host :: ejabberd:server()) -&gt; [any()].
+        |  get_available_metrics(Host) -&gt;
+<font color=red>     0..|      mongoose_metrics:get_host_metric_names(Host).</font>
+        |  
+        |  -spec get_available_hosts_metrics() -&gt; {[any(),...], [any()]}.
+        |  get_available_hosts_metrics() -&gt;
+<font color=red>     0..|      Hosts = get_available_hosts(),</font>
+<font color=red>     0..|      Metrics = [Metric || [Metric] &lt;- get_available_metrics(hd(Hosts))],</font>
+<font color=red>     0..|      {Hosts, Metrics}.</font>
+        |  
+        |  get_available_global_metrics() -&gt;
+<font color=red>     0..|      [Metric || [Metric] &lt;- mongoose_metrics:get_global_metric_names()].</font>
+        |  
+        |  -spec get_sum_metrics() -&gt; [{_,_}].
+        |  get_sum_metrics() -&gt;
+<font color=red>     0..|      {_Hosts, Metrics} = get_available_hosts_metrics(),</font>
+<font color=red>     0..|      [{Metric, get_sum_metric(Metric)} || Metric &lt;- Metrics].</font>
+        |  
+        |  -spec get_sum_metric(atom()) -&gt; [{_,_}].
+        |  get_sum_metric(Metric) -&gt;
+<font color=red>     0..|      mongoose_metrics:get_aggregated_values(Metric).</font>
+        |  
+        |  -spec get_host_metrics(undefined | global | ejabberd:server()) -&gt; [{_,_}].
+        |  get_host_metrics(Host) -&gt;
+<font color=red>     0..|      Metrics = mongoose_metrics:get_metric_values(Host),</font>
+<font color=red>     0..|      [{prep_name(NameParts), Value} || {[_Host | NameParts], Value} &lt;- Metrics].</font>
+        |  
+        |  prep_name(NameParts) -&gt;
+<font color=red>     0..|      ToStrings = [atom_to_list(NamePart) || NamePart &lt;- NameParts],</font>
+<font color=red>     0..|      string:join(ToStrings, "_").</font>
+</pre>
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-3619eba6-bbc7-4e10-a17c-303a3614281f.c.eco-emissary-99515.internal.2016-01-26_09.42.42/cyrsasl_scram.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/cyrsasl_scram.erl by COVER 2016-01-26 at 09:43:10
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : cyrsasl_scram.erl
+        |  %%% Author  : Stephen Röttger &lt;stephen.roettger@googlemail.com&gt;
+        |  %%% Purpose : SASL SCRAM authentication
+        |  %%% Created : 7 Aug 2011 by Stephen Röttger &lt;stephen.roettger@googlemail.com&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2013   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(cyrsasl_scram).
+        |  
+        |  -author('stephen.roettger@googlemail.com').
+        |  
+        |  -export([start/1, stop/0, mech_new/4, mech_step/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -include("jlib.hrl").
+        |  
+        |  -behaviour(cyrsasl).
+        |  
+        |  -record(state,
+        |          {step = 2              :: 2 | 4,
+        |           stored_key = &lt;&lt;""&gt;&gt;   :: binary(),
+        |           server_key = &lt;&lt;""&gt;&gt;   :: binary(),
+        |           username = &lt;&lt;""&gt;&gt;     :: binary(),
+        |           get_password          :: fun(),
+        |           check_password        :: fun(),
+        |           auth_message = &lt;&lt;""&gt;&gt; :: binary(),
+        |           client_nonce = &lt;&lt;""&gt;&gt; :: binary(),
+        |           server_nonce = &lt;&lt;""&gt;&gt; :: binary()}).
+        |  
+        |  -define(SALT_LENGTH, 16).
+        |  
+        |  -define(NONCE_LENGTH, 16).
+        |  
+        |  start(_Opts) -&gt;
+<font color=red>     0..|      cyrsasl:register_mechanism(&lt;&lt;"SCRAM-SHA-1"&gt;&gt;, ?MODULE,</font>
+        |                                 scram).
+        |  
+<font color=red>     0..|  stop() -&gt; ok.</font>
+        |  
+        |  mech_new(_Host, GetPassword, _CheckPassword,
+        |           _CheckPasswordDigest) -&gt;
+<font color=red>     0..|      {ok, #state{step = 2, get_password = GetPassword}}.</font>
+        |  
+        |  mech_step(#state{step = 2} = State, ClientIn) -&gt;
+<font color=red>     0..|      case re:split(ClientIn, &lt;&lt;","&gt;&gt;, [{return, binary}]) of</font>
+        |          [_CBind, _AuthorizationIdentity, _UserNameAttribute, _ClientNonceAttribute, ExtensionAttribute | _]
+        |            when ExtensionAttribute /= [] -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"protocol-error-extension-not-supported"&gt;&gt;};</font>
+        |          [CBind, _AuthorizationIdentity, UserNameAttribute, ClientNonceAttribute | _]
+        |            when (CBind == &lt;&lt;"y"&gt;&gt;) or (CBind == &lt;&lt;"n"&gt;&gt;) -&gt;
+<font color=red>     0..|              case parse_attribute(UserNameAttribute) of</font>
+<font color=red>     0..|                  {error, Reason} -&gt; {error, Reason};</font>
+        |                  {_, EscapedUserName} -&gt;
+<font color=red>     0..|                      case unescape_username(EscapedUserName) of</font>
+<font color=red>     0..|                          error -&gt; {error, &lt;&lt;"protocol-error-bad-username"&gt;&gt;};</font>
+        |                          UserName -&gt;
+<font color=red>     0..|                              case parse_attribute(ClientNonceAttribute) of</font>
+        |                                  {$r, ClientNonce} -&gt;
+<font color=red>     0..|                                      case (State#state.get_password)(UserName) of</font>
+<font color=red>     0..|                                          {false, _} -&gt; {error, &lt;&lt;"not-authorized"&gt;&gt;, UserName};</font>
+        |                                          {Ret, _AuthModule} -&gt;
+<font color=red>     0..|                                              {StoredKey, ServerKey, Salt, IterationCount} =</font>
+<font color=red>     0..|                                              if is_tuple(Ret) -&gt; Ret;</font>
+        |                                                 true -&gt;
+<font color=red>     0..|                                                     TempSalt =</font>
+        |                                                     crypto:rand_bytes(?SALT_LENGTH),
+<font color=red>     0..|                                                     SaltedPassword =</font>
+        |                                                     scram:salted_password(Ret,
+        |                                                                           TempSalt,
+        |                                                                           scram:iterations()),
+<font color=red>     0..|                                                     {scram:stored_key(scram:client_key(SaltedPassword)),</font>
+        |                                                      scram:server_key(SaltedPassword),
+        |                                                      TempSalt,
+        |                                                      scram:iterations()}
+        |                                              end,
+<font color=red>     0..|                                              {NStart, _} = binary:match(ClientIn, &lt;&lt;"n="&gt;&gt;),</font>
+<font color=red>     0..|                                              ClientFirstMessageBare = binary:part(ClientIn,</font>
+        |                                                                                   {NStart,
+        |                                                                                    byte_size(ClientIn)-NStart}),
+<font color=red>     0..|                                              ServerNonce =</font>
+        |                                              jlib:encode_base64(crypto:rand_bytes(?NONCE_LENGTH)),
+<font color=red>     0..|                                              ServerFirstMessage =</font>
+        |                                              iolist_to_binary(
+        |                                                [&lt;&lt;"r="&gt;&gt;,
+        |                                                 ClientNonce,
+        |                                                 ServerNonce,
+        |                                                 &lt;&lt;",s="&gt;&gt;,
+        |                                                 jlib:encode_base64(Salt),
+        |                                                 &lt;&lt;",i="&gt;&gt;,
+        |                                                 integer_to_list(IterationCount)]),
+<font color=red>     0..|                                              {continue, ServerFirstMessage,</font>
+        |                                               State#state{step = 4, stored_key = StoredKey,
+        |                                                           server_key = ServerKey,
+        |                                                           auth_message =
+        |                                                           &lt;&lt;ClientFirstMessageBare/binary,
+        |                                                             ",", ServerFirstMessage/binary&gt;&gt;,
+        |                                                           client_nonce = ClientNonce,
+        |                                                           server_nonce = ServerNonce,
+        |                                                           username = UserName}}
+        |                                      end;
+<font color=red>     0..|                                  _Else -&gt; {error, &lt;&lt;"not-supported"&gt;&gt;}</font>
+        |                              end
+        |                      end
+        |              end;
+<font color=red>     0..|          _Else -&gt; {error, &lt;&lt;"bad-protocol"&gt;&gt;}</font>
+        |      end;
+        |  mech_step(#state{step = 4} = State, ClientIn) -&gt;
+<font color=red>     0..|      case re:split(ClientIn, &lt;&lt;","&gt;&gt;) of</font>
+        |          [GS2ChannelBindingAttribute, NonceAttribute,
+        |           ClientProofAttribute] -&gt;
+<font color=red>     0..|              case parse_attribute(GS2ChannelBindingAttribute) of</font>
+        |                  {$c, CVal} -&gt;
+<font color=red>     0..|                      ChannelBindingSupport = binary:at(jlib:decode_base64(CVal), 0),</font>
+<font color=red>     0..|                      if (ChannelBindingSupport == $n)</font>
+        |                         or (ChannelBindingSupport == $y) -&gt;
+<font color=red>     0..|                             Nonce = &lt;&lt;(State#state.client_nonce)/binary,</font>
+        |                                       (State#state.server_nonce)/binary&gt;&gt;,
+<font color=red>     0..|                             case parse_attribute(NonceAttribute) of</font>
+        |                                 {$r, CompareNonce} when CompareNonce == Nonce -&gt;
+<font color=red>     0..|                                     case parse_attribute(ClientProofAttribute) of</font>
+        |                                         {$p, ClientProofB64} -&gt;
+<font color=red>     0..|                                             ClientProof = jlib:decode_base64(ClientProofB64),</font>
+<font color=red>     0..|                                             {PStart, _} = binary:match(ClientIn, &lt;&lt;",p="&gt;&gt;),</font>
+<font color=red>     0..|                                             AuthMessage = iolist_to_binary(</font>
+        |                                                             [State#state.auth_message,
+        |                                                              ",",
+        |                                                              binary:part(ClientIn, 0, PStart)
+        |                                                             ]),
+<font color=red>     0..|                                             ClientSignature =</font>
+        |                                             scram:client_signature(State#state.stored_key,
+        |                                                                    AuthMessage),
+<font color=red>     0..|                                             ClientKey = scram:client_key(ClientProof,</font>
+        |                                                                          ClientSignature),
+<font color=red>     0..|                                             CompareStoredKey = scram:stored_key(ClientKey),</font>
+<font color=red>     0..|                                             if CompareStoredKey == State#state.stored_key -&gt;</font>
+<font color=red>     0..|                                                    ServerSignature =</font>
+        |                                                    scram:server_signature(State#state.server_key,
+        |                                                                           AuthMessage),
+<font color=red>     0..|                                                    {ok, [{username, State#state.username}],</font>
+        |                                                     &lt;&lt;"v=",
+        |                                                       (jlib:encode_base64(ServerSignature))/binary&gt;&gt;};
+<font color=red>     0..|                                                true -&gt; {error, &lt;&lt;"bad-auth"&gt;&gt;}</font>
+        |                                             end;
+<font color=red>     0..|                                         _Else -&gt; {error, &lt;&lt;"bad-protocol"&gt;&gt;}</font>
+        |                                     end;
+<font color=red>     0..|                                 {$r, _} -&gt; {error, &lt;&lt;"bad-nonce"&gt;&gt;};</font>
+<font color=red>     0..|                                 _Else -&gt; {error, &lt;&lt;"bad-protocol"&gt;&gt;}</font>
+        |                             end;
+<font color=red>     0..|                         true -&gt; {error, &lt;&lt;"bad-channel-binding"&gt;&gt;}</font>
+        |                      end;
+<font color=red>     0..|                  _Else -&gt; {error, &lt;&lt;"bad-protocol"&gt;&gt;}</font>
+        |              end;
+<font color=red>     0..|          _Else -&gt; {error, &lt;&lt;"bad-protocol"&gt;&gt;}</font>
+        |      end.
+        |  
+        |  parse_attribute(Attribute) -&gt;
+<font color=red>     0..|      AttributeLen = byte_size(Attribute),</font>
+<font color=red>     0..|      case AttributeLen &gt;= 3 of</font>
+        |          true -&gt;
+<font color=red>     0..|              parse_attribute(Attribute, 0);</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"bad-format attribute too short"&gt;&gt;}</font>
+        |      end.
+        |  
+        |  parse_attribute(&lt;&lt;Char, Rest/binary&gt;&gt;, 0) -&gt;
+<font color=red>     0..|      case is_alpha(Char) of</font>
+        |          true -&gt;
+<font color=red>     0..|              parse_attribute(Rest, Char);</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"bad-format attribute too short"&gt;&gt;}</font>
+        |      end;
+        |  parse_attribute(&lt;&lt;Char, Rest/binary&gt;&gt;, PName) -&gt;
+<font color=red>     0..|      case Char == $= of</font>
+        |          true -&gt;
+<font color=red>     0..|              {PName, Rest};</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, &lt;&lt;"bad-format first char not a letter"&gt;&gt;}</font>
+        |      end.
+        |  
+        |  
+<font color=red>     0..|  unescape_username(&lt;&lt;""&gt;&gt;) -&gt; &lt;&lt;""&gt;&gt;;</font>
+        |  unescape_username(UnescapedUsername) -&gt;
+<font color=red>     0..|      case binary:match(UnescapedUsername, &lt;&lt;"="&gt;&gt;) of</font>
+        |          nomatch -&gt;
+<font color=red>     0..|              UnescapedUsername;</font>
+        |          _ -&gt;
+<font color=red>     0..|              EscapedUsername = binary:replace(</font>
+        |                                  binary:replace(UnescapedUsername,
+        |                                                 &lt;&lt;"=3D"&gt;&gt;, &lt;&lt;"="&gt;&gt;,
+        |                                                 [global]),
+        |                                  &lt;&lt;"=2C"&gt;&gt;, &lt;&lt;","&gt;&gt;, [global]),
+<font color=red>     0..|              case binary:match(EscapedUsername, &lt;&lt;"="&gt;&gt;) of</font>
+        |                  nomatch -&gt;
+<font color=red>     0..|                      EscapedUsername;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      error</font>
+        |              end
+        |      end.
+        |  
+<font color=red>     0..|  is_alpha(Char) when Char &gt;= $a, Char =&lt; $z -&gt; true;</font>
+<font color=red>     0..|  is_alpha(Char) when Char &gt;= $A, Char =&lt; $Z -&gt; true;</font>
+<font color=red>     0..|  is_alpha(_) -&gt; false.</font>
+</pre>
+</body>
+</html>
