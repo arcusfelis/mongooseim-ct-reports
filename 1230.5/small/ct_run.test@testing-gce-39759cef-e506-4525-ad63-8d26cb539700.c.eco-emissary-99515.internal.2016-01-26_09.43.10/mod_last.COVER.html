@@ -1,0 +1,269 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/mod_last.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_last.erl by COVER 2016-01-26 at 09:43:41
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : mod_last.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : jabber:iq:last support (XEP-0012)
+        |  %%% Created : 24 Oct 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2014   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License along
+        |  %%% with this program; if not, write to the Free Software Foundation, Inc.,
+        |  %%% 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(mod_last).
+        |  
+        |  -author('alexey@process-one.net').
+        |  
+        |  -xep([{xep, 12}, {version, "2.0"}]).
+        |  
+        |  -behaviour(gen_mod).
+        |  
+        |  -export([
+        |           start/2,
+        |           stop/1,
+        |           process_local_iq/3,
+        |           process_sm_iq/3,
+        |           on_presence_update/4,
+        |           store_last_info/4,
+        |           get_last_info/2,
+        |           count_active_users/2,
+        |           remove_user/2,
+        |           session_cleanup/4
+        |          ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  -include("jlib.hrl").
+        |  
+        |  -include("mod_privacy.hrl").
+        |  -include("mod_last.hrl").
+        |  
+        |  -define(BACKEND, mod_last_backend).
+        |  
+        |  %% ------------------------------------------------------------------
+        |  %% Backend callbacks
+        |  
+        |  -callback init(Host, Opts) -&gt; ok when
+        |      Host    :: ejabberd:server(),
+        |      Opts    :: list().
+        |  
+        |  -callback get_last(LUser, LServer) -&gt; Result when
+        |      LUser   :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Reason  :: term(),
+        |      Result  :: {ok, non_neg_integer(), binary()} | {error, Reason} | not_found.
+        |  
+        |  -callback count_active_users(LServer, Timestamp) -&gt; Result when
+        |      LServer :: ejabberd:lserver(),
+        |      Timestamp :: non_neg_integer(),
+        |      Result :: non_neg_integer().
+        |  
+        |  -callback set_last_info(LUser, LServer, Timestamp, Status) -&gt; Result when
+        |      LUser   :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver(),
+        |      Timestamp :: non_neg_integer(),
+        |      Status  :: binary(),
+        |      Result  :: ok | {error, term()}.
+        |  
+        |  -callback remove_user(LUser, LServer) -&gt; ok | {error, term()} when
+        |      LUser   :: ejabberd:luser(),
+        |      LServer :: ejabberd:lserver().
+        |  
+        |  -spec start(ejabberd:server(), list()) -&gt; 'ok'.
+        |  start(Host, Opts) -&gt;
+<font color=red>     0..|      IQDisc = gen_mod:get_opt(iqdisc, Opts, one_queue),</font>
+        |  
+<font color=red>     0..|      gen_mod:start_backend_module(?MODULE, Opts, [get_last, set_last_info]),</font>
+<font color=red>     0..|      ?BACKEND:init(Host, Opts),</font>
+        |  
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_local, Host,</font>
+        |          ?NS_LAST, ?MODULE, process_local_iq, IQDisc),
+<font color=red>     0..|      gen_iq_handler:add_iq_handler(ejabberd_sm, Host,</font>
+        |          ?NS_LAST, ?MODULE, process_sm_iq, IQDisc),
+<font color=red>     0..|      ejabberd_hooks:add(remove_user, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(anonymous_purge_hook, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(unset_presence_hook, Host, ?MODULE, on_presence_update, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:add(session_cleanup, Host, ?MODULE, session_cleanup, 50).</font>
+        |  
+        |  -spec stop(ejabberd:server()) -&gt; ok.
+        |  stop(Host) -&gt;
+<font color=red>     0..|      ejabberd_hooks:delete(remove_user, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(anonymous_purge_hook, Host, ?MODULE, remove_user, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(unset_presence_hook, Host, ?MODULE, on_presence_update, 50),</font>
+<font color=red>     0..|      ejabberd_hooks:delete(session_cleanup, Host, ?MODULE, session_cleanup, 50),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_local, Host, ?NS_LAST),</font>
+<font color=red>     0..|      gen_iq_handler:remove_iq_handler(ejabberd_sm, Host, ?NS_LAST).</font>
+        |  
+        |  %%%
+        |  %%% Uptime of ejabberd node
+        |  %%%
+        |  -spec process_local_iq(ejabberd:jid(), ejabberd:jid(), ejabberd:iq())
+        |          -&gt; ejabberd:iq().
+        |  process_local_iq(_From, _To,
+        |      #iq{type = Type, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          set -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |          get -&gt;
+<font color=red>     0..|              Sec = get_node_uptime(),</font>
+<font color=red>     0..|              IQ#iq{type = result,</font>
+        |                  sub_el =
+        |                  [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                      attrs =
+        |                      [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_LAST},
+        |                          {&lt;&lt;"seconds"&gt;&gt;,
+        |                              integer_to_binary(Sec)}],
+        |                      children = []}]}
+        |      end.
+        |  
+        |  -spec get_node_uptime() -&gt; non_neg_integer().
+        |  get_node_uptime() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(node_start) of</font>
+        |          {_, _, _} = StartNow -&gt;
+<font color=red>     0..|              now_to_seconds(now()) - now_to_seconds(StartNow);</font>
+        |          _undefined -&gt;
+<font color=red>     0..|              trunc(element(1, erlang:statistics(wall_clock))/1000)</font>
+        |      end.
+        |  
+        |  -spec now_to_seconds(erlang:timestamp()) -&gt; non_neg_integer().
+        |  now_to_seconds({MegaSecs, Secs, _MicroSecs}) -&gt;
+<font color=red>     0..|      MegaSecs * 1000000 + Secs.</font>
+        |  
+        |  %%%
+        |  %%% Serve queries about user last online
+        |  %%%
+        |  -spec process_sm_iq(ejabberd:jid(), ejabberd:jid(), ejabberd:iq())
+        |          -&gt; ejabberd:iq().
+        |  process_sm_iq(From, To,
+        |      #iq{type = Type, sub_el = SubEl} = IQ) -&gt;
+<font color=red>     0..|      case Type of</font>
+        |          set -&gt;
+<font color=red>     0..|              IQ#iq{type = error, sub_el = [SubEl, ?ERR_NOT_ALLOWED]};</font>
+        |          get -&gt;
+<font color=red>     0..|              User = To#jid.luser,</font>
+<font color=red>     0..|              Server = To#jid.lserver,</font>
+<font color=red>     0..|              {Subscription, _Groups} =</font>
+        |                  ejabberd_hooks:run_fold(roster_get_jid_info, Server,
+        |                      {none, []}, [User, Server, From]),
+<font color=red>     0..|              if (Subscription == both) or (Subscription == from) or</font>
+        |                  (From#jid.luser == To#jid.luser) and
+        |                      (From#jid.lserver == To#jid.lserver) -&gt;
+<font color=red>     0..|                  UserListRecord =</font>
+        |                      ejabberd_hooks:run_fold(privacy_get_user_list, Server,
+        |                          #userlist{}, [User, Server]),
+<font color=red>     0..|                  case ejabberd_hooks:run_fold(privacy_check_packet,</font>
+        |                      Server, allow,
+        |                      [User, Server, UserListRecord,
+        |                          {To, From,
+        |                              #xmlel{name = &lt;&lt;"presence"&gt;&gt;,
+        |                                  attrs = [],
+        |                                  children = []}},
+        |                          out])
+        |                  of
+<font color=red>     0..|                      allow -&gt; get_last_iq(IQ, SubEl, User, Server);</font>
+        |                      deny -&gt;
+<font color=red>     0..|                          IQ#iq{type = error, sub_el = [SubEl, ?ERR_FORBIDDEN]}</font>
+        |                  end;
+        |                  true -&gt;
+<font color=red>     0..|                      IQ#iq{type = error, sub_el = [SubEl, ?ERR_FORBIDDEN]}</font>
+        |              end
+        |      end.
+        |  
+        |  -spec get_last_iq(ejabberd:iq(), SubEl :: 'undefined' | [jlib:xmlel()],
+        |                    ejabberd:luser(), ejabberd:lserver()) -&gt; ejabberd:iq().
+        |  get_last_iq(IQ, SubEl, LUser, LServer) -&gt;
+<font color=red>     0..|      case ejabberd_sm:get_user_resources(LUser, LServer) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              case get_last(LUser, LServer) of</font>
+        |                  {error, _Reason} -&gt;
+<font color=red>     0..|                      IQ#iq{type = error,</font>
+        |                          sub_el = [SubEl, ?ERR_INTERNAL_SERVER_ERROR]};
+        |                  not_found -&gt;
+<font color=red>     0..|                      IQ#iq{type = error,</font>
+        |                          sub_el = [SubEl, ?ERR_SERVICE_UNAVAILABLE]};
+        |                  {ok, TimeStamp, Status} -&gt;
+<font color=red>     0..|                      TimeStamp2 = now_to_seconds(now()),</font>
+<font color=red>     0..|                      Sec = TimeStamp2 - TimeStamp,</font>
+<font color=red>     0..|                      IQ#iq{type = result,</font>
+        |                          sub_el =
+        |                          [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                              attrs =
+        |                              [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_LAST},
+        |                                  {&lt;&lt;"seconds"&gt;&gt;,
+        |                                      integer_to_binary(Sec)}],
+        |                              children = [{xmlcdata, Status}]}]}
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              IQ#iq{type = result,</font>
+        |                  sub_el =
+        |                  [#xmlel{name = &lt;&lt;"query"&gt;&gt;,
+        |                      attrs =
+        |                      [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_LAST},
+        |                          {&lt;&lt;"seconds"&gt;&gt;, &lt;&lt;"0"&gt;&gt;}],
+        |                      children = []}]}
+        |      end.
+        |  
+        |  get_last(LUser, LServer) -&gt;
+<font color=red>     0..|      ?BACKEND:get_last(LUser, LServer).</font>
+        |  
+        |  -spec count_active_users(ejabberd:lserver(), non_neg_integer()) -&gt; non_neg_integer().
+        |  count_active_users(LServer, Timestamp) -&gt;
+<font color=red>     0..|      ?BACKEND:count_active_users(LServer, Timestamp).</font>
+        |  
+        |  -spec on_presence_update(ejabberd:user(), ejabberd:server(), ejabberd:resource(),
+        |                           Status :: binary()) -&gt; ok | {error, term()}.
+        |  on_presence_update(LUser, LServer, _Resource, Status) -&gt;
+<font color=red>     0..|      TimeStamp = now_to_seconds(os:timestamp()),</font>
+<font color=red>     0..|      store_last_info(LUser, LServer, TimeStamp, Status).</font>
+        |  
+        |  -spec store_last_info(ejabberd:user(), ejabberd:server(), non_neg_integer(),
+        |                        Status :: binary()) -&gt; ok | {error, term()}.
+        |  store_last_info(LUser, LServer, TimeStamp, Status) -&gt;
+<font color=red>     0..|      ?BACKEND:set_last_info(LUser, LServer, TimeStamp, Status).</font>
+        |  
+        |  -spec get_last_info(ejabberd:luser(), ejabberd:lserver())
+        |          -&gt; 'not_found' | {'ok',integer(),string()}.
+        |  get_last_info(LUser, LServer) -&gt;
+<font color=red>     0..|      case get_last(LUser, LServer) of</font>
+<font color=red>     0..|          {error, _Reason} -&gt; not_found;</font>
+<font color=red>     0..|          Res -&gt; Res</font>
+        |      end.
+        |  
+        |  -spec remove_user(ejabberd:user(), ejabberd:server()) -&gt; ok | {error, term()}.
+        |  remove_user(User, Server) -&gt;
+<font color=red>     0..|      LUser = jid:nodeprep(User),</font>
+<font color=red>     0..|      LServer = jid:nameprep(Server),</font>
+<font color=red>     0..|      ?BACKEND:remove_user(LUser, LServer).</font>
+        |  
+        |  -spec session_cleanup(LUser :: ejabber:luser(), LServer :: ejabberd:lserver(),
+        |                     LResource :: ejabberd:lresource(), SID :: ejabberd_sm:sid()) -&gt; any().
+        |  session_cleanup(LUser, LServer, LResource, _SID) -&gt;
+<font color=red>     0..|      on_presence_update(LUser, LServer, LResource, &lt;&lt;&gt;&gt;).</font>
+        |  
+</pre>
+</body>
+</html>

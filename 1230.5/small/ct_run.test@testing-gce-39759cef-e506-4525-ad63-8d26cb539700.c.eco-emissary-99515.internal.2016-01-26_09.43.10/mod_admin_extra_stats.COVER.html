@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/mod_admin_extra_stats.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_admin_extra_stats.erl by COVER 2016-01-26 at 09:43:37
+
+****************************************************************************
+
+        |  %%%-------------------------------------------------------------------
+        |  %%% File    : mod_admin_extra_stats.erl
+        |  %%% Author  : Badlop &lt;badlop@process-one.net&gt;, Piotr Nosek &lt;piotr.nosek@erlang-solutions.com&gt;
+        |  %%% Purpose : Contributed administrative functions and commands
+        |  %%% Created : 10 Aug 2008 by Badlop &lt;badlop@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2008   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%-------------------------------------------------------------------
+        |  
+        |  -module(mod_admin_extra_stats).
+        |  -author('badlop@process-one.net').
+        |  
+        |  
+        |  -export([
+        |      commands/0,
+        |  
+        |      stats/1, stats/2
+        |      ]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("ejabberd_commands.hrl").
+        |  
+        |  %%%
+        |  %%% Register commands
+        |  %%%
+        |  
+        |  -spec commands() -&gt; [ejabberd_commands:cmd(),...].
+        |  commands() -&gt;
+<font color=red>     0..|      [</font>
+        |          #ejabberd_commands{name = stats, tags = [stats],
+        |                             desc = "Get statistical value: registeredusers onlineusers onlineusersnode uptimeseconds",
+        |                             module = ?MODULE, function = stats,
+        |                             args = [{name, binary}],
+        |                             result = {stat, integer}},
+        |          #ejabberd_commands{name = stats_host, tags = [stats],
+        |                             desc = "Get statistical value for this host: registeredusers onlineusers",
+        |                             module = ?MODULE, function = stats,
+        |                             args = [{name, binary}, {host, binary}],
+        |                             result = {stat, integer}}
+        |          ].
+        |  
+        |  %%%
+        |  %%% Stats
+        |  %%%
+        |  
+        |  -spec stats(binary()) -&gt; integer() | {error, string()}.
+        |  stats(Name) -&gt;
+<font color=red>     0..|      case Name of</font>
+        |          &lt;&lt;"uptimeseconds"&gt;&gt; -&gt;
+<font color=red>     0..|              trunc(element(1, erlang:statistics(wall_clock))/1000);</font>
+        |          &lt;&lt;"registeredusers"&gt;&gt; -&gt;
+<font color=red>     0..|              lists:sum([</font>
+<font color=red>     0..|                      ejabberd_auth:get_vh_registered_users_number(Server)</font>
+<font color=red>     0..|                      || Server &lt;- ejabberd_config:get_global_option(hosts) ]);</font>
+        |          &lt;&lt;"onlineusersnode"&gt;&gt; -&gt;
+<font color=red>     0..|              ejabberd_sm:get_node_sessions_number();</font>
+        |          &lt;&lt;"onlineusers"&gt;&gt; -&gt;
+<font color=red>     0..|              ejabberd_sm:get_total_sessions_number();</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, "Wrong command name."}</font>
+        |      end.
+        |  
+        |  
+        |  -spec stats(binary(), ejabberd:server()) -&gt; integer() | {error, string()}.
+        |  stats(Name, Host) -&gt;
+<font color=red>     0..|      case Name of</font>
+        |          &lt;&lt;"registeredusers"&gt;&gt; -&gt;
+<font color=red>     0..|              ejabberd_auth:get_vh_registered_users_number(Host);</font>
+        |          &lt;&lt;"onlineusers"&gt;&gt; -&gt;
+<font color=red>     0..|              ejabberd_sm:get_vh_session_number(Host);</font>
+        |          _ -&gt;
+<font color=red>     0..|              {error, "Wrong command name."}</font>
+        |      end.
+</pre>
+</body>
+</html>

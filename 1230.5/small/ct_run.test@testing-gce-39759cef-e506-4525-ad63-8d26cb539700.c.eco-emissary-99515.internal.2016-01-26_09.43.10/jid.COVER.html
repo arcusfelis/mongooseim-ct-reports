@@ -1,0 +1,226 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/jid.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/jid.erl by COVER 2016-01-26 at 09:43:44
+
+****************************************************************************
+
+        |  %%==============================================================================
+        |  %% Copyright 2015 Erlang Solutions Ltd.
+        |  %%
+        |  %% Licensed under the Apache License, Version 2.0 (the "License");
+        |  %% you may not use this file except in compliance with the License.
+        |  %% You may obtain a copy of the License at
+        |  %%
+        |  %% http://www.apache.org/licenses/LICENSE-2.0
+        |  %%
+        |  %% Unless required by applicable law or agreed to in writing, software
+        |  %% distributed under the License is distributed on an "AS IS" BASIS,
+        |  %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        |  %% See the License for the specific language governing permissions and
+        |  %% limitations under the License.
+        |  %%==============================================================================
+        |  -module(jid).
+        |  
+        |  -export([make/3]).
+        |  -export([make/1]).
+        |  -export([are_equal/2]).
+        |  -export([from_binary/1]).
+        |  -export([to_binary/1]).
+        |  -export([is_nodename/1]).
+        |  -export([nodeprep/1]).
+        |  -export([nameprep/1]).
+        |  -export([resourceprep/1]).
+        |  -export([to_lower/1]).
+        |  -export([to_bare/1]).
+        |  -export([replace_resource/2]).
+        |  
+        |  -include_lib("exml/include/exml.hrl").
+        |  -include_lib("exml/include/exml_stream.hrl"). % only used to define stream types
+        |  -include("jlib.hrl").
+        |  
+        |  -define(SANE_LIMIT, 1024).
+        |  
+        |  -spec make(User :: ejabberd:user(), Server :: ejabberd:server(),
+        |             Resource :: ejabberd:resource()) -&gt;
+        |      ejabberd:jid()  | error.
+        |  make(User, Server, Resource) -&gt;
+<font color=red>     0..|      case nodeprep(User) of</font>
+<font color=red>     0..|          error -&gt; error;</font>
+        |          LUser -&gt;
+<font color=red>     0..|              case nameprep(Server) of</font>
+<font color=red>     0..|                  error -&gt; error;</font>
+        |                  LServer -&gt;
+<font color=red>     0..|                      case resourceprep(Resource) of</font>
+<font color=red>     0..|                          error -&gt; error;</font>
+        |                          LResource -&gt;
+<font color=red>     0..|                              #jid{user = User,</font>
+        |                                   server = Server,
+        |                                   resource = Resource,
+        |                                   luser = LUser,
+        |                                   lserver = LServer,
+        |                                   lresource = LResource}
+        |                      end
+        |              end
+        |      end.
+        |  
+        |  -spec make(ejabberd:simple_jid()) -&gt;  ejabberd:jid()  | error.
+        |  make({User, Server, Resource}) -&gt;
+<font color=red>     0..|      make(User, Server, Resource).</font>
+        |  
+        |  
+        |  -spec are_equal(ejabberd:jid(), ejabberd:jid()) -&gt;  boolean().
+        |  are_equal(#jid{luser = LUser, lserver = LServer, lresource = LRes},
+        |            #jid{luser = LUser, lserver = LServer, lresource = LRes}) -&gt;
+<font color=red>     0..|      true;</font>
+        |  are_equal(_, _) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  
+        |  -spec from_binary(binary()) -&gt;  error  | ejabberd:jid().
+        |  from_binary(J) -&gt;
+<font color=red>     0..|      binary_to_jid1(J, []).</font>
+        |  
+        |  
+        |  -spec binary_to_jid1(binary(), [byte()]) -&gt; 'error' | ejabberd:jid().
+        |  binary_to_jid1(&lt;&lt;$@, _J/binary&gt;&gt;, []) -&gt;
+<font color=red>     0..|      error;</font>
+        |  binary_to_jid1(&lt;&lt;$@, J/binary&gt;&gt;, N) -&gt;
+<font color=red>     0..|      binary_to_jid2(J, lists:reverse(N), []);</font>
+        |  binary_to_jid1(&lt;&lt;$/, _J/binary&gt;&gt;, []) -&gt;
+<font color=red>     0..|      error;</font>
+        |  binary_to_jid1(&lt;&lt;$/, J/binary&gt;&gt;, N) -&gt;
+<font color=red>     0..|      binary_to_jid3(J, [], lists:reverse(N), []);</font>
+        |  binary_to_jid1(&lt;&lt;C, J/binary&gt;&gt;, N) -&gt;
+<font color=red>     0..|      binary_to_jid1(J, [C | N]);</font>
+        |  binary_to_jid1(&lt;&lt;&gt;&gt;, []) -&gt;
+<font color=red>     0..|      error;</font>
+        |  binary_to_jid1(&lt;&lt;&gt;&gt;, N) -&gt;
+<font color=red>     0..|      make(&lt;&lt;&gt;&gt;, list_to_binary(lists:reverse(N)), &lt;&lt;&gt;&gt;).</font>
+        |  
+        |  
+        |  %% @doc Only one "@" is admitted per JID
+        |  -spec binary_to_jid2(binary(),[byte()],[byte()]) -&gt; 'error' | ejabberd:jid().
+        |  binary_to_jid2(&lt;&lt;$@, _J/binary&gt;&gt;, _N, _S) -&gt;
+<font color=red>     0..|      error;</font>
+        |  binary_to_jid2(&lt;&lt;$/, _J/binary&gt;&gt;, _N, []) -&gt;
+<font color=red>     0..|      error;</font>
+        |  binary_to_jid2(&lt;&lt;$/, J/binary&gt;&gt;, N, S) -&gt;
+<font color=red>     0..|      binary_to_jid3(J, N, lists:reverse(S), []);</font>
+        |  binary_to_jid2(&lt;&lt;C, J/binary&gt;&gt;, N, S) -&gt;
+<font color=red>     0..|      binary_to_jid2(J, N, [C | S]);</font>
+        |  binary_to_jid2(&lt;&lt;&gt;&gt;, _N, []) -&gt;
+<font color=red>     0..|      error;</font>
+        |  binary_to_jid2(&lt;&lt;&gt;&gt;, N, S) -&gt;
+<font color=red>     0..|      make(list_to_binary(N), list_to_binary(lists:reverse(S)), &lt;&lt;&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec binary_to_jid3(binary(),[byte()],[byte()],[byte()]) -&gt; 'error' | ejabberd:jid().
+        |  binary_to_jid3(&lt;&lt;C, J/binary&gt;&gt;, N, S, R) -&gt;
+<font color=red>     0..|      binary_to_jid3(J, N, S, [C | R]);</font>
+        |  binary_to_jid3(&lt;&lt;&gt;&gt;, N, S, R) -&gt;
+<font color=red>     0..|      make(list_to_binary(N), list_to_binary(S), list_to_binary(lists:reverse(R))).</font>
+        |  
+        |  
+        |  -spec to_binary(ejabberd:simple_jid()  | ejabberd:jid()) -&gt;  binary().
+        |  to_binary(#jid{user = User, server = Server, resource = Resource}) -&gt;
+<font color=red>     0..|      to_binary({User, Server, Resource});</font>
+        |  to_binary({Node, Server, Resource}) -&gt;
+<font color=red>     0..|      S1 = case Node of</font>
+        |               &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|                   &lt;&lt;&gt;&gt;;</font>
+        |               _ -&gt;
+<font color=red>     0..|                   &lt;&lt;Node/binary, "@"&gt;&gt;</font>
+        |           end,
+<font color=red>     0..|      S2 = &lt;&lt;S1/binary, Server/binary&gt;&gt;,</font>
+<font color=red>     0..|      S3 = case Resource of</font>
+        |               &lt;&lt;&gt;&gt; -&gt;
+<font color=red>     0..|                   S2;</font>
+        |               _ -&gt;
+<font color=red>     0..|                   &lt;&lt;S2/binary, "/", Resource/binary&gt;&gt;</font>
+        |           end,
+<font color=red>     0..|      S3.</font>
+        |  
+        |  -spec is_nodename(&lt;&lt;&gt;&gt; | binary()) -&gt; boolean().
+        |  is_nodename(&lt;&lt;&gt;&gt;) -&gt;
+<font color=red>     0..|      false;</font>
+        |  is_nodename(J) -&gt;
+<font color=red>     0..|      nodeprep(J) /= error.</font>
+        |  
+        |  -spec nodeprep(ejabberd:user()) -&gt; 'error' | ejabberd:lserver().
+        |  nodeprep(S) when is_binary(S), size(S) &lt; ?SANE_LIMIT -&gt;
+<font color=red>     0..|      R = stringprep:nodeprep(S),</font>
+<font color=red>     0..|      if</font>
+<font color=red>     0..|          size(R) &lt; ?SANE_LIMIT -&gt; R;</font>
+<font color=red>     0..|          true -&gt; error</font>
+        |      end;
+        |  nodeprep(_) -&gt;
+<font color=red>     0..|      error.</font>
+        |  
+        |  
+        |  -spec nameprep(ejabberd:server()) -&gt; 'error' | ejabberd:luser().
+        |  nameprep(S) when is_binary(S), size(S) &lt; ?SANE_LIMIT -&gt;
+<font color=red>     0..|      R = stringprep:nameprep(S),</font>
+<font color=red>     0..|      if</font>
+<font color=red>     0..|          size(R) &lt; ?SANE_LIMIT -&gt; R;</font>
+<font color=red>     0..|          true -&gt; error</font>
+        |      end;
+        |  nameprep(_) -&gt;
+<font color=red>     0..|      error.</font>
+        |  
+        |  
+        |  -spec resourceprep(ejabberd:resource()) -&gt;
+        |      'error' | ejabberd:lresource().
+        |  resourceprep(S) when size(S) &lt; ?SANE_LIMIT -&gt;
+<font color=red>     0..|      R = stringprep:resourceprep(S),</font>
+<font color=red>     0..|      if</font>
+<font color=red>     0..|          size(R) &lt; ?SANE_LIMIT -&gt; R;</font>
+<font color=red>     0..|          true -&gt; error</font>
+        |      end;
+        |  resourceprep(_) -&gt;
+<font color=red>     0..|      error.</font>
+        |  
+        |  
+        |  -spec to_lower(JID :: ejabberd:simple_jid() | ejabberd:jid()) -&gt;
+        |      error | ejabberd:simple_jid().
+        |  to_lower(#jid{luser = U, lserver = S, lresource = R}) -&gt;
+<font color=red>     0..|      {U, S, R};</font>
+        |  to_lower({U, S, R}) -&gt;
+<font color=red>     0..|      case jid:nodeprep(U) of</font>
+<font color=red>     0..|          error -&gt; error;</font>
+        |          LUser -&gt;
+<font color=red>     0..|              case jid:nameprep(S) of</font>
+<font color=red>     0..|                  error -&gt; error;</font>
+        |                  LServer -&gt;
+<font color=red>     0..|                      case jid:resourceprep(R) of</font>
+<font color=red>     0..|                          error -&gt; error;</font>
+        |                          LResource -&gt;
+<font color=red>     0..|                              {LUser, LServer, LResource}</font>
+        |                      end
+        |              end
+        |      end.
+        |  
+        |  
+        |  -spec to_bare(ejabberd:simple_jid()  | ejabberd:jid()) -&gt; 
+        |                   ejabberd:simple_jid()  | ejabberd:jid().
+        |  to_bare(#jid{} = JID) -&gt;
+<font color=red>     0..|      JID#jid{resource = &lt;&lt;&gt;&gt;, lresource = &lt;&lt;&gt;&gt;};</font>
+        |  to_bare({U, S, _R}) -&gt;
+<font color=red>     0..|      {U, S, &lt;&lt;&gt;&gt;}.</font>
+        |  
+        |  
+        |  -spec replace_resource(ejabberd:jid(), ejabberd:resource()) -&gt;
+        |                            error  | ejabberd:jid().
+        |  replace_resource(JID, Resource) -&gt;
+<font color=red>     0..|      case resourceprep(Resource) of</font>
+<font color=red>     0..|          error -&gt; error;</font>
+        |          LResource -&gt;
+<font color=red>     0..|              JID#jid{resource = Resource, lresource = LResource}</font>
+        |      end.
+</pre>
+</body>
+</html>

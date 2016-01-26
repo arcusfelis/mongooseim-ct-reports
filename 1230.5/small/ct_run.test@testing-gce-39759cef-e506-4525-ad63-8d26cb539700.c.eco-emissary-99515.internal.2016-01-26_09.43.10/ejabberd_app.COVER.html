@@ -1,0 +1,259 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/ejabberd_app.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_app.erl by COVER 2016-01-26 at 09:43:40
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_app.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : ejabberd's application callback module
+        |  %%% Created : 31 Jan 2003 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_app).
+        |  -author('alexey@process-one.net').
+        |  
+        |  -behaviour(application).
+        |  
+        |  -export([start_modules/0,start/2, prep_stop/1, stop/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  
+        |  %%%
+        |  %%% Application API
+        |  %%%
+        |  
+        |  start(normal, _Args) -&gt;
+<font color=red>     0..|      ejabberd_loglevel:init(),</font>
+<font color=red>     0..|      ejabberd_loglevel:set(4),</font>
+<font color=red>     0..|      notify_fips_mode(),</font>
+<font color=red>     0..|      write_pid_file(),</font>
+<font color=red>     0..|      db_init(),</font>
+<font color=red>     0..|      application:start(p1_cache_tab),</font>
+        |  
+<font color=red>     0..|      load_drivers([tls_drv]),</font>
+<font color=red>     0..|      translate:start(),</font>
+<font color=red>     0..|      acl:start(),</font>
+<font color=red>     0..|      ejabberd_node_id:start(),</font>
+<font color=red>     0..|      ejabberd_ctl:init(),</font>
+<font color=red>     0..|      ejabberd_commands:init(),</font>
+<font color=red>     0..|      gen_mod:start(),</font>
+<font color=red>     0..|      ejabberd_config:start(),</font>
+<font color=red>     0..|      ejabberd_check:config(),</font>
+<font color=red>     0..|      maybe_start_alarms(),</font>
+<font color=red>     0..|      connect_nodes(),</font>
+<font color=red>     0..|      {ok, _} = Sup = ejabberd_sup:start_link(),</font>
+<font color=red>     0..|      ejabberd_rdbms:start(),</font>
+<font color=red>     0..|      mongoose_riak:start(),</font>
+<font color=red>     0..|      ejabberd_auth:start(),</font>
+<font color=red>     0..|      cyrsasl:start(),</font>
+        |      %% Profiling
+        |      %%ejabberd_debug:eprof_start(),
+        |      %%ejabberd_debug:fprof_start(),
+<font color=red>     0..|      start_modules(),</font>
+<font color=red>     0..|      mongoose_metrics:init(),</font>
+<font color=red>     0..|      ejabberd_listener:start_listeners(),</font>
+<font color=red>     0..|      ejabberd_admin:start(),</font>
+<font color=red>     0..|      ?INFO_MSG("ejabberd ~s is started in the node ~p", [?VERSION, node()]),</font>
+<font color=red>     0..|      Sup;</font>
+        |  start(_, _) -&gt;
+<font color=red>     0..|      {error, badarg}.</font>
+        |  
+        |  %% @doc Prepare the application for termination.
+        |  %% This function is called when an application is about to be stopped,
+        |  %% before shutting down the processes of the application.
+        |  prep_stop(State) -&gt;
+<font color=red>     0..|      ejabberd_listener:stop_listeners(),</font>
+<font color=red>     0..|      stop_modules(),</font>
+<font color=red>     0..|      broadcast_c2s_shutdown(),</font>
+<font color=red>     0..|      mod_websockets:stop(),</font>
+<font color=red>     0..|      timer:sleep(5000),</font>
+<font color=red>     0..|      mongoose_metrics:remove_all_metrics(),</font>
+<font color=red>     0..|      State.</font>
+        |  
+        |  %% All the processes were killed when this function is called
+        |  stop(_State) -&gt;
+<font color=red>     0..|      ?INFO_MSG("ejabberd ~s is stopped in the node ~p", [?VERSION, node()]),</font>
+<font color=red>     0..|      delete_pid_file(),</font>
+        |      %%ejabberd_debug:stop(),
+<font color=red>     0..|      ok.</font>
+        |  
+        |  
+        |  %%%
+        |  %%% Internal functions
+        |  %%%
+        |  -spec db_init() -&gt; list().
+        |  db_init() -&gt;
+<font color=red>     0..|      case mnesia:system_info(extra_db_nodes) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              application:stop(mnesia),</font>
+<font color=red>     0..|              mnesia:create_schema([node()]),</font>
+<font color=red>     0..|              application:start(mnesia, permanent);</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end,
+<font color=red>     0..|      mnesia:wait_for_tables(mnesia:system_info(local_tables), infinity).</font>
+        |  
+        |  %% @doc Start all the modules in all the hosts
+        |  -spec start_modules() -&gt; 'ok'.
+        |  start_modules() -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(Host) -&gt;
+<font color=red>     0..|                case ejabberd_config:get_local_option({modules, Host}) of</font>
+        |                    undefined -&gt;
+<font color=red>     0..|                        ok;</font>
+        |                    Modules -&gt;
+<font color=red>     0..|                        lists:foreach(</font>
+        |                          fun({Module, Args}) -&gt;
+<font color=red>     0..|                                  gen_mod:start_module(Host, Module, Args)</font>
+        |                          end, Modules)
+        |                end
+        |        end, ?MYHOSTS).
+        |  
+        |  %% Stop all the modules in all the hosts
+        |  -spec stop_modules() -&gt; 'ok'.
+        |  stop_modules() -&gt;
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun(Host) -&gt;
+<font color=red>     0..|                case ejabberd_config:get_local_option({modules, Host}) of</font>
+        |                    undefined -&gt;
+<font color=red>     0..|                        ok;</font>
+        |                    Modules -&gt;
+<font color=red>     0..|                        lists:foreach(</font>
+        |                          fun({Module, _Args}) -&gt;
+<font color=red>     0..|                                  gen_mod:stop_module_keep_config(Host, Module)</font>
+        |                          end, Modules)
+        |                end
+        |        end, ?MYHOSTS).
+        |  
+        |  -spec maybe_start_alarms() -&gt; 'ok'.
+        |  maybe_start_alarms() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(alarms) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              ok;</font>
+        |          Env when is_list(Env) -&gt;
+<font color=red>     0..|              [application:set_env(alarms, K, V) || {K, V} &lt;- Env],</font>
+<font color=red>     0..|              alarms:start()</font>
+        |      end.
+        |  
+        |  -spec connect_nodes() -&gt; 'ok'.
+        |  connect_nodes() -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option(cluster_nodes) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              ok;</font>
+        |          Nodes when is_list(Nodes) -&gt;
+<font color=red>     0..|              lists:foreach(fun(Node) -&gt;</font>
+<font color=red>     0..|                                    net_kernel:connect_node(Node)</font>
+        |                            end, Nodes)
+        |      end.
+        |  
+        |  -spec broadcast_c2s_shutdown() -&gt; 'ok'.
+        |  broadcast_c2s_shutdown() -&gt;
+<font color=red>     0..|      Children = supervisor:which_children(ejabberd_c2s_sup),</font>
+<font color=red>     0..|      lists:foreach(</font>
+        |        fun({_, C2SPid, _, _}) -&gt;
+<font color=red>     0..|                C2SPid ! system_shutdown</font>
+        |        end, Children).
+        |  
+        |  %%%
+        |  %%% PID file
+        |  %%%
+        |  
+        |  -spec write_pid_file() -&gt; 'ok' | {'error',atom()}.
+        |  write_pid_file() -&gt;
+<font color=red>     0..|      case ejabberd:get_pid_file() of</font>
+        |          false -&gt;
+<font color=red>     0..|              ok;</font>
+        |          PidFilename -&gt;
+<font color=red>     0..|              write_pid_file(os:getpid(), PidFilename)</font>
+        |      end.
+        |  
+        |  -spec write_pid_file(Pid :: string(),
+        |                       PidFilename :: nonempty_string()
+        |                      ) -&gt; 'ok' | {'error',atom()}.
+        |  write_pid_file(Pid, PidFilename) -&gt;
+<font color=red>     0..|      case file:open(PidFilename, [write]) of</font>
+        |          {ok, Fd} -&gt;
+<font color=red>     0..|              io:format(Fd, "~s~n", [Pid]),</font>
+<font color=red>     0..|              file:close(Fd);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("Cannot write PID file ~s~nReason: ~p", [PidFilename, Reason]),</font>
+<font color=red>     0..|              throw({cannot_write_pid_file, PidFilename, Reason})</font>
+        |      end.
+        |  
+        |  -spec delete_pid_file() -&gt; 'ok' | {'error',atom()}.
+        |  delete_pid_file() -&gt;
+<font color=red>     0..|      case ejabberd:get_pid_file() of</font>
+        |          false -&gt;
+<font color=red>     0..|              ok;</font>
+        |          PidFilename -&gt;
+<font color=red>     0..|              file:delete(PidFilename)</font>
+        |      end.
+        |  
+        |  -spec load_drivers([atom()]) -&gt; 'ok'.
+        |  load_drivers([]) -&gt;
+<font color=red>     0..|      ok;</font>
+        |  load_drivers([Driver | Rest]) -&gt;
+<font color=red>     0..|      case erl_ddll:load_driver(ejabberd:get_so_path(), Driver) of</font>
+        |          ok -&gt;
+<font color=red>     0..|              load_drivers(Rest);</font>
+        |          {error, permanent} -&gt;
+<font color=red>     0..|              load_drivers(Rest);</font>
+        |          {error, already_loaded} -&gt;
+<font color=red>     0..|              load_drivers(Rest);</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              ?CRITICAL_MSG("unable to load driver 'expat_erl': ~s",</font>
+        |                            [erl_ddll:format_error(Reason)]),
+<font color=red>     0..|              exit({driver_loading_failed, Driver, Reason})</font>
+        |      end.
+        |  
+        |  notify_fips_mode() -&gt;
+<font color=red>     0..|      case application:get_env(crypto, fips_mode) of</font>
+        |          {ok, true} -&gt;
+<font color=red>     0..|              do_notify_fips_mode();</font>
+        |          _ -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  do_notify_fips_mode() -&gt;
+<font color=red>     0..|      code:ensure_loaded(crypto),</font>
+<font color=red>     0..|      case erlang:function_exported(crypto, info_fips, 0) of</font>
+        |          true -&gt;
+<font color=red>     0..|              case crypto:info_fips() of</font>
+        |                  enabled -&gt;
+<font color=red>     0..|                      ?WARNING_MSG("FIPS mode enabled", []);</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("FIPS mode disabled although it should be enabled", [])</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              ?INFO_MSG("Used Erlang/OTP does not support FIPS mode", [])</font>
+        |      end.
+</pre>
+</body>
+</html>

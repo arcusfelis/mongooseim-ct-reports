@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/adhoc.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/adhoc.erl by COVER 2016-01-26 at 09:43:38
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : adhoc.erl
+        |  %%% Author  : Magnus Henoch &lt;henoch@dtek.chalmers.se&gt;
+        |  %%% Purpose : Provide helper functions for ad-hoc commands (XEP-0050)
+        |  %%% Created : 31 Oct 2005 by Magnus Henoch &lt;henoch@dtek.chalmers.se&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(adhoc).
+        |  -author('henoch@dtek.chalmers.se').
+        |  -xep([{xep, 50}, {version, "1.2"}]).
+        |  -export([parse_request/1,
+        |           produce_response/2,
+        |           produce_response/1]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include("adhoc.hrl").
+        |  
+        |  -type request() :: #adhoc_request{}.
+        |  -type response() :: #adhoc_response{}.
+        |  
+        |  -export_type([request/0, response/0]).
+        |  
+        |  %% @doc Parse an ad-hoc request.  Return either an adhoc_request record or
+        |  %% an {error, ErrorType} tuple.
+        |  -spec parse_request(ejabberd:iq()) -&gt; request() | {error, jlib:xmlel()}.
+        |  parse_request(#iq{type = set, lang = Lang, sub_el = SubEl, xmlns = ?NS_COMMANDS}) -&gt;
+<font color=red>     0..|      ?DEBUG("entering parse_request...", []),</font>
+<font color=red>     0..|      Node = xml:get_tag_attr_s(&lt;&lt;"node"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|      SessionID = xml:get_tag_attr_s(&lt;&lt;"sessionid"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|      Action = xml:get_tag_attr_s(&lt;&lt;"action"&gt;&gt;, SubEl),</font>
+<font color=red>     0..|      XData = find_xdata_el(SubEl),</font>
+<font color=red>     0..|      #xmlel{children = AllEls} = SubEl,</font>
+<font color=red>     0..|      Others = case XData of</font>
+        |                   false -&gt;
+<font color=red>     0..|                       AllEls;</font>
+        |                   _ -&gt;
+<font color=red>     0..|                       lists:delete(XData, AllEls)</font>
+        |               end,
+        |  
+<font color=red>     0..|      #adhoc_request{lang = Lang,</font>
+        |                     node = Node,
+        |                     session_id = SessionID,
+        |                     action = Action,
+        |                     xdata = XData,
+        |                     others = Others};
+        |  parse_request(_) -&gt;
+<font color=red>     0..|      {error, ?ERR_BAD_REQUEST}.</font>
+        |  
+        |  %% @doc Borrowed from mod_vcard.erl
+        |  -spec find_xdata_el(jlib:xmlel()) -&gt; false | jlib:xmlel().
+        |  find_xdata_el(#xmlel{children = SubEls}) -&gt;
+<font color=red>     0..|      find_xdata_el1(SubEls).</font>
+        |  
+        |  %% @private
+        |  find_xdata_el1([]) -&gt;
+<font color=red>     0..|      false;</font>
+        |  find_xdata_el1([XE = #xmlel{attrs = Attrs} | Els]) -&gt;
+<font color=red>     0..|      case xml:get_attr_s(&lt;&lt;"xmlns"&gt;&gt;, Attrs) of</font>
+        |          ?NS_XDATA -&gt;
+<font color=red>     0..|              XE;</font>
+        |          _ -&gt;
+<font color=red>     0..|              find_xdata_el1(Els)</font>
+        |      end;
+        |  find_xdata_el1([_ | Els]) -&gt;
+<font color=red>     0..|      find_xdata_el1(Els).</font>
+        |  
+        |  %% @doc Produce a &lt;command/&gt; node to use as response from an adhoc_response
+        |  %% record, filling in values for language, node and session id from
+        |  %% the request.
+        |  -spec produce_response(request(), response()) -&gt; #xmlel{}.
+        |  produce_response(#adhoc_request{lang = Lang,
+        |                                  node = Node,
+        |                                  session_id = SessionID},
+        |                   Response) -&gt;
+<font color=red>     0..|      produce_response(Response#adhoc_response{lang = Lang,</font>
+        |                                               node = Node,
+        |                                               session_id = SessionID}).
+        |  
+        |  %% @doc Produce a &lt;command/&gt; node to use as response from an adhoc_response
+        |  %% record.
+        |  -spec produce_response(response()) -&gt; jlib:xmlel().
+        |  produce_response(#adhoc_response{lang = _Lang,
+        |                                   node = Node,
+        |                                   session_id = ProvidedSessionID,
+        |                                   status = Status,
+        |                                   default_action = DefaultAction,
+        |                                   actions = Actions,
+        |                                   notes = Notes,
+        |                                   elements = Elements}) -&gt;
+<font color=red>     0..|      SessionID = if is_binary(ProvidedSessionID), ProvidedSessionID /= &lt;&lt;""&gt;&gt; -&gt;</font>
+<font color=red>     0..|                          ProvidedSessionID;</font>
+        |                     true -&gt;
+<font color=red>     0..|                          jlib:now_to_utc_binary(os:timestamp())</font>
+        |                  end,
+<font color=red>     0..|      ActionsEls = case Actions of</font>
+        |                       [] -&gt;
+<font color=red>     0..|                           [];</font>
+        |                       _ -&gt;
+<font color=red>     0..|                           ActionsElAttrs = case DefaultAction of</font>
+<font color=red>     0..|                                                &lt;&lt;""&gt;&gt; -&gt; [];</font>
+<font color=red>     0..|                                                _ -&gt; [{&lt;&lt;"execute"&gt;&gt;, DefaultAction}]</font>
+        |                                            end,
+<font color=red>     0..|                           [#xmlel{name = &lt;&lt;"actions"&gt;&gt;, attrs = ActionsElAttrs,</font>
+<font color=red>     0..|                                   children = [#xmlel{name = Action} || Action &lt;- Actions]}]</font>
+        |                   end,
+<font color=red>     0..|      NotesEls = lists:map(fun({Type, Text}) -&gt;</font>
+<font color=red>     0..|                                   #xmlel{name = &lt;&lt;"note"&gt;&gt;,</font>
+        |                                          attrs = [{&lt;&lt;"type"&gt;&gt;, Type}],
+        |                                          children = [#xmlcdata{content = Text}]}
+        |                           end, Notes),
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"command"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_COMMANDS},
+        |                      {&lt;&lt;"sessionid"&gt;&gt;, SessionID},
+        |                      {&lt;&lt;"node"&gt;&gt;, Node},
+        |                      {&lt;&lt;"status"&gt;&gt;, list_to_binary(atom_to_list(Status))}],
+        |             children = ActionsEls ++ NotesEls ++ Elements}.
+        |  
+</pre>
+</body>
+</html>

@@ -1,0 +1,424 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/ejabberd_auth_external.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/ejabberd_auth_external.erl by COVER 2016-01-26 at 09:43:43
+
+****************************************************************************
+
+        |  %%%----------------------------------------------------------------------
+        |  %%% File    : ejabberd_auth_external.erl
+        |  %%% Author  : Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%% Purpose : Authentification via LDAP external script
+        |  %%% Created : 12 Dec 2004 by Alexey Shchepin &lt;alexey@process-one.net&gt;
+        |  %%%
+        |  %%%
+        |  %%% ejabberd, Copyright (C) 2002-2011   ProcessOne
+        |  %%%
+        |  %%% This program is free software; you can redistribute it and/or
+        |  %%% modify it under the terms of the GNU General Public License as
+        |  %%% published by the Free Software Foundation; either version 2 of the
+        |  %%% License, or (at your option) any later version.
+        |  %%%
+        |  %%% This program is distributed in the hope that it will be useful,
+        |  %%% but WITHOUT ANY WARRANTY; without even the implied warranty of
+        |  %%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+        |  %%% General Public License for more details.
+        |  %%%
+        |  %%% You should have received a copy of the GNU General Public License
+        |  %%% along with this program; if not, write to the Free Software
+        |  %%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+        |  %%% 02111-1307 USA
+        |  %%%
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -module(ejabberd_auth_external).
+        |  -author('alexey@process-one.net').
+        |  
+        |  %% External exports
+        |  -behaviour(ejabberd_gen_auth).
+        |  -export([start/1,
+        |           stop/1,
+        |           set_password/3,
+        |           check_password/3,
+        |           check_password/5,
+        |           try_register/3,
+        |           dirty_get_registered_users/0,
+        |           get_vh_registered_users/1,
+        |           get_vh_registered_users/2,
+        |           get_vh_registered_users_number/1,
+        |           get_vh_registered_users_number/2,
+        |           get_password/2,
+        |           get_password_s/2,
+        |           does_user_exist/2,
+        |           remove_user/2,
+        |           remove_user/3,
+        |           store_type/1,
+        |           plain_password_required/0
+        |          ]).
+        |  
+        |  %% Exported for behaviour but not implemented
+        |  -export([login/2, get_password/3]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  %%%----------------------------------------------------------------------
+        |  %%% API
+        |  %%%----------------------------------------------------------------------
+        |  
+        |  -spec start(Host :: ejabberd:server()) -&gt; 'ok'.
+        |  start(Host) -&gt;
+<font color=red>     0..|      AuthOpts = ejabberd_config:get_local_option(auth_opts, Host),</font>
+<font color=red>     0..|      {_, ExtauthProgram} = lists:keyfind(extauth_program, 1, AuthOpts),</font>
+<font color=red>     0..|      extauth:start(Host, ExtauthProgram),</font>
+<font color=red>     0..|      case check_cache_last_options(Host) of</font>
+        |          cache -&gt;
+<font color=red>     0..|              ok = ejabberd_auth_internal:start(Host);</font>
+        |          no_cache -&gt;
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  stop(Host) -&gt;
+<font color=red>     0..|      extauth:stop(Host).</font>
+        |  
+        |  
+        |  -spec check_cache_last_options(Server :: ejabberd:server()
+        |                                ) -&gt; 'cache' | 'no_cache'.
+        |  check_cache_last_options(Server) -&gt;
+        |      %% if extauth_cache is enabled, then a mod_last module must also be enabled
+<font color=red>     0..|      case get_cache_option(Server) of</font>
+<font color=red>     0..|          false -&gt; no_cache;</font>
+        |          {true, _CacheTime} -&gt;
+<font color=red>     0..|              case get_mod_last_configured(Server) of</font>
+        |                  no_mod_last -&gt;
+<font color=red>     0..|                      ?ERROR_MSG("In host ~p extauth is used, extauth_cache is enabled but "</font>
+        |                                 "mod_last is not enabled.", [Server]),
+<font color=red>     0..|                      no_cache;</font>
+<font color=red>     0..|                  _ -&gt; cache</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  plain_password_required() -&gt;
+<font color=red>     0..|      true.</font>
+        |  
+        |  store_type(_) -&gt;
+<font color=red>     0..|  	external.</font>
+        |  
+        |  -spec check_password(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver(),
+        |                       Password :: binary()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case get_cache_option(LServer) of</font>
+<font color=red>     0..|          false -&gt; check_password_extauth(LUser, LServer, Password);</font>
+<font color=red>     0..|          {true, CacheTime} -&gt; check_password_cache(LUser, LServer, Password, CacheTime)</font>
+        |      end.
+        |  
+        |  
+        |  -spec check_password(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver(),
+        |                       Password :: binary(),
+        |                       Digest :: binary(),
+        |                       DigestGen :: fun()) -&gt; boolean().
+        |  check_password(LUser, LServer, Password, _Digest, _DigestGen) -&gt;
+<font color=red>     0..|      check_password(LUser, LServer, Password).</font>
+        |  
+        |  
+        |  -spec set_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     Password :: binary()) -&gt; ok | {error, not_allowed}.
+        |  set_password(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case extauth:set_password(LUser, LServer, Password) of</font>
+<font color=red>     0..|          true -&gt; set_password_internal(LUser, LServer, Password),</font>
+<font color=red>     0..|                  ok;</font>
+<font color=red>     0..|          _ -&gt; {error, unknown_problem}</font>
+        |      end.
+        |  
+        |  
+        |  -spec try_register(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver(),
+        |                     Password :: binary()
+        |                     ) -&gt; ok | {error, not_allowed}.
+        |  try_register(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case get_cache_option(LServer) of</font>
+<font color=red>     0..|          false -&gt; try_register_extauth(LUser, LServer, Password);</font>
+<font color=red>     0..|          {true, _CacheTime} -&gt; try_register_external_cache(LUser, LServer, Password)</font>
+        |      end.
+        |  
+        |  
+        |  -spec dirty_get_registered_users() -&gt; [ejabberd:simple_bare_jid()].
+        |  dirty_get_registered_users() -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:dirty_get_registered_users().</font>
+        |  
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver()) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer) -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:get_vh_registered_users(LServer).</font>
+        |  
+        |  
+        |  -spec get_vh_registered_users(LServer :: ejabberd:lserver(),
+        |                                Opts :: list()) -&gt; [ejabberd:simple_bare_jid()].
+        |  get_vh_registered_users(LServer, Opts)  -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:get_vh_registered_users(LServer, Opts).</font>
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(LServer :: ejabberd:lserver()) -&gt; integer().
+        |  get_vh_registered_users_number(LServer) -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:get_vh_registered_users_number(LServer).</font>
+        |  
+        |  
+        |  -spec get_vh_registered_users_number(LServer :: ejabberd:lserver(),
+        |                                       Opts :: list()) -&gt; integer().
+        |  get_vh_registered_users_number(LServer, Opts) -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:get_vh_registered_users_number(LServer, Opts).</font>
+        |  
+        |  
+        |  %% @doc The password can only be returned if cache is enabled, cached info
+        |  %% exists and is fresh enough.
+        |  -spec get_password(LUser :: ejabberd:luser(),
+        |                     LServer :: ejabberd:lserver()) -&gt; binary() | false.
+        |  get_password(LUser, LServer) -&gt;
+<font color=red>     0..|      case get_cache_option(LServer) of</font>
+<font color=red>     0..|          false -&gt; false;</font>
+<font color=red>     0..|          {true, CacheTime} -&gt; get_password_cache(LUser, LServer, CacheTime)</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_password_s(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver()) -&gt; binary().
+        |  get_password_s(LUser, LServer) -&gt;
+<font color=red>     0..|      case get_password(LUser, LServer) of</font>
+<font color=red>     0..|          false -&gt; &lt;&lt;""&gt;&gt;;</font>
+<font color=red>     0..|          Other -&gt; Other</font>
+        |      end.
+        |  
+        |  
+        |  -spec does_user_exist(LUser :: ejabberd:luser(),
+        |                       LServer :: ejabberd:lserver()) -&gt; boolean() | {error, atom()}.
+        |  does_user_exist(LUser, LServer) -&gt;
+<font color=red>     0..|      try extauth:is_user_exists(LUser, LServer) of</font>
+<font color=red>     0..|          Res -&gt; Res</font>
+        |      catch
+<font color=red>     0..|          _:Error -&gt; {error, Error}</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_user(User :: ejabberd:luser(),
+        |                    Server :: ejabberd:lserver()
+        |                    ) -&gt; ok | {error, not_allowed}.
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      case extauth:remove_user(LUser, LServer) of</font>
+<font color=red>     0..|          false -&gt; {error, not_allowed};</font>
+        |          true -&gt;
+<font color=red>     0..|              case get_cache_option(LServer) of</font>
+<font color=red>     0..|                  false -&gt; ok;</font>
+        |                  {true, _CacheTime} -&gt;
+<font color=red>     0..|                      ejabberd_auth_internal:remove_user(LUser, LServer)</font>
+        |              end,
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  
+        |  -spec remove_user(LUser :: ejabberd:luser(),
+        |                    LServer :: ejabberd:lserver(),
+        |                    Password :: binary()
+        |                    ) -&gt; ok | {error, not_allowed}.
+        |  remove_user(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case extauth:remove_user(LUser, LServer, Password) of</font>
+<font color=red>     0..|          false -&gt; {error, not_allowed};</font>
+        |          true -&gt;
+<font color=red>     0..|              case get_cache_option(LServer) of</font>
+<font color=red>     0..|                  false -&gt; ok;</font>
+        |                  {true, _CacheTime} -&gt;
+<font color=red>     0..|                      ejabberd_auth_internal:remove_user(LUser, LServer, Password)</font>
+        |              end,
+<font color=red>     0..|              ok</font>
+        |      end.
+        |  
+        |  %%%
+        |  %%% Extauth cache management
+        |  %%%
+        |  
+        |  -spec get_cache_option(Host :: ejabberd:lserver()
+        |                        ) -&gt; false | {true, CacheTime::integer()}.
+        |  get_cache_option(Host) -&gt;
+<font color=red>     0..|      case ejabberd_config:get_local_option({extauth_cache, Host}) of</font>
+<font color=red>     0..|          CacheTime when is_integer(CacheTime) -&gt; {true, CacheTime};</font>
+<font color=red>     0..|          _ -&gt; false</font>
+        |      end.
+        |  
+        |  
+        |  -spec check_password_extauth(LUser :: ejabberd:luser(),
+        |                               LServer :: ejabberd:lserver(),
+        |                               Password :: binary()) -&gt; boolean().
+        |  check_password_extauth(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      extauth:check_password(LUser, LServer, Password) andalso Password /= "".</font>
+        |  
+        |  
+        |  -spec try_register_extauth(LUser :: ejabberd:luser(),
+        |                             LServer :: ejabberd:lserver(),
+        |                             Password :: binary()) -&gt; ok | {error, not_allowed}.
+        |  try_register_extauth(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      extauth:try_register(LUser, LServer, Password).</font>
+        |  
+        |  
+        |  -spec check_password_cache(LUser :: ejabberd:luser(),
+        |                             LServer :: ejabberd:lserver(),
+        |                             Password :: binary(),
+        |                             CacheTime :: integer()) -&gt; boolean().
+        |  check_password_cache(LUser, LServer, Password, CacheTime) -&gt;
+<font color=red>     0..|      case get_last_access(LUser, LServer) of</font>
+        |          online -&gt;
+<font color=red>     0..|              check_password_internal(LUser, LServer, Password);</font>
+        |          never -&gt;
+<font color=red>     0..|              check_password_external_cache(LUser, LServer, Password);</font>
+        |          mod_last_required -&gt;
+<font color=red>     0..|              ?ERROR_MSG("extauth is used, extauth_cache is enabled but mod_last is not enabled in that host", []),</font>
+<font color=red>     0..|              check_password_external_cache(LUser, LServer, Password);</font>
+        |          TimeStamp -&gt;
+        |              %% If last access exists, compare last access with cache refresh time
+<font color=red>     0..|              case is_fresh_enough(TimeStamp, CacheTime) of</font>
+        |                  %% If no need to refresh, check password against Mnesia
+        |                  true -&gt;
+<font color=red>     0..|                      case check_password_internal(LUser, LServer, Password) of</font>
+        |                          %% If password valid in Mnesia, accept it
+        |                          true -&gt;
+<font color=red>     0..|                              true;</font>
+        |                          %% Else (password nonvalid in Mnesia), check in extauth and cache result
+        |                          false -&gt;
+<font color=red>     0..|                              check_password_external_cache(LUser, LServer, Password)</font>
+        |                      end;
+        |                  %% Else (need to refresh), check in extauth and cache result
+        |                  false -&gt;
+<font color=red>     0..|                      check_password_external_cache(LUser, LServer, Password)</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  get_password_internal(LUser, LServer) -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:get_password(LUser, LServer).</font>
+        |  
+        |  
+        |  -spec get_password_cache(LUser :: ejabberd:luser(),
+        |                           LServer :: ejabberd:lserver(),
+        |                           CacheTime :: integer()) -&gt; false | string().
+        |  get_password_cache(LUser, LServer, CacheTime) -&gt;
+<font color=red>     0..|      case get_last_access(LUser, LServer) of</font>
+        |          online -&gt;
+<font color=red>     0..|              get_password_internal(LUser, LServer);</font>
+        |          never -&gt;
+<font color=red>     0..|              false;</font>
+        |          mod_last_required -&gt;
+<font color=red>     0..|              ?ERROR_MSG("extauth is used, extauth_cache is enabled but mod_last is not enabled in that host", []),</font>
+<font color=red>     0..|              false;</font>
+        |          TimeStamp -&gt;
+<font color=red>     0..|              case is_fresh_enough(TimeStamp, CacheTime) of</font>
+        |                  true -&gt;
+<font color=red>     0..|                      get_password_internal(LUser, LServer);</font>
+        |                  false -&gt;
+<font color=red>     0..|                      false</font>
+        |              end
+        |      end.
+        |  
+        |  
+        |  %% @doc Check the password using extauth; if success then cache it
+        |  check_password_external_cache(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case check_password_extauth(LUser, LServer, Password) of</font>
+        |          true -&gt;
+<font color=red>     0..|              set_password_internal(LUser, LServer, Password), true;</font>
+        |          false -&gt;
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  %% @doc Try to register using extauth; if success then cache it
+        |  -spec try_register_external_cache(LUser :: ejabberd:luser(),
+        |                                    LServer :: ejabberd:lserver(),
+        |                                    Password :: binary()) -&gt; ok | {error, not_allowed}.
+        |  try_register_external_cache(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      case try_register_extauth(LUser, LServer, Password) of</font>
+        |          ok = R -&gt;
+<font color=red>     0..|              set_password_internal(LUser, LServer, Password),</font>
+<font color=red>     0..|              R;</font>
+<font color=red>     0..|          _ -&gt; {error, not_allowed}</font>
+        |      end.
+        |  
+        |  
+        |  -spec check_password_internal(LUser :: ejabberd:luser(),
+        |                                LServer :: ejabberd:lserver(),
+        |                                Password :: binary()) -&gt; boolean().
+        |  check_password_internal(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:check_password(LUser, LServer, Password).</font>
+        |  
+        |  
+        |  -spec set_password_internal(LUser :: ejabberd:luser(),
+        |                              LServer :: ejabberd:lserver(),
+        |                              Password :: binary()) -&gt; ok | {error, invalid_jid}.
+        |  set_password_internal(LUser, LServer, Password) -&gt;
+<font color=red>     0..|      ejabberd_auth_internal:set_password(LUser, LServer, Password).</font>
+        |  
+        |  
+        |  -spec is_fresh_enough(TimeLast :: integer(),
+        |                        CacheTime :: integer()) -&gt; boolean().
+        |  is_fresh_enough(TimeStampLast, CacheTime) -&gt;
+<font color=red>     0..|      {MegaSecs, Secs, _MicroSecs} = now(),</font>
+<font color=red>     0..|      Now = MegaSecs * 1000000 + Secs,</font>
+<font color=red>     0..|      (TimeStampLast + CacheTime &gt; Now).</font>
+        |  
+        |  
+        |  %% @doc Code copied from mod_configure.erl
+        |  %% Code copied from web/ejabberd_web_admin.erl
+        |  %% TODO: Update time format to XEP-0202: Entity Time
+        |  -spec get_last_access(User :: ejabberd:user(),
+        |                        Server :: ejabberd:server()
+        |                        ) -&gt; online | never | mod_last_required | integer().
+        |  get_last_access(User, Server) -&gt;
+<font color=red>     0..|      case ejabberd_sm:get_user_resources(User, Server) of</font>
+        |          [] -&gt;
+<font color=red>     0..|              case get_last_info(User, Server) of</font>
+        |                  mod_last_required -&gt;
+<font color=red>     0..|                      mod_last_required;</font>
+        |                  not_found -&gt;
+<font color=red>     0..|                      never;</font>
+        |                  {ok, Timestamp, _Status} -&gt;
+<font color=red>     0..|                      Timestamp</font>
+        |              end;
+        |          _ -&gt;
+<font color=red>     0..|              online</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_last_info(User :: ejabberd:user(),
+        |                      Server :: ejabberd:server()
+        |                      ) -&gt; {ok, Timestamp :: integer(), Status :: binary()}
+        |                           | not_found | mod_last_required.
+        |  get_last_info(User, Server) -&gt;
+<font color=red>     0..|      case gen_mod:is_loaded(Server, mod_last) of</font>
+<font color=red>     0..|          true -&gt; mod_last:get_last_info(User, Server);</font>
+<font color=red>     0..|          _ -&gt; mod_last_required</font>
+        |      end.
+        |  
+        |  -spec get_mod_last_configured(Server :: ejabberd:server()
+        |                               ) -&gt; mod_last | mod_last_odbc | no_mod_last.
+        |  get_mod_last_configured(Server) -&gt;
+<font color=red>     0..|      ML = is_configured(Server, mod_last),</font>
+<font color=red>     0..|      MLO = is_configured(Server, mod_last_odbc),</font>
+<font color=red>     0..|      case {ML, MLO} of</font>
+<font color=red>     0..|          {true, _} -&gt; mod_last;</font>
+<font color=red>     0..|          {false, true} -&gt; mod_last_odbc;</font>
+<font color=red>     0..|          {false, false} -&gt; no_mod_last</font>
+        |      end.
+        |  
+        |  is_configured(Host, Module) -&gt;
+<font color=red>     0..|      lists:keymember(Module, 1, ejabberd_config:get_local_option({modules, Host})).</font>
+        |  
+        |  
+        |  %% @doc gen_auth unimplemented callbacks
+<font color=red>     0..|  login(_User, _Server) -&gt; erlang:error(not_implemented).</font>
+<font color=red>     0..|  get_password(_User, _Server, _DefaultValue) -&gt; erlang:error(not_implemented).</font>
+</pre>
+</body>
+</html>

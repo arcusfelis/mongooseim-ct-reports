@@ -1,0 +1,36 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/safely.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/safely.erl by COVER 2016-01-26 at 09:43:37
+
+****************************************************************************
+
+        |  -module(safely).
+        |  %% This module preserves the return types of a `catch` statement,
+        |  %% but doesn't silently convert `throw`s to normal values.
+        |  
+        |  -export([apply/2,
+        |           apply/3]).
+        |  
+        |  -type catch_result(A) :: A | {'EXIT', term()}.
+        |  
+        |  -spec apply(fun((...) -&gt; A), [term()]) -&gt; catch_result(A).
+        |  apply(Function, Args) when is_function(Function), is_list(Args) -&gt;
+<font color=red>     0..|      try erlang:apply(Function, Args)</font>
+<font color=red>     0..|      catch error:R -&gt; {'EXIT', {R, erlang:get_stacktrace()}};</font>
+<font color=red>     0..|            _:R -&gt; {'EXIT', R}</font>
+        |      end.
+        |  
+        |  -spec apply(atom(), atom(), [term()]) -&gt; catch_result(any()).
+        |  apply(Module, Function, Args) when is_atom(Function), is_list(Args) -&gt;
+<font color=red>     0..|      try erlang:apply(Module, Function, Args)</font>
+<font color=red>     0..|      catch error:R -&gt; {'EXIT', {R, erlang:get_stacktrace()}};</font>
+<font color=red>     0..|            _:R -&gt; {'EXIT', R}</font>
+        |      end.
+</pre>
+</body>
+</html>

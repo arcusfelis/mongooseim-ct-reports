@@ -1,0 +1,1103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/mod_bosh_socket.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_bosh_socket.erl by COVER 2016-01-26 at 09:44:06
+
+****************************************************************************
+
+        |  -module(mod_bosh_socket).
+        |  
+        |  -behaviour(gen_fsm).
+        |  
+        |  %% API
+        |  -export([start/2,
+        |           start_link/2,
+        |           start_supervisor/0,
+        |           handle_request/2,
+        |           pause/2]).
+        |  
+        |  %% Private API
+        |  -export([get_handlers/1,
+        |           get_pending/1,
+        |           get_client_acks/1,
+        |           set_client_acks/2,
+        |           get_cached_responses/1]).
+        |  
+        |  %% ejabberd_socket compatibility
+        |  -export([starttls/2, starttls/3,
+        |           compress/1, compress/3,
+        |           reset_stream/1,
+        |           send/2,
+        |           send_xml/2,
+        |           change_shaper/2,
+        |           monitor/1,
+        |           get_sockmod/1,
+        |           close/1,
+        |           peername/1]).
+        |  
+        |  %% gen_fsm callbacks
+        |  -export([init/1,
+        |           accumulate/2, accumulate/3,
+        |           normal/2, normal/3,
+        |           closing/2, closing/3,
+        |           handle_event/3,
+        |           handle_sync_event/4,
+        |           handle_info/3,
+        |           terminate/3,
+        |           code_change/4]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  -include_lib("exml/include/exml_stream.hrl").
+        |  -include("mod_bosh.hrl").
+        |  -define(ACCUMULATE_PERIOD, 10).
+        |  -define(DEFAULT_HOLD, 1).
+        |  -define(CONCURRENT_REQUESTS, 2).
+        |  -define(DEFAULT_WAIT, 60).
+        |  -define(DEFAULT_MAXPAUSE, 120).
+        |  -define(DEFAULT_CLIENT_ACKS, false).
+        |  
+        |  -type cached_response() :: {rid(), erlang:timestamp(), jlib:xmlel()}.
+        |  -type rid() :: pos_integer().
+        |  
+        |  -record(state, {from            :: binary(),
+        |                  to              :: binary(),
+        |                  c2s_pid         :: pid(),
+        |                  handlers = []   :: [{rid(), reference(), pid()}],
+        |                  %% Elements buffered for sending to the client.
+        |                  pending = []    :: [jlib:xmlstreamel()],
+        |                  sid             :: mod_bosh:sid(),
+        |                  wait = ?DEFAULT_WAIT :: integer(),
+        |                  hold = ?DEFAULT_HOLD :: integer(),
+        |                  rid             :: rid() | undefined,
+        |                  %% Requests deferred for later processing because
+        |                  %% of having Rid greater than expected.
+        |                  deferred = []   :: [{rid(), {mod_bosh:event_type(), jlib:xmlel()}}],
+        |                  client_acks = ?DEFAULT_CLIENT_ACKS :: boolean(),
+        |                  sent = []       :: [cached_response()],
+        |                  %% Allowed inactivity period in seconds.
+        |                  inactivity      :: pos_integer() | 'infinity',
+        |                  inactivity_tref :: reference() | 'undefined',
+        |                  %% Max pause period in seconds.
+        |                  maxpause        :: pos_integer() | 'undefined',
+        |                  %% Are acknowledgements used?
+        |                  server_acks     :: boolean(),
+        |                  last_processed  :: rid() | 'undefined',
+        |                  %% Report scheduled for sending at the earliest
+        |                  %% possible occasion.
+        |                  report = false  :: {rid(), Time :: non_neg_integer()} | 'false'}).
+        |  -type state() :: #state{}.
+        |  
+        |  -type statename() :: 'accumulate' | 'normal' | 'closing'.
+        |  -type fsm_return() :: {'next_state', statename(), state()}.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% API
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec start(mod_bosh:sid(), _) -&gt;
+        |      {'error',_} | {'ok','undefined' | pid()} | {'ok','undefined' | pid(),_}.
+        |  start(Sid, Peer) -&gt;
+<font color=red>     0..|      supervisor:start_child(?BOSH_SOCKET_SUP, [Sid, Peer]).</font>
+        |  
+        |  
+        |  -spec start_link(mod_bosh:sid(),_) -&gt; 'ignore' | {'error',_} | {'ok',pid()}.
+        |  start_link(Sid, Peer) -&gt;
+<font color=red>     0..|      gen_fsm:start_link(?MODULE, [Sid, Peer], []).</font>
+        |  
+        |  
+        |  start_supervisor() -&gt;
+<font color=red>     0..|      ChildId = ?BOSH_SOCKET_SUP,</font>
+<font color=red>     0..|      ChildSpec =</font>
+        |          {ChildId,
+        |           {ejabberd_tmp_sup, start_link,
+        |            [ChildId, ?MODULE]},
+        |           permanent,
+        |           infinity,
+        |           supervisor,
+        |           [ejabberd_tmp_sup]},
+<font color=red>     0..|      case supervisor:start_child(ejabberd_sup, ChildSpec) of</font>
+        |          {ok, undefined} -&gt;
+<font color=red>     0..|              {error, undefined};</font>
+        |          {ok, Child} -&gt;
+<font color=red>     0..|              {ok, Child};</font>
+        |          {ok, Child, _Info} -&gt;
+<font color=red>     0..|              {ok, Child};</font>
+        |          {error, {already_started, Child}} -&gt;
+<font color=red>     0..|              {ok, Child};</font>
+        |          {error, Reason} -&gt;
+<font color=red>     0..|              {error, Reason}</font>
+        |      end.
+        |  
+        |  
+        |  -spec handle_request(Pid :: pid(),
+        |                      {EventTag :: mod_bosh:event_type(),
+        |                       Handler :: pid(),
+        |                       Body :: jlib:xmlel()}) -&gt; ok.
+        |  handle_request(Pid, Request) -&gt;
+<font color=red>     0..|      gen_fsm:send_all_state_event(Pid, Request).</font>
+        |  
+        |  
+        |  %% @doc TODO: no handler for this call is present!
+        |  %% No check for violating maxpause is made when calling this!
+        |  -spec pause(Pid :: pid(), Seconds :: pos_integer()) -&gt; ok.
+        |  pause(Pid, Seconds) -&gt;
+<font color=red>     0..|      gen_fsm:send_all_state_event(Pid, {pause, Seconds}).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Private API
+        |  %%--------------------------------------------------------------------
+        |  
+        |  get_handlers(Pid) -&gt;
+<font color=red>     0..|      gen_fsm:sync_send_all_state_event(Pid, get_handlers).</font>
+        |  
+        |  
+        |  get_pending(Pid) -&gt;
+<font color=red>     0..|      gen_fsm:sync_send_all_state_event(Pid, get_pending).</font>
+        |  
+        |  
+        |  -spec get_client_acks(pid()) -&gt; boolean().
+        |  get_client_acks(Pid) -&gt;
+<font color=red>     0..|      gen_fsm:sync_send_all_state_event(Pid, get_client_acks).</font>
+        |  
+        |  
+        |  -spec set_client_acks(pid(), boolean()) -&gt; any().
+        |  set_client_acks(Pid, Enabled) -&gt;
+<font color=red>     0..|      gen_fsm:sync_send_all_state_event(Pid, {set_client_acks, Enabled}).</font>
+        |  
+        |  
+        |  -spec get_cached_responses(pid()) -&gt; [cached_response()].
+        |  get_cached_responses(Pid) -&gt;
+<font color=red>     0..|      gen_fsm:sync_send_all_state_event(Pid, get_cached_responses).</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% gen_fsm callbacks
+        |  %%--------------------------------------------------------------------
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% @private
+        |  %% @spec init(Args) -&gt; {ok, StateName, State} |
+        |  %%                     {ok, StateName, State, Timeout} |
+        |  %%                     ignore |
+        |  %%                     {stop, StopReason}
+        |  %% @end
+        |  %%--------------------------------------------------------------------
+        |  init([Sid, Peer]) -&gt;
+<font color=red>     0..|      BoshSocket = #bosh_socket{sid = Sid, pid = self(), peer = Peer},</font>
+<font color=red>     0..|      C2SOpts = [{xml_socket, true}],</font>
+<font color=red>     0..|      {ok, C2SPid} = ejabberd_c2s:start({mod_bosh_socket, BoshSocket}, C2SOpts),</font>
+<font color=red>     0..|      ?DEBUG("mod_bosh_socket started~n", []),</font>
+<font color=red>     0..|      {ok, accumulate, #state{sid = Sid,</font>
+        |                              c2s_pid = C2SPid,
+        |                              inactivity = mod_bosh:get_inactivity(),
+        |                              maxpause = get_maxpause(),
+        |                              server_acks = mod_bosh:get_server_acks()}}.
+        |  
+        |  
+        |  %% TODO: maybe make maxpause runtime configurable like inactivity?
+        |  get_maxpause() -&gt;
+<font color=red>     0..|      case gen_mod:get_module_opt(?MYNAME, mod_bosh, maxpause, undefined) of</font>
+<font color=red>     0..|          undefined -&gt; ?DEFAULT_MAXPAUSE;</font>
+<font color=red>     0..|          MP -&gt; MP</font>
+        |      end.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% @private
+        |  %% @doc
+        |  %% There should be one instance of this function for each possible
+        |  %% state name. Whenever a gen_fsm receives an event sent using
+        |  %% gen_fsm:send_event/2, the instance of this function with the same
+        |  %% name as the current state name StateName is called to handle
+        |  %% the event. It is also called if a timeout occurs.
+        |  %%
+        |  %% @spec state_name(Event, State) -&gt;
+        |  %%                   {next_state, NextStateName, NextState} |
+        |  %%                   {next_state, NextStateName, NextState, Timeout} |
+        |  %%                   {stop, Reason, NewState}
+        |  %% @end
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -spec accumulate(_, state()) -&gt; fsm_return().
+        |  accumulate(acc_off, #state{pending = Pending} = S) -&gt;
+<font color=red>     0..|      NS = S#state{pending = []},</font>
+<font color=red>     0..|      {next_state, normal, send_or_store(Pending, NS)};</font>
+        |  accumulate(Event, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled event in 'accumulate' state: ~w~n", [Event]),</font>
+<font color=red>     0..|      {next_state, accumulate, State}.</font>
+        |  
+        |  
+        |  -spec normal(_, state()) -&gt; fsm_return().
+        |  normal(acc_off, #state{} = S) -&gt;
+<font color=red>     0..|      {next_state, normal, S};</font>
+        |  normal(Event, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled event in 'normal' state: ~w~n", [Event]),</font>
+<font color=red>     0..|      {next_state, normal, State}.</font>
+        |  
+        |  closing(Event, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled event in 'closing' state: ~w~n", [Event]),</font>
+<font color=red>     0..|      {next_state, closing, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% @private
+        |  %% @doc
+        |  %% There should be one instance of this function for each possible
+        |  %% state name. Whenever a gen_fsm receives an event sent using
+        |  %% gen_fsm:sync_send_event/[2,3], the instance of this function with
+        |  %% the same name as the current state name StateName is called to
+        |  %% handle the event.
+        |  %%
+        |  %% @spec state_name(Event, From, State) -&gt;
+        |  %%                   {next_state, NextStateName, NextState} |
+        |  %%                   {next_state, NextStateName, NextState, Timeout} |
+        |  %%                   {reply, Reply, NextStateName, NextState} |
+        |  %%                   {reply, Reply, NextStateName, NextState, Timeout} |
+        |  %%                   {stop, Reason, NewState} |
+        |  %%                   {stop, Reason, Reply, NewState}
+        |  %% @end
+        |  %%--------------------------------------------------------------------
+        |  accumulate(Event, _From, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled sync event in 'accumulate' state: ~w~n", [Event]),</font>
+<font color=red>     0..|      {reply, ok, accumulate, State}.</font>
+        |  
+        |  normal(Event, _From, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled sync event in 'normal' state: ~w~n", [Event]),</font>
+<font color=red>     0..|      {reply, ok, normal, State}.</font>
+        |  
+        |  closing(Event, _From, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled sync event in 'closing' state: ~w~n", [Event]),</font>
+<font color=red>     0..|      {reply, ok, closing, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% @private
+        |  %% @doc
+        |  %% Whenever a gen_fsm receives an event sent using
+        |  %% gen_fsm:send_all_state_event/2, this function is called to handle
+        |  %% the event.
+        |  %%
+        |  %% @spec handle_event(Event, StateName, State) -&gt;
+        |  %%                   {next_state, NextStateName, NextState} |
+        |  %%                   {next_state, NextStateName, NextState, Timeout} |
+        |  %%                   {stop, Reason, NewState}
+        |  %% @end
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_event({EventTag, Handler, #xmlel{} = Body}, SName, S) -&gt;
+<font color=red>     0..|      NS = cancel_inactivity_timer(S),</font>
+<font color=red>     0..|      Rid = binary_to_integer(exml_query:attr(Body, &lt;&lt;"rid"&gt;&gt;)),</font>
+<font color=red>     0..|      try</font>
+<font color=red>     0..|          NNS = handle_stream_event({EventTag, Body, Rid}, Handler, SName, NS),</font>
+        |          %% TODO: it's the event which determines the next state,
+        |          %%       this ought to be returned from handle_stream_event
+<font color=red>     0..|          determine_next_state(EventTag, SName, NNS)</font>
+        |      catch
+        |          throw:{invalid_rid, TState} -&gt;
+<font color=red>     0..|              {stop, {shutdown, invalid_rid}, TState};</font>
+        |          throw:{invalid_pause, TState} -&gt;
+<font color=red>     0..|              {stop, {shutdown, policy_violation}, TState}</font>
+        |      end;
+        |  
+        |  handle_event(Event, StateName, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled all state event: ~w~n", [Event]),</font>
+<font color=red>     0..|      {next_state, StateName, State}.</font>
+        |  
+        |  
+        |  determine_next_state(_EventTag, closing, NNS) -&gt;
+<font color=red>     0..|      {stop, normal, NNS};</font>
+        |  determine_next_state(EventTag, SName, NNS) -&gt;
+<font color=red>     0..|      case EventTag of</font>
+        |          _ when EventTag == streamstart; EventTag == restart -&gt;
+<font color=red>     0..|              timer:apply_after(?ACCUMULATE_PERIOD,</font>
+        |                  gen_fsm, send_event, [self(), acc_off]),
+<font color=red>     0..|              {next_state, accumulate, NNS};</font>
+        |          _ -&gt;
+<font color=red>     0..|              {next_state, SName, NNS}</font>
+        |      end.
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% @private
+        |  %% @doc
+        |  %% Whenever a gen_fsm receives an event sent using
+        |  %% gen_fsm:sync_send_all_state_event/[2,3], this function is called
+        |  %% to handle the event.
+        |  %%
+        |  %% @spec handle_sync_event(Event, From, StateName, State) -&gt;
+        |  %%                   {next_state, NextStateName, NextState} |
+        |  %%                   {next_state, NextStateName, NextState, Timeout} |
+        |  %%                   {reply, Reply, NextStateName, NextState} |
+        |  %%                   {reply, Reply, NextStateName, NextState, Timeout} |
+        |  %%                   {stop, Reason, NewState} |
+        |  %%                   {stop, Reason, Reply, NewState}
+        |  %% @end
+        |  %%--------------------------------------------------------------------
+        |  handle_sync_event(get_handlers, _From, StateName,
+        |                    #state{handlers = Handlers} = S) -&gt;
+<font color=red>     0..|      {reply, Handlers, StateName, S};</font>
+        |  handle_sync_event(get_pending, _From, StateName,
+        |                    #state{pending = Pending} = S) -&gt;
+<font color=red>     0..|      {reply, Pending, StateName, S};</font>
+        |  handle_sync_event(get_client_acks, _From, StateName,
+        |                    #state{client_acks = ClientAcks} = S) -&gt;
+<font color=red>     0..|      {reply, ClientAcks, StateName, S};</font>
+        |  handle_sync_event({set_client_acks, ClientAcks}, _From, StateName,
+        |                    #state{} = S) -&gt;
+<font color=red>     0..|      NS = S#state{client_acks = ClientAcks},</font>
+<font color=red>     0..|      {reply, ok, StateName, NS};</font>
+        |  handle_sync_event(get_cached_responses, _From, StateName,
+        |                    #state{sent = CachedResponses} = S) -&gt;
+<font color=red>     0..|      {reply, CachedResponses, StateName, S};</font>
+        |  handle_sync_event(Event, _From, StateName, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled sync all state event: ~w~n", [Event]),</font>
+<font color=red>     0..|      Reply = ok,</font>
+<font color=red>     0..|      {reply, Reply, StateName, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% @private
+        |  %% @doc
+        |  %% This function is called by a gen_fsm when it receives any
+        |  %% message other than a synchronous or asynchronous event
+        |  %% (or a system message).
+        |  %%
+        |  %% @spec handle_info(Info,StateName,State)-&gt;
+        |  %%                   {next_state, NextStateName, NextState} |
+        |  %%                   {next_state, NextStateName, NextState, Timeout} |
+        |  %%                   {stop, Reason, NewState}
+        |  %% @end
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_info({send, #xmlstreamend{} = StreamEnd}, normal = SName,
+        |              #state{pending = Pending} = S) -&gt;
+<font color=red>     0..|      NS = send_or_store(Pending ++ [StreamEnd], S#state{pending = []}),</font>
+<font color=red>     0..|      {next_state, SName, NS};</font>
+        |  handle_info({send, Data}, accumulate = SName, #state{} = S) -&gt;
+<font color=red>     0..|      {next_state, SName, store([Data], S)};</font>
+        |  handle_info({send, Data}, normal = SName, #state{} = S) -&gt;
+<font color=red>     0..|      NS = send_or_store(Data, S),</font>
+<font color=red>     0..|      {next_state, SName, NS};</font>
+        |  handle_info(reset_stream, SName, #state{} = S) -&gt;
+        |      %% TODO: actually reset the stream once it's stored per bosh session
+<font color=red>     0..|      ?DEBUG("Stream reset by c2s~n", []),</font>
+<font color=red>     0..|      {next_state, SName, S};</font>
+        |  handle_info(close, _SName, #state{pending = []} = State) -&gt;
+<font color=red>     0..|      {stop, normal, State};</font>
+        |  handle_info(close, _SName, State) -&gt;
+<font color=red>     0..|      {next_state, closing, State};</font>
+        |  handle_info(inactivity_timeout, _SName, State) -&gt;
+<font color=red>     0..|      ?INFO_MSG("terminating due to client inactivity~n", []),</font>
+<font color=red>     0..|      {stop, {shutdown, inactivity_timeout}, State};</font>
+        |  handle_info({wait_timeout, {Rid, Pid}}, SName,
+        |              #state{handlers = Handlers} = S) -&gt;
+<font color=red>     0..|      ?INFO_MSG("'wait' limit reached for ~p~n", [Pid]),</font>
+        |      %% In case some message was being handled when the timer fired
+        |      %% it may turn out that Pid is no longer available in Handlers.
+<font color=red>     0..|      case lists:keytake(Rid, 1, Handlers) of</font>
+        |          false -&gt;
+<font color=red>     0..|              {next_state, SName, S};</font>
+        |          {value, {Rid, _, Pid}, NewHandlers} -&gt;
+<font color=red>     0..|              NS = send_to_handler({Rid, Pid}, [],</font>
+        |                                   S#state{handlers = NewHandlers}),
+<font color=red>     0..|              {next_state, SName, NS}</font>
+        |      end;
+        |  handle_info(Info, SName, State) -&gt;
+<font color=red>     0..|      ?DEBUG("Unhandled info in '~s' state: ~w~n", [SName, Info]),</font>
+<font color=red>     0..|      {next_state, SName, State}.</font>
+        |  
+        |  terminate(_Reason, StateName, #state{sid = Sid, handlers = Handlers} = S) -&gt;
+<font color=red>     0..|      [Pid ! {close, Sid} || {_, _, Pid} &lt;- lists:sort(Handlers)],</font>
+<font color=red>     0..|      ?BOSH_BACKEND:delete_session(Sid),</font>
+<font color=red>     0..|      catch ejabberd_c2s:stop(S#state.c2s_pid),</font>
+<font color=red>     0..|      ?DEBUG("Closing session ~p in '~s' state. Handlers: ~p Pending: ~p~n",</font>
+        |             [Sid, StateName, Handlers, S#state.pending]).
+        |  
+        |  code_change(_OldVsn, StateName, State, _Extra) -&gt;
+<font color=red>     0..|      {ok, StateName, State}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% callback implementations
+        |  %%--------------------------------------------------------------------
+        |  
+        |  handle_stream_event({EventTag, Body, Rid} = Event, Handler,
+        |                      SName, #state{rid = OldRid} = S) -&gt;
+<font color=red>     0..|      ExpectedRid = maybe_add(1, OldRid),</font>
+<font color=red>     0..|      NS = maybe_add_handler(Handler, Rid, S),</font>
+<font color=red>     0..|      NNS = case {EventTag,</font>
+        |                  maybe_is_retransmission(Rid, OldRid, S#state.sent),
+        |                  is_expected_rid(Rid, ExpectedRid),
+        |                  is_acceptable_rid(Rid, ExpectedRid)}
+        |      of
+        |          {_, {true, CachedResponse}, _, _} -&gt;
+<font color=red>     0..|              case CachedResponse of</font>
+        |                  none -&gt;
+<font color=red>     0..|                      NS;</font>
+        |                  _ -&gt;
+<font color=red>     0..|                      resend_cached(CachedResponse, NS)</font>
+        |              end;
+        |          {streamstart, _, _, _} -&gt;
+<font color=red>     0..|              process_acked_stream_event(Event, SName, NS);</font>
+        |          {_, _, true, _} -&gt;
+<font color=red>     0..|              process_acked_stream_event(Event, SName, NS);</font>
+        |          {_, _, false, true} -&gt;
+<font color=red>     0..|              ?INFO_MSG("deferring (rid: ~p, expected: ~p): ~p~n",</font>
+        |                        [Rid, ExpectedRid, {EventTag, Body}]),
+<font color=red>     0..|              NS#state{deferred = [Event | NS#state.deferred]};</font>
+        |          {_, _, false, false} -&gt;
+        |  
+<font color=red>     0..|              ?ERROR_MSG("invalid rid ~p, expected ~p, difference ~p:~n~p~n",</font>
+        |                         [Rid, ExpectedRid, maybe_diff(Rid,ExpectedRid),
+        |                          {EventTag, Body}]),
+<font color=red>     0..|              [Pid ! item_not_found</font>
+<font color=red>     0..|               || {_, _, Pid} &lt;- lists:sort(NS#state.handlers)],</font>
+<font color=red>     0..|              throw({invalid_rid, NS#state{handlers = []}})</font>
+        |      end,
+<font color=red>     0..|      return_surplus_handlers(SName, NNS).</font>
+        |  
+        |  -spec maybe_is_retransmission(rid(), rid(), [cached_response()])
+        |      -&gt; false | {true, none} | {true, cached_response()}.
+        |  maybe_is_retransmission(Rid, OldRid, Sent) -&gt;
+<font color=red>     0..|      case {lists:keyfind(Rid, 1, Sent), Rid =:= OldRid} of</font>
+        |          {false, false} -&gt;
+<font color=red>     0..|              false;</font>
+        |          {false, true} -&gt;
+<font color=red>     0..|              ?INFO_MSG("request ~p repeated but no response found in cache ~p~n",</font>
+        |                        [Rid, Sent]),
+<font color=red>     0..|              {true, none};</font>
+        |          {CachedResponse, _} -&gt;
+<font color=red>     0..|              {true, CachedResponse}</font>
+        |      end.
+        |  
+        |  -spec maybe_add(rid(), rid() | undefined)
+        |    -&gt; rid() | undefined.
+<font color=red>     0..|  maybe_add(_, undefined) -&gt; undefined;</font>
+        |  maybe_add(Rid1, Rid2) when is_integer(Rid1),
+<font color=red>     0..|                             is_integer(Rid2) -&gt; Rid1 + Rid2.</font>
+        |  
+        |  -spec maybe_diff(rid(), rid() | undefined)
+        |    -&gt; non_neg_integer() | undefined.
+<font color=red>     0..|  maybe_diff(_, undefined) -&gt; undefined;</font>
+<font color=red>     0..|  maybe_diff(Rid, Expected) -&gt; abs(Rid-Expected).</font>
+        |  
+        |  
+        |  -spec resend_cached({Rid :: pos_integer(),
+        |                       {non_neg_integer(),non_neg_integer(),non_neg_integer()},
+        |                       CachedBody :: jlib:xmlel()},
+        |                      state()) -&gt; state().
+        |  resend_cached({_Rid, _, CachedBody}, S) -&gt;
+<font color=red>     0..|      send_to_handler(CachedBody, S).</font>
+        |  
+        |  
+        |  -spec process_acked_stream_event({EventTag :: mod_bosh:event_type(),
+        |                                      Body :: jlib:xmlel(),
+        |                                      Rid :: 'undefined' | rid()},
+        |                                  SName :: any(),
+        |                                  S :: state() ) -&gt; state().
+        |  process_acked_stream_event({EventTag, Body, Rid}, SName,
+        |                             #state{} = S) -&gt;
+<font color=red>     0..|      MaybeBAck = exml_query:attr(Body, &lt;&lt;"ack"&gt;&gt;),</font>
+<font color=red>     0..|      {Action, Ack} = determine_report_action(MaybeBAck, S#state.client_acks,</font>
+        |                                              Rid, S#state.last_processed),
+<font color=red>     0..|      NS = maybe_trim_cache(Ack, S),</font>
+<font color=red>     0..|      case Action of</font>
+        |          noreport -&gt;
+<font color=red>     0..|              process_stream_event(EventTag, Body, SName, rid(NS, Rid));</font>
+        |          report -&gt;
+<font color=red>     0..|              NS2 = schedule_report(Ack, NS),</font>
+<font color=red>     0..|              NS3 = process_stream_event(EventTag, Body, SName, rid(NS2, Rid)),</font>
+<font color=red>     0..|              maybe_send_report(NS3)</font>
+        |      end.
+        |  
+        |  rid(#state{} = S, Rid) when is_integer(Rid), Rid &gt; 0 -&gt;
+<font color=red>     0..|      S#state{rid = Rid}.</font>
+        |  
+        |  
+        |  -spec determine_report_action(BinAck :: 'undefined' | binary(),
+        |                                boolean(),
+        |                                Rid :: rid(),
+        |                                LastProcessed :: 'undefined' | pos_integer()
+        |                              ) -&gt; {'noreport',_} | {'report',_}.
+        |  determine_report_action(undefined, false, _, _) -&gt;
+<font color=red>     0..|      {noreport, undefined};</font>
+        |  determine_report_action(undefined, true, Rid, LastProcessed) -&gt;
+<font color=red>     0..|      if</font>
+        |          Rid+1 == LastProcessed -&gt;
+<font color=red>     0..|              {noreport, undefined};</font>
+        |          Rid+1 /= LastProcessed -&gt;
+<font color=red>     0..|              ?WARNING_MSG("expected 'ack' attribute on ~p~n", [Rid]),</font>
+<font color=red>     0..|              {noreport, undefined}</font>
+        |      end;
+        |  determine_report_action(BinAck, _, _, LastProcessed) -&gt;
+<font color=red>     0..|      Ack = binary_to_integer(BinAck),</font>
+<font color=red>     0..|      case {LastProcessed, is_valid_ack(Ack, LastProcessed)} of</font>
+        |          {undefined, _} -&gt;
+<font color=red>     0..|              {noreport, Ack};</font>
+        |          {_, true} -&gt;
+<font color=red>     0..|              {noreport, Ack};</font>
+        |          {_, false} -&gt;
+<font color=red>     0..|              {report, Ack}</font>
+        |      end.
+        |  
+        |  
+        |  -spec is_valid_ack(Ack :: rid(), 'undefined' | pos_integer()) -&gt; boolean().
+        |  is_valid_ack(Ack, LastProcessed)
+        |          when Ack &lt; LastProcessed -&gt;
+<font color=red>     0..|      false;</font>
+        |  is_valid_ack(_, _) -&gt;
+<font color=red>     0..|      true.</font>
+        |  
+        |  
+        |  -spec maybe_trim_cache(undefined | any(), state()) -&gt; state().
+        |  maybe_trim_cache(undefined, S) -&gt;
+<font color=red>     0..|      S;</font>
+        |  maybe_trim_cache(Ack, S) -&gt;
+<font color=red>     0..|      UpToAck = fun({R,_,_}) when R =&lt; Ack -&gt;</font>
+<font color=red>     0..|                      true;</font>
+        |                   (_) -&gt;
+<font color=red>     0..|                      false</font>
+        |                end,
+<font color=red>     0..|      NewSent = lists:dropwhile(UpToAck, S#state.sent),</font>
+<font color=red>     0..|      S#state{sent = NewSent}.</font>
+        |  
+        |  
+        |  -spec schedule_report(rid(), state()) -&gt; state().
+        |  schedule_report(Ack, #state{sent = Sent} = S) -&gt;
+<font color=red>     0..|      ReportRid = Ack + 1,</font>
+<font color=red>     0..|      try</font>
+        |          {resp,
+<font color=red>     0..|           {ReportRid, TimeSent, _}} = {resp, lists:keyfind(ReportRid, 1, Sent)},</font>
+<font color=red>     0..|          ElapsedTimeMillis = erlang:round(timer:now_diff(now(), TimeSent)</font>
+        |                                           / 1000),
+<font color=red>     0..|          Report = {ReportRid, ElapsedTimeMillis},</font>
+<font color=red>     0..|          case S#state.report of</font>
+        |              false -&gt;
+<font color=red>     0..|                  S#state{report = Report};</font>
+        |              OldReport when OldReport &lt; Report -&gt;
+<font color=red>     0..|                  S#state{report = OldReport};</font>
+        |              _ -&gt;
+<font color=red>     0..|                  S#state{report = Report}</font>
+        |          end
+        |      catch
+        |          error:{badmatch, {resp, false}} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("no cached response for RID ~p, responses ~p~n",</font>
+        |                         [ReportRid, Sent]),
+<font color=red>     0..|              S</font>
+        |      end.
+        |  
+        |  
+        |  -spec maybe_send_report(state()) -&gt; state().
+        |  maybe_send_report(#state{report = false} = S) -&gt;
+<font color=red>     0..|      S;</font>
+        |  maybe_send_report(#state{} = S) -&gt;
+<font color=red>     0..|      send_or_store([], S).</font>
+        |  
+        |  
+        |  -spec process_stream_event(mod_bosh:event_type(), jlib:xmlel(), _SName,
+        |                             state()) -&gt; state().
+        |  process_stream_event(pause, Body, SName, State) -&gt;
+<font color=red>     0..|      Seconds = binary_to_integer(exml_query:attr(Body, &lt;&lt;"pause"&gt;&gt;)),</font>
+<font color=red>     0..|      NewState = process_pause_event(Seconds, State),</font>
+<font color=red>     0..|      process_deferred_events(SName, NewState);</font>
+        |  process_stream_event(EventTag, Body, SName, #state{c2s_pid = C2SPid} = State) -&gt;
+<font color=red>     0..|      {Els, NewState} = bosh_unwrap(EventTag, Body, State),</font>
+<font color=red>     0..|      [forward_to_c2s(C2SPid, El) || El &lt;- Els],</font>
+<font color=red>     0..|      process_deferred_events(SName, NewState).</font>
+        |  
+        |  
+        |  -spec process_pause_event('infinity' | 'undefined' | pos_integer(),
+        |                            state()) -&gt; state().
+        |  process_pause_event(Seconds, #state{maxpause = MaxPause} = S)
+        |          when MaxPause == undefined;
+        |               Seconds &gt; MaxPause -&gt;
+<font color=red>     0..|      [Pid ! policy_violation || {_, _, Pid} &lt;- S#state.handlers],</font>
+<font color=red>     0..|      throw({invalid_pause, S#state{handlers = []}});</font>
+        |  process_pause_event(Seconds, State) -&gt;
+<font color=red>     0..|      NS = State#state{inactivity = Seconds},</font>
+<font color=red>     0..|      F = fun(_, S) -&gt;</font>
+<font color=red>     0..|              send_to_handler([], S)</font>
+        |      end,
+<font color=red>     0..|      lists:foldl(F, NS, lists:seq(1, length(State#state.handlers))).</font>
+        |  
+        |  
+        |  -spec process_deferred_events(_SName, state()) -&gt; state().
+        |  process_deferred_events(SName, #state{deferred = Deferred} = S) -&gt;
+<font color=red>     0..|      lists:foldl(fun(Event, State) -&gt;</font>
+<font color=red>     0..|                      ?DEBUG("processing deferred event: ~p~n", [Event]),</font>
+<font color=red>     0..|                      handle_stream_event(Event, none, SName, State)</font>
+        |                  end,
+        |                  S#state{deferred = []},
+        |                  lists:sort(Deferred)).
+        |  
+        |  
+        |  -spec is_expected_rid(rid(), rid() | undefined) -&gt; boolean().
+        |  is_expected_rid(Rid, ExpectedRid) when Rid == ExpectedRid -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_expected_rid(_, _) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  -spec is_acceptable_rid(rid(), rid() | undefined) -&gt; boolean().
+        |  is_acceptable_rid(Rid, ExpectedRid)
+        |    when Rid &gt; ExpectedRid,
+        |         Rid &lt; ExpectedRid + ?CONCURRENT_REQUESTS -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_acceptable_rid(_, _) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  %% @doc Send data to the client if any request handler is available.
+        |  %% Otherwise, store for sending later.
+        |  -spec send_or_store(_Data, state()) -&gt; state().
+        |  send_or_store(Data, State) when not is_list(Data) -&gt;
+<font color=red>     0..|      send_or_store([Data], State);</font>
+        |  send_or_store(Data, #state{handlers = []} = S) -&gt;
+<font color=red>     0..|      store(Data, S);</font>
+        |  send_or_store(Data, State) -&gt;
+<font color=red>     0..|      send_to_handler(Data, State).</font>
+        |  
+        |  
+        |  %% @doc send_to_handler() assumes that Handlers is not empty!
+        |  %% Be sure that's the case if calling it.
+        |  -spec send_to_handler([any()] | jlib:xmlel(), state()) -&gt; state().
+        |  send_to_handler(Data, State) -&gt;
+<font color=red>     0..|      {Handler, NS} = pick_handler(State),</font>
+<font color=red>     0..|      send_to_handler(Handler, Data, NS).</font>
+        |  
+        |  
+        |  %% Return handler and new state if a handler is available
+        |  %% or `false` otherwise.
+        |  -spec pick_handler(state()) -&gt; {{rid(), pid()}, state()} | false.
+        |  pick_handler(#state{handlers = []}) -&gt;
+<font color=red>     0..|      false;</font>
+        |  pick_handler(#state{handlers = Handlers} = S) -&gt;
+<font color=red>     0..|      [{Rid, TRef, Pid} | HRest] = lists:sort(Handlers),</font>
+        |      %% The cancellation might fail if the timer already fired.
+        |      %% Don't worry, it's handled on receiving the timeout message.
+<font color=red>     0..|      erlang:cancel_timer(TRef),</font>
+<font color=red>     0..|      {{Rid, Pid}, S#state{handlers = HRest}}.</font>
+        |  
+        |  
+        |  -spec send_to_handler({_, atom() | pid() | port() | {atom(),atom()}},
+        |                        Wrapped :: [any()] | jlib:xmlel(),
+        |                        State :: state() ) -&gt; state().
+        |  send_to_handler({_, Pid}, #xmlel{name = &lt;&lt;"body"&gt;&gt;} = Wrapped, State) -&gt;
+<font color=red>     0..|      send_wrapped_to_handler(Pid, Wrapped, State);</font>
+        |  send_to_handler({Rid, Pid}, Data, State) -&gt;
+<font color=red>     0..|      {Wrapped, NS} = bosh_wrap(Data, Rid, State),</font>
+<font color=red>     0..|      NS2 = cache_response({Rid, now(), Wrapped}, NS),</font>
+<font color=red>     0..|      send_wrapped_to_handler(Pid, Wrapped, NS2).</font>
+        |  
+        |  
+        |  %% @doc This is the most specific variant of send_to_handler()
+        |  %% and the *only one* actually performing a send
+        |  %% to the cowboy_loop_handler serving a HTTP request.
+        |  -spec send_wrapped_to_handler(atom() | pid() | port() | {atom(),atom()},
+        |                                Wrapped :: jlib:xmlel(),
+        |                                State :: state()) -&gt; state().
+        |  send_wrapped_to_handler(Pid, Wrapped, #state{handlers = []} = State) -&gt;
+<font color=red>     0..|      Pid ! {bosh_reply, Wrapped},</font>
+<font color=red>     0..|      setup_inactivity_timer(State);</font>
+        |  send_wrapped_to_handler(Pid, Wrapped, State) -&gt;
+<font color=red>     0..|      Pid ! {bosh_reply, Wrapped},</font>
+<font color=red>     0..|      State.</font>
+        |  
+        |  
+        |  -spec maybe_ack(rid(), state()) -&gt; [{binary(),_}].
+        |  maybe_ack(HandlerRid, #state{rid = Rid} = S) -&gt;
+<font color=red>     0..|      if</font>
+        |          Rid &gt; HandlerRid -&gt;
+<font color=red>     0..|              server_ack(S#state.server_acks, Rid);</font>
+        |          Rid =&lt; HandlerRid -&gt;
+<font color=red>     0..|              []</font>
+        |      end.
+        |  
+        |  
+        |  -spec maybe_report(state()) -&gt; {[{binary(),_}], state()}.
+        |  maybe_report(#state{report = false} = S) -&gt;
+<font color=red>     0..|      {[], S};</font>
+        |  maybe_report(#state{report = Report} = S) -&gt;
+<font color=red>     0..|      {ReportRid, ElapsedTime} = Report,</font>
+<font color=red>     0..|      NewAttrs = [{&lt;&lt;"report"&gt;&gt;, integer_to_binary(ReportRid)},</font>
+        |                  {&lt;&lt;"time"&gt;&gt;, integer_to_binary(ElapsedTime)}],
+<font color=red>     0..|      {NewAttrs, S#state{report = false}}.</font>
+        |  
+        |  
+        |  -spec cache_response({rid(), erlang:timestamp(), jlib:xmlel()}, state()) -&gt; state().
+        |  cache_response({Rid,_,_} = Response, #state{sent = Sent} = S) -&gt;
+<font color=red>     0..|      NewSent = lists:keymerge(1, [Response], Sent),</font>
+<font color=red>     0..|      CacheUpTo = case S#state.client_acks of</font>
+        |          true -&gt;
+        |              %% Acknowledgements are on - there's no limit on the number
+        |              %% of cached responses.
+<font color=red>     0..|              infinity;</font>
+        |          false -&gt;
+        |              %% Leave up to ?CONCURRENT_REQUESTS responses in cache.
+<font color=red>     0..|              ?CONCURRENT_REQUESTS</font>
+        |      end,
+<font color=red>     0..|      S#state{sent = cache_up_to(CacheUpTo, NewSent),</font>
+        |              last_processed = last_processed(Rid, S#state.last_processed)}.
+        |  
+        |  
+        |  -spec cache_up_to('infinity' | 2, Responses :: [cached_response()])
+        |              -&gt; [cached_response()].
+        |  cache_up_to(infinity, Responses) -&gt;
+<font color=red>     0..|      Responses;</font>
+        |  cache_up_to(N, Responses) -&gt;
+<font color=red>     0..|      lists:nthtail(max(0, length(Responses) - N), Responses).</font>
+        |  
+        |  
+        |  -spec last_processed(rid(),'undefined' | pos_integer()) -&gt; rid().
+        |  last_processed(Rid, undefined) -&gt;
+<font color=red>     0..|      Rid;</font>
+        |  last_processed(Rid1, Rid2) -&gt;
+<font color=red>     0..|      max(Rid1, Rid2).</font>
+        |  
+        |  
+        |  -spec setup_inactivity_timer(state()) -&gt; state().
+        |  setup_inactivity_timer(#state{inactivity = infinity} = S) -&gt;
+<font color=red>     0..|      S;</font>
+        |  setup_inactivity_timer(S) -&gt;
+<font color=red>     0..|      cancel_inactivity_timer(S),</font>
+<font color=red>     0..|      TRef = erlang:send_after(timer:seconds(S#state.inactivity), self(),</font>
+        |                               inactivity_timeout),
+<font color=red>     0..|      S#state{inactivity_tref = TRef}.</font>
+        |  
+        |  
+        |  -spec cancel_inactivity_timer(state()) -&gt; state().
+        |  cancel_inactivity_timer(#state{inactivity_tref = undefined} = S) -&gt;
+<font color=red>     0..|      S;</font>
+        |  cancel_inactivity_timer(S) -&gt;
+<font color=red>     0..|      erlang:cancel_timer(S#state.inactivity_tref),</font>
+<font color=red>     0..|      S#state{inactivity_tref = undefined}.</font>
+        |  
+        |  
+        |  %% @doc Store data for sending later.
+        |  -spec store([jlib:xmlstreamel()], state()) -&gt; state().
+        |  store(Data, #state{pending = Pending} = S) -&gt;
+<font color=red>     0..|      S#state{pending = Pending ++ Data}.</font>
+        |  
+        |  
+        |  -spec forward_to_c2s('undefined' | pid(), jlib:xmlstreamel()) -&gt; 'ok'.
+        |  forward_to_c2s(C2SPid, StreamElement) -&gt;
+<font color=red>     0..|      gen_fsm:send_event(C2SPid, StreamElement).</font>
+        |  
+        |  
+        |  -spec maybe_add_handler(_, rid(), state()) -&gt; state().
+        |  maybe_add_handler(Handler, Rid, S) when is_pid(Handler) -&gt;
+<font color=red>     0..|      add_handler({Rid, Handler}, S);</font>
+        |  maybe_add_handler(_, _, S) -&gt;
+<font color=red>     0..|      S.</font>
+        |  
+        |  
+        |  -spec add_handler({rid(), pid()}, state()) -&gt; state().
+        |  add_handler({Rid, Pid}, #state{handlers = Handlers} = S) -&gt;
+<font color=red>     0..|      TRef = erlang:send_after(timer:seconds(S#state.wait), self(),</font>
+        |                               {wait_timeout, {Rid, Pid}}),
+<font color=red>     0..|      S#state{handlers = [{Rid, TRef, Pid} | Handlers]}.</font>
+        |  
+        |  
+        |  %% @doc Keep in mind the hardcoding for hold == 1.
+        |  -spec return_surplus_handlers('accumulate' | 'normal' | 'closing', state()) -&gt; state().
+        |  return_surplus_handlers(SName, #state{handlers = []} = State)
+        |          when SName == accumulate; SName == normal; SName == closing -&gt;
+<font color=red>     0..|      State;</font>
+        |  return_surplus_handlers(SName, #state{handlers = []} = State)
+        |          when SName == normal; SName == closing -&gt;
+<font color=red>     0..|      State;</font>
+        |  return_surplus_handlers(accumulate, #state{handlers = [_]} = State) -&gt;
+<font color=red>     0..|      State;</font>
+        |  return_surplus_handlers(SName, #state{handlers = [_], pending = []} = State)
+        |      when SName == normal; SName == closing -&gt;
+<font color=red>     0..|      State;</font>
+        |  return_surplus_handlers(accumulate, #state{handlers = _} = S) -&gt;
+<font color=red>     0..|      NS = send_to_handler([], S),</font>
+<font color=red>     0..|      return_surplus_handlers(accumulate, NS);</font>
+        |  return_surplus_handlers(SName, #state{pending = Pending} = S)
+        |      when SName == normal; SName == closing -&gt;
+<font color=red>     0..|      NS = send_or_store(Pending, S#state{pending = []}),</font>
+<font color=red>     0..|      return_surplus_handlers(normal, NS).</font>
+        |  
+        |  
+        |  -spec bosh_unwrap(EventTag :: mod_bosh:event_type(), jlib:xmlel(), state())
+        |     -&gt; {[jlib:xmlstreamel()], state()}.
+        |  bosh_unwrap(StreamEvent, Body, #state{} = S)
+        |    when StreamEvent =:= streamstart -&gt;
+<font color=red>     0..|      Wait = min(get_attr(&lt;&lt;"wait"&gt;&gt;, Body, S#state.wait), mod_bosh:get_max_wait()),</font>
+<font color=red>     0..|      Hold = get_attr(&lt;&lt;"hold"&gt;&gt;, Body, S#state.hold),</font>
+<font color=red>     0..|      ClientAcks = get_client_acks(StreamEvent, Body, S#state.client_acks),</font>
+<font color=red>     0..|      From = exml_query:attr(Body, &lt;&lt;"from"&gt;&gt;),</font>
+<font color=red>     0..|      To = exml_query:attr(Body, &lt;&lt;"to"&gt;&gt;),</font>
+<font color=red>     0..|      E = stream_start(From, To),</font>
+<font color=red>     0..|      {[E], record_set(S, [{#state.wait, Wait},</font>
+        |                           {#state.hold, Hold},
+        |                           {#state.client_acks, ClientAcks},
+        |                           {#state.from, From},
+        |                           {#state.to, To}])};
+        |  
+        |  bosh_unwrap(StreamEvent, _Body, #state{} = S)
+        |    when StreamEvent =:= restart -&gt;
+<font color=red>     0..|      {[stream_start(S#state.from, S#state.to)], S};</font>
+        |  
+        |  bosh_unwrap(streamend, Body, State) -&gt;
+<font color=red>     0..|      {Els, NewState} = bosh_unwrap(normal, Body, State),</font>
+<font color=red>     0..|      {Els ++ [#xmlstreamend{name = &lt;&lt;&gt;&gt;}], NewState};</font>
+        |  
+        |  bosh_unwrap(normal, Body, #state{sid = Sid} = State) -&gt;
+<font color=red>     0..|      Sid = exml_query:attr(Body, &lt;&lt;"sid"&gt;&gt;),</font>
+<font color=red>     0..|      ?NS_HTTPBIND = exml_query:attr(Body, &lt;&lt;"xmlns"&gt;&gt;),</font>
+<font color=red>     0..|      {[{xmlstreamelement, El}</font>
+<font color=red>     0..|        || El &lt;- Body#xmlel.children,</font>
+        |           %% Ignore whitespace keepalives.
+<font color=red>     0..|           El /= #xmlcdata{content = &lt;&lt;" "&gt;&gt;}],</font>
+        |       State}.
+        |  
+        |  
+        |  -spec get_client_acks(streamstart, jlib:xmlel(), boolean()) -&gt; boolean().
+        |  get_client_acks(streamstart, Element, Default) -&gt;
+<font color=red>     0..|      case exml_query:attr(Element, &lt;&lt;"ack"&gt;&gt;) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              Default;</font>
+        |          &lt;&lt;"1"&gt;&gt; -&gt;
+<font color=red>     0..|              true;</font>
+        |          _ -&gt;
+<font color=red>     0..|              ?INFO_MSG("ignoring invalid client ack on stream start~n", []),</font>
+<font color=red>     0..|              false</font>
+        |      end.
+        |  
+        |  
+        |  -spec get_attr(Attr :: binary(), jlib:xmlel(), integer()) -&gt; any().
+        |  get_attr(Attr, Element, Default) -&gt;
+<font color=red>     0..|      case exml_query:attr(Element, Attr) of</font>
+        |          undefined -&gt;
+<font color=red>     0..|              Default;</font>
+        |          Value -&gt;
+<font color=red>     0..|              binary_to_integer(Value)</font>
+        |      end.
+        |  
+        |  
+        |  -spec stream_start(binary(), binary()) -&gt; jlib:xmlstreamstart().
+        |  stream_start(From, To) -&gt;
+<font color=red>     0..|      #xmlstreamstart{name = &lt;&lt;"stream:stream"&gt;&gt;,</font>
+        |                      attrs = [{&lt;&lt;"from"&gt;&gt;, From},
+        |                               {&lt;&lt;"to"&gt;&gt;, To},
+        |                               {&lt;&lt;"version"&gt;&gt;, &lt;&lt;"1.0"&gt;&gt;},
+        |                               {&lt;&lt;"xml:lang"&gt;&gt;, &lt;&lt;"en"&gt;&gt;},
+        |                               {&lt;&lt;"xmlns"&gt;&gt;, ?NS_CLIENT},
+        |                               {&lt;&lt;"xmlns:stream"&gt;&gt;, ?NS_STREAM}]}.
+        |  
+        |  
+        |  -spec bosh_wrap([any()], rid(), state()) -&gt; {jlib:xmlel(), state()}.
+        |  bosh_wrap(Elements, Rid, #state{} = S) -&gt;
+<font color=red>     0..|      EventsStanzas = lists:partition(fun is_stream_event/1, Elements),</font>
+<font color=red>     0..|      {{Body, Children}, NS} = case EventsStanzas of</font>
+        |          {[], Stanzas} -&gt;
+<font color=red>     0..|              {{bosh_body(S), Stanzas}, S};</font>
+        |          {[#xmlstreamstart{} = StreamStart], Stanzas} -&gt;
+<font color=red>     0..|              {{bosh_stream_start_body(StreamStart, S), Stanzas}, S};</font>
+        |          {[#xmlstreamend{}], []} -&gt;
+        |              %% No stanzas except stream end - OK.
+<font color=red>     0..|              {{bosh_stream_end_body(), []}, S};</font>
+        |          {[#xmlstreamend{} = StreamEnd], Stanzas} -&gt;
+        |              %% Can't wrap remaining stanzas in a stream end body.
+        |              %% Send Stanzas and forfeit sending stream end.
+<font color=red>     0..|              ?DEBUG("pending stanzas, can't send stream end", []),</font>
+<font color=red>     0..|              Pending = S#state.pending,</font>
+<font color=red>     0..|              {{bosh_body(S), Stanzas},</font>
+        |               S#state{pending = Pending ++ [StreamEnd]}}
+        |      end,
+<font color=red>     0..|      MaybeAck = maybe_ack(Rid, NS),</font>
+<font color=red>     0..|      {MaybeReport, NNS} = maybe_report(NS),</font>
+<font color=red>     0..|      MaybeStreamPrefix = maybe_stream_prefix(Children),</font>
+<font color=red>     0..|      ExtraAttrs = MaybeAck ++ MaybeReport ++ MaybeStreamPrefix,</font>
+<font color=red>     0..|      {Body#xmlel{attrs = Body#xmlel.attrs ++ ExtraAttrs,</font>
+        |                  children = maybe_add_default_ns_to_children(Children)}, NNS}.
+        |  
+        |  
+        |  -spec is_stream_event(jlib:xmlstreamel()) -&gt; boolean().
+        |  is_stream_event(#xmlstreamstart{}) -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_stream_event(#xmlstreamend{}) -&gt;
+<font color=red>     0..|      true;</font>
+        |  is_stream_event(_) -&gt;
+<font color=red>     0..|      false.</font>
+        |  
+        |  
+        |  %% @doc Bosh body for a session creation response.
+        |  -spec bosh_stream_start_body(jlib:xmlstreamstart(), state()) -&gt; jlib:xmlel().
+        |  bosh_stream_start_body(#xmlstreamstart{attrs = Attrs}, #state{} = S) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"body"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"wait"&gt;&gt;, integer_to_binary(S#state.wait)},
+        |                      {&lt;&lt;"requests"&gt;&gt;,
+        |                       integer_to_binary(?CONCURRENT_REQUESTS)},
+        |                      {&lt;&lt;"hold"&gt;&gt;, integer_to_binary(S#state.hold)},
+        |                      {&lt;&lt;"from"&gt;&gt;, proplists:get_value(&lt;&lt;"from"&gt;&gt;, Attrs)},
+        |                      %% TODO: how to support these with cowboy?
+        |                      {&lt;&lt;"accept"&gt;&gt;, &lt;&lt;"deflate,gzip"&gt;&gt;},
+        |                      {&lt;&lt;"sid"&gt;&gt;, S#state.sid},
+        |                      {&lt;&lt;"xmpp:restartlogic"&gt;&gt;, &lt;&lt;"true"&gt;&gt;},
+        |                      {&lt;&lt;"xmpp:version"&gt;&gt;, &lt;&lt;"1.0"&gt;&gt;},
+        |                      {&lt;&lt;"xmlns"&gt;&gt;, ?NS_HTTPBIND},
+        |                      {&lt;&lt;"xmlns:xmpp"&gt;&gt;, &lt;&lt;"urn:xmpp:xbosh"&gt;&gt;},
+        |                      {&lt;&lt;"xmlns:stream"&gt;&gt;, ?NS_STREAM}] ++
+        |             inactivity(S#state.inactivity) ++
+        |             maxpause(S#state.maxpause) ++
+        |             %% TODO: shouldn't an ack be sent on restart?
+        |             server_ack(S#state.server_acks, S#state.rid),
+        |             children = []}.
+        |  
+        |  
+        |  -spec inactivity('infinity' | 'undefined' | pos_integer()) -&gt; [{binary(),_}].
+        |  inactivity(I) -&gt;
+<font color=red>     0..|      [{&lt;&lt;"inactivity"&gt;&gt;, integer_to_binary(I)} || is_integer(I)].</font>
+        |  
+        |  
+        |  -spec maxpause('undefined' | pos_integer()) -&gt; [{binary(),_}].
+        |  maxpause(MP) -&gt;
+<font color=red>     0..|      [{&lt;&lt;"maxpause"&gt;&gt;, integer_to_binary(MP)} || is_integer(MP)].</font>
+        |  
+        |  
+        |  -spec server_ack('false' | 'true' | 'undefined','undefined' | rid())
+        |              -&gt; [{binary(),_}].
+        |  server_ack(ServerAcks, Rid) -&gt;
+<font color=red>     0..|      [{&lt;&lt;"ack"&gt;&gt;, integer_to_binary(Rid)} || ServerAcks =:= true].</font>
+        |  
+        |  
+        |  %% @doc Bosh body for an ordinary stream element(s).
+        |  -spec bosh_body(state()) -&gt; jlib:xmlel().
+        |  bosh_body(#state{} = S) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"body"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"sid"&gt;&gt;, S#state.sid},
+        |                      {&lt;&lt;"xmlns"&gt;&gt;, ?NS_HTTPBIND}],
+        |             children = []}.
+        |  
+        |  
+        |  -spec bosh_stream_end_body() -&gt; jlib:xmlel().
+        |  bosh_stream_end_body() -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"body"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"terminate"&gt;&gt;},
+        |                      {&lt;&lt;"xmlns"&gt;&gt;, ?NS_HTTPBIND}],
+        |             children = []}.
+        |  
+        |  maybe_stream_prefix(Stanzas) -&gt;
+<font color=red>     0..|      case lists:any(fun is_stream_error/1, Stanzas) of</font>
+        |          false -&gt;
+<font color=red>     0..|              [];</font>
+        |          true -&gt;
+<font color=red>     0..|              [{&lt;&lt;"xmlns:stream"&gt;&gt;, ?NS_STREAM}]</font>
+        |      end.
+        |  
+        |  is_stream_error(#xmlel{name = Name}) -&gt;
+<font color=red>     0..|      Name =:= &lt;&lt;"stream:error"&gt;&gt;.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% ejabberd_socket compatibility
+        |  %%--------------------------------------------------------------------
+        |  
+        |  %% @doc Should be negotiated on HTTP level.
+        |  -spec starttls(mod_bosh:socket(), _) -&gt; none().
+        |  starttls(SocketData, TLSOpts) -&gt;
+<font color=red>     0..|      starttls(SocketData, TLSOpts, &lt;&lt;&gt;&gt;).</font>
+        |  
+        |  
+        |  -spec starttls(mod_bosh:socket(), _, _) -&gt; none().
+        |  starttls(_SocketData, _TLSOpts, _Data) -&gt;
+<font color=red>     0..|      throw({error, negotiate_tls_on_http_level}).</font>
+        |  
+        |  
+        |  %% @doc Should be negotiated on HTTP level.
+        |  -spec compress(mod_bosh:socket()) -&gt; none().
+        |  compress(SocketData) -&gt;
+<font color=red>     0..|      compress(SocketData, &lt;&lt;&gt;&gt;, 0).</font>
+        |  
+        |  -spec compress(mod_bosh:socket(), _, integer()) -&gt; none().
+        |  compress(_SocketData, _Data, _InflateSizeLimit) -&gt;
+<font color=red>     0..|      throw({error, negotiate_compression_on_http_level}).</font>
+        |  
+        |  
+        |  %% @doc TODO: adjust for BOSH
+        |  -spec reset_stream(mod_bosh:socket()) -&gt; mod_bosh:socket().
+        |  reset_stream(#bosh_socket{pid = Pid} = SocketData) -&gt;
+<font color=red>     0..|      Pid ! reset_stream,</font>
+<font color=red>     0..|      SocketData.</font>
+        |  
+        |  
+        |  -spec send_xml(mod_bosh:socket(), {xmlstreamelement, jlib:xmlel()} | jlib:xmlstreamstart()
+        |                                    | jlib:xmlstreamend()) -&gt; 'ok'.
+        |  send_xml(Socket, {xmlstreamelement, XML}) -&gt;
+<font color=red>     0..|      send(Socket, XML);</font>
+        |  send_xml(Socket, #xmlstreamstart{} = XML) -&gt;
+<font color=red>     0..|      send(Socket, XML);</font>
+        |  send_xml(Socket, #xmlstreamend{} = XML) -&gt;
+<font color=red>     0..|      send(Socket, XML).</font>
+        |  
+        |  
+        |  -spec send(mod_bosh:socket(), _) -&gt; 'ok'.
+        |  send(#bosh_socket{pid = Pid}, Data) -&gt;
+<font color=red>     0..|      Pid ! {send, Data},</font>
+<font color=red>     0..|      ok.</font>
+        |  
+        |  -spec change_shaper(mod_bosh:socket(), shaper:shaper()) -&gt; mod_bosh:socket().
+        |  change_shaper(SocketData, _Shaper) -&gt;
+        |      %% TODO: we ignore shapers for now
+<font color=red>     0..|      SocketData.</font>
+        |  
+        |  
+        |  -spec monitor(mod_bosh:socket()) -&gt; reference().
+        |  monitor(#bosh_socket{pid = Pid}) -&gt;
+<font color=red>     0..|      erlang:monitor(process, Pid).</font>
+        |  
+        |  
+        |  -spec get_sockmod(mod_bosh:socket()) -&gt; module().
+        |  get_sockmod(_SocketData) -&gt;
+<font color=red>     0..|      ?MODULE.</font>
+        |  
+        |  
+        |  -spec close(mod_bosh:socket()) -&gt; 'close'.
+        |  close(#bosh_socket{pid = Pid}) -&gt;
+<font color=red>     0..|      Pid ! close.</font>
+        |  
+        |  -spec peername(mod_bosh:socket()) -&gt; {ok, {inet:ip_address(), inet:port_number()}}.
+        |  peername(#bosh_socket{peer = Peer}) -&gt;
+<font color=red>     0..|      {ok, Peer}.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Helpers
+        |  %%--------------------------------------------------------------------
+        |  
+        |  %% @doc Set Fields of the Record to Values,
+        |  %% when {Field, Value} &lt;- FieldValues (in list comprehension syntax).
+        |  -spec record_set(state(), [{pos_integer(), _},...]) -&gt; state().
+        |  record_set(Record, FieldValues) -&gt;
+<font color=red>     0..|      F = fun({Field, Value}, Rec) -&gt;</font>
+<font color=red>     0..|              setelement(Field, Rec, Value)</font>
+        |          end,
+<font color=red>     0..|      lists:foldl(F, Record, FieldValues).</font>
+        |  
+        |  
+        |  maybe_add_default_ns_to_children(Children) -&gt;
+<font color=red>     0..|      lists:map(fun maybe_add_default_ns/1, Children).</font>
+        |  
+        |  maybe_add_default_ns(#xmlel{name = Name, attrs = Attrs} = El)
+        |   when Name =:= &lt;&lt;"message"&gt;&gt;; Name =:= &lt;&lt;"presence"&gt;&gt;; Name =:= &lt;&lt;"iq"&gt;&gt; -&gt;
+<font color=red>     0..|      case xml:get_attr(&lt;&lt;"xmlns"&gt;&gt;, Attrs) of</font>
+        |          false -&gt;
+<font color=red>     0..|              El#xmlel{attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_CLIENT} | Attrs]};</font>
+        |          _ -&gt;
+<font color=red>     0..|              El</font>
+        |      end;
+        |  maybe_add_default_ns(El) -&gt;
+<font color=red>     0..|      El.</font>
+        |  
+        |  %%--------------------------------------------------------------------
+        |  %% Tests
+        |  %%--------------------------------------------------------------------
+        |  
+        |  -ifdef(TEST).
+        |  
+        |  -include_lib("eunit/include/eunit.hrl").
+        |  
+        |  cache_up_to_test_() -&gt;
+        |      [?_test(?assertEqual( [4,5], cache_up_to(2, [1,2,3,4,5]) ))].
+        |  
+        |  -endif.
+</pre>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/amp.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/amp.erl by COVER 2016-01-26 at 09:43:49
+
+****************************************************************************
+
+        |  -module(amp).
+        |  %% @doc Models and business logic for  XEP-0079: Advanced Message Processing
+        |  %% @reference &lt;a href="http://xmpp.org/extensions/xep-0079.html"&gt;XEP-0079&lt;/a&gt;
+        |  %% @author &lt;mongooseim@erlang-solutions.com&gt;
+        |  %% @copyright 2014 Erlang Solutions, Ltd.
+        |  %% This work was sponsored by Grindr LLC
+        |  
+        |  -include_lib("ejabberd/include/amp.hrl").
+        |  -include_lib("ejabberd/include/ejabberd.hrl").
+        |  -include_lib("ejabberd/include/jlib.hrl").
+        |  
+        |  -export([extract_requested_rules/1,
+        |           make_response/3,
+        |           make_error_response/4,
+        |           rule_to_xmlel/1,
+        |           strip_amp_el/1,
+        |  
+        |           binaries_to_rule/3
+        |          ]).
+        |  
+        |  -export_type([amp_rule/0,
+        |               amp_rules/0]).
+        |  
+        |  
+        |  -spec binaries_to_rule(binary(), binary(), binary()) -&gt; amp_rule() | amp_invalid_rule().
+        |  binaries_to_rule(&lt;&lt;"deliver"&gt;&gt; = Condition, Value,Action) -&gt;
+<font color=red>     0..|      case are_valid_deliver_params(Value,Action) of</font>
+<font color=red>     0..|          true -&gt; mk_amp_rule('deliver', from_bin_(Value), from_bin_(Action));</font>
+<font color=red>     0..|          false -&gt; mk_amp_invalid_rule(Condition, Value, Action)</font>
+        |      end;
+        |  binaries_to_rule(&lt;&lt;"match-resource"&gt;&gt; = Condition, Value,Action) -&gt;
+<font color=red>     0..|      case are_valid_match_resource_params(Value,Action) of</font>
+<font color=red>     0..|          true -&gt; mk_amp_rule('match-resource', from_bin_(Value), from_bin_(Action));</font>
+<font color=red>     0..|          false -&gt; mk_amp_invalid_rule(Condition, Value, Action)</font>
+        |      end;
+        |  binaries_to_rule(&lt;&lt;"expire-at"&gt;&gt; = Condition, Value,Action) -&gt;
+<font color=red>     0..|      case are_valid_expire_at_params(Value,Action) of</font>
+<font color=red>     0..|          true -&gt; mk_amp_rule('expire-at', Value, from_bin_(Action)); %% Value is binary here!</font>
+<font color=red>     0..|          false -&gt; mk_amp_invalid_rule(Condition, Value, Action)</font>
+        |      end;
+        |  binaries_to_rule(Condition,Value,Action) -&gt;
+<font color=red>     0..|      mk_amp_invalid_rule(Condition, Value, Action).</font>
+        |  
+        |  
+        |  -spec extract_requested_rules(#xmlel{}) -&gt; 'none'
+        |                                               | {rules, amp_rules()}
+        |                                               | {errors, [{amp_error(), amp_invalid_rule()}]}.
+        |  extract_requested_rules(#xmlel{} = Stanza) -&gt;
+<font color=red>     0..|      case is_amp_request(Stanza) of</font>
+<font color=red>     0..|          true -&gt; parse_rules(Stanza);</font>
+<font color=red>     0..|          _    -&gt; none</font>
+        |      end.
+        |  
+        |  -spec make_response(amp_rule(), jid(), #xmlel{}) -&gt; #xmlel{}.
+        |  make_response(Rule, User, Packet) -&gt;
+<font color=red>     0..|      OriginalId = exml_query:attr(Packet, &lt;&lt;"id"&gt;&gt;, &lt;&lt;"original-id-missing"&gt;&gt;),</font>
+<font color=red>     0..|      OriginalSender = jid:to_binary(User),</font>
+<font color=red>     0..|      OriginalRecipient = exml_query:attr(Packet, &lt;&lt;"to"&gt;&gt;),</font>
+        |  
+<font color=red>     0..|      Amp = #xmlel{name = &lt;&lt;"amp"&gt;&gt;,</font>
+        |                   attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_AMP},
+        |                            {&lt;&lt;"status"&gt;&gt;, to_bin_(Rule#amp_rule.action)},
+        |                            {&lt;&lt;"to"&gt;&gt;, OriginalRecipient},
+        |                            {&lt;&lt;"from"&gt;&gt;, OriginalSender}],
+        |                   children = [rule_to_xmlel(Rule)]},
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"message"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"id"&gt;&gt;, OriginalId}],
+        |             children = [Amp]}.
+        |  
+        |  
+        |  -spec make_error_response([amp_error()], [amp_any_rule()], jid(), #xmlel{})
+        |                           -&gt; #xmlel{}.
+        |  make_error_response([E|_] = Errors, [_|_] = Rules, User, Packet) -&gt;
+<font color=red>     0..|      OriginalId = exml_query:attr(Packet, &lt;&lt;"id"&gt;&gt;, &lt;&lt;"original-id-missing"&gt;&gt;),</font>
+<font color=red>     0..|      Error = make_error_el(Errors, Rules),</font>
+<font color=red>     0..|      Amp = #xmlel{name = &lt;&lt;"amp"&gt;&gt;,</font>
+        |                   attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_AMP} |
+        |                            error_amp_attrs(E, User, Packet)],
+<font color=red>     0..|                   children = [rule_to_xmlel(R) || R &lt;- Rules]},</font>
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"message"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"id"&gt;&gt;, OriginalId},
+        |                      {&lt;&lt;"type"&gt;&gt;, &lt;&lt;"error"&gt;&gt;}],
+        |             children = [Error, Amp]};
+        |  make_error_response(Errors,Rules,User,Packet) -&gt;
+<font color=red>     0..|      ?ERROR_MSG("amp:make_error_response/4 got invalid data: ~p",</font>
+        |                 [Errors,Rules,User,Packet]),
+<font color=red>     0..|      error(invalid_data).</font>
+        |  
+        |  error_amp_attrs('undefined-condition', User, Packet) -&gt;
+<font color=red>     0..|      OriginalSender = jid:to_binary(User),</font>
+<font color=red>     0..|      OriginalRecipient = exml_query:attr(Packet, &lt;&lt;"to"&gt;&gt;),</font>
+<font color=red>     0..|      [{&lt;&lt;"status"&gt;&gt;, &lt;&lt;"error"&gt;&gt;},</font>
+        |       {&lt;&lt;"to"&gt;&gt;, OriginalRecipient},
+        |       {&lt;&lt;"from"&gt;&gt;, OriginalSender}];
+<font color=red>     0..|  error_amp_attrs(_,_,_) -&gt; [].</font>
+        |  
+        |  
+        |  %% The lists are guaranteed to be non-empty and of equal
+        |  %% length by make_error_message/4
+        |  -spec make_error_el([amp_error()],[amp_any_rule()]) -&gt; #xmlel{}.
+        |  make_error_el(Errors, Rules) -&gt;
+<font color=red>     0..|      ErrorMarker = #xmlel{name = error_marker_name(hd(Errors)),</font>
+        |                           attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_STANZAS}]},
+<font color=red>     0..|      RuleContainer = #xmlel{name = rule_container_name(hd(Errors)),</font>
+        |                            attrs = [{&lt;&lt;"xmlns"&gt;&gt;, ?NS_AMP}],
+<font color=red>     0..|                            children = [ rule_to_xmlel(R) || R &lt;- Rules ]},</font>
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"error"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"type"&gt;&gt;, &lt;&lt;"modify"&gt;&gt;},
+        |                      {&lt;&lt;"code"&gt;&gt;, error_code(hd(Errors))}],
+        |             children = [ErrorMarker, RuleContainer]}.
+        |  
+        |  -spec rule_to_xmlel(amp_any_rule()) -&gt; #xmlel{}.
+        |  rule_to_xmlel(#amp_rule{condition=C, value=V, action=A}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"rule"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"condition"&gt;&gt;, to_bin_(C)},
+        |                      {&lt;&lt;"value"&gt;&gt;, to_bin_(V)},
+        |                      {&lt;&lt;"action"&gt;&gt;, to_bin_(A)}]};
+        |  rule_to_xmlel(#amp_invalid_rule{condition=C, value=V, action=A}) -&gt;
+<font color=red>     0..|      #xmlel{name = &lt;&lt;"rule"&gt;&gt;,</font>
+        |             attrs = [{&lt;&lt;"condition"&gt;&gt;, C},
+        |                      {&lt;&lt;"value"&gt;&gt;,V},
+        |                      {&lt;&lt;"action"&gt;&gt;, A}]}.
+        |  
+        |  -spec strip_amp_el(#xmlel{}) -&gt; #xmlel{}.
+        |  strip_amp_el(#xmlel{children = Children} = Elem) -&gt;
+<font color=red>     0..|      NewChildren = [ C || C &lt;- Children, not is_amp_el(C) ],</font>
+<font color=red>     0..|      Elem#xmlel{children = NewChildren}.</font>
+        |  
+        |  
+        |  %% Internal
+        |  %% @doc We want to keep client-&gt;server AMPed messages,
+        |  %%      but filter out server-&gt;client AMPed responses.
+        |  %%      We can distinguish them by the fact that s2c messages MUST have
+        |  %%      a 'status' attr on the &lt;amp&gt; element.
+        |  -spec is_amp_request(#xmlel{}) -&gt; boolean().
+        |  is_amp_request(Stanza) -&gt;
+<font color=red>     0..|      Amp = exml_query:subelement(Stanza, &lt;&lt;"amp"&gt;&gt;),</font>
+<font color=red>     0..|      (undefined =/= Amp)</font>
+        |      andalso
+<font color=red>     0..|          (undefined == exml_query:attr(Amp, &lt;&lt;"status"&gt;&gt;))</font>
+        |           andalso
+<font color=red>     0..|           (undefined == exml_query:subelement(Stanza, &lt;&lt;"error"&gt;&gt;)).</font>
+        |  
+        |  -spec is_amp_el(#xmlel{}) -&gt; boolean().
+<font color=red>     0..|  is_amp_el(#xmlel{name = &lt;&lt;"amp"&gt;&gt;}) -&gt; true;</font>
+<font color=red>     0..|  is_amp_el(_)                        -&gt; false.</font>
+        |  
+        |  -spec parse_rules(#xmlel{}) -&gt; none
+        |                                   | {rules, amp_rules()}
+        |                                   | {errors, [{amp_error(), amp_rule()}]}.
+        |  parse_rules(Stanza) -&gt;
+<font color=red>     0..|      Amp = exml_query:subelement(Stanza, &lt;&lt;"amp"&gt;&gt;),</font>
+<font color=red>     0..|      RuleElems = exml_query:subelements(Amp, &lt;&lt;"rule"&gt;&gt;),</font>
+<font color=red>     0..|      MaybeRules = [ parse_rule(R) || R &lt;- RuleElems ],</font>
+<font color=red>     0..|      case lists:partition(fun is_valid_rule/1, MaybeRules) of</font>
+<font color=red>     0..|          {[], []}     -&gt; none;</font>
+<font color=red>     0..|          {Valid, []}  -&gt; {rules, Valid};</font>
+<font color=red>     0..|          {_, Invalid} -&gt; {errors, [ {'not-acceptable', R} || R &lt;- Invalid ]}</font>
+        |      end.
+        |  
+        |  -spec parse_rule(#xmlel{}) -&gt; amp_rule() | amp_invalid_rule().
+        |  parse_rule(#xmlel{attrs = Attrs}) -&gt;
+<font color=red>     0..|      GetF = fun(Value) -&gt; proplists:get_value(Value,Attrs, &lt;&lt;"attribute-missing"&gt;&gt;) end,</font>
+<font color=red>     0..|      {C,V,A} = {GetF(&lt;&lt;"condition"&gt;&gt;),</font>
+        |                 GetF(&lt;&lt;"value"&gt;&gt;),
+        |                 GetF(&lt;&lt;"action"&gt;&gt;)},
+<font color=red>     0..|      binaries_to_rule(C, V, A).</font>
+        |  
+        |  -spec is_valid_rule(amp_rule() | amp_invalid_rule()) -&gt; boolean().
+<font color=red>     0..|  is_valid_rule(#amp_rule{}) -&gt; true;</font>
+<font color=red>     0..|  is_valid_rule(#amp_invalid_rule{}) -&gt; false.</font>
+        |  
+        |  is_valid_action(Action) -&gt;
+<font color=red>     0..|      lists:member(Action, ?AMP_LEGAL_ACTIONS).</font>
+        |  
+        |  are_valid_deliver_params(Value, Action) -&gt;
+<font color=red>     0..|      lists:member(Value, ?AMP_LEGAL_DELIVER_VALUES) andalso</font>
+<font color=red>     0..|          is_valid_action(Action).</font>
+        |  
+        |  are_valid_match_resource_params(Value, Action) -&gt;
+<font color=red>     0..|      lists:member(Value, ?AMP_LEGAL_MATCH_RESOURCE_VALUES) andalso</font>
+<font color=red>     0..|          is_valid_action(Action).</font>
+        |  
+        |  are_valid_expire_at_params(_Value, Action) -&gt;
+        |      %% We may check the value with a regexp for a proper date in the future.
+<font color=red>     0..|      is_valid_action(Action).</font>
+        |  
+        |  mk_amp_rule(C,V,A) -&gt;
+<font color=red>     0..|      #amp_rule{condition = C, value = V, action = A}.</font>
+        |  mk_amp_invalid_rule(C,V,A) -&gt;
+<font color=red>     0..|      #amp_invalid_rule{condition = C, value = V, action = A}.</font>
+        |  
+<font color=red>     0..|  error_code('not-acceptable')      -&gt; &lt;&lt;"405"&gt;&gt;;</font>
+<font color=red>     0..|  error_code('undefined-condition') -&gt; &lt;&lt;"500"&gt;&gt;;</font>
+<font color=red>     0..|  error_code(_)                     -&gt; &lt;&lt;"400"&gt;&gt;.</font>
+        |  
+<font color=red>     0..|  error_marker_name('not-acceptable') -&gt; &lt;&lt;"not-acceptable"&gt;&gt;;</font>
+<font color=red>     0..|  error_marker_name('unsupported-actions') -&gt; &lt;&lt;"bad-request"&gt;&gt;;</font>
+<font color=red>     0..|  error_marker_name('unsupported-conditions') -&gt; &lt;&lt;"bad-request"&gt;&gt;;</font>
+<font color=red>     0..|  error_marker_name('undefined-condition') -&gt; &lt;&lt;"undefined-condition"&gt;&gt;.</font>
+        |  
+<font color=red>     0..|  rule_container_name('not-acceptable') -&gt; &lt;&lt;"invalid-rules"&gt;&gt;;</font>
+<font color=red>     0..|  rule_container_name('unsupported-actions') -&gt; &lt;&lt;"unsupported-actions"&gt;&gt;;</font>
+<font color=red>     0..|  rule_container_name('unsupported-conditions') -&gt; &lt;&lt;"unsupported-conditions"&gt;&gt;;</font>
+<font color=red>     0..|  rule_container_name('undefined-condition') -&gt; &lt;&lt;"failed-rules"&gt;&gt;.</font>
+        |  
+        |  -spec to_bin_(amp_action() | amp_condition() | amp_value() | amp_error()) -&gt;
+        |                       binary().
+<font color=red>     0..|  to_bin_(A) when is_atom(A) -&gt; atom_to_binary(A, utf8);</font>
+<font color=red>     0..|  to_bin_(X) when is_binary(X) -&gt; X.</font>
+        |  
+        |  -spec from_bin_(binary()) -&gt; amp_action() | amp_condition() |
+        |                               amp_value() | amp_error().
+        |  %% @doc WARNING! This is a partial function. Only values that have been
+        |  %% verified as legal in binaries_to_rule/3 should be passed here.
+        |  %% DO NOT EXPORT!!!
+        |  %% conditons
+<font color=red>     0..|  from_bin_(&lt;&lt;"deliver"&gt;&gt;) -&gt; 'deliver';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"expire-at"&gt;&gt;) -&gt; 'expire-at';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"match-resource"&gt;&gt;) -&gt; 'match-resource';</font>
+        |  %% non-date values
+<font color=red>     0..|  from_bin_(&lt;&lt;"direct"&gt;&gt;) -&gt; 'direct';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"forward"&gt;&gt;) -&gt; 'forward';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"gateway"&gt;&gt;) -&gt; 'gateway';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"none"&gt;&gt;) -&gt; 'none';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"stored"&gt;&gt;) -&gt; 'stored';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"any"&gt;&gt;) -&gt; 'any';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"exact"&gt;&gt;) -&gt; 'exact';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"other"&gt;&gt;) -&gt; 'other';</font>
+        |  %% actions
+<font color=red>     0..|  from_bin_(&lt;&lt;"alert"&gt;&gt;) -&gt; 'alert';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"drop"&gt;&gt;) -&gt; 'drop';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"error"&gt;&gt;) -&gt; 'error';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"notify"&gt;&gt;) -&gt; 'notify';</font>
+        |  %% amp error types
+<font color=red>     0..|  from_bin_(&lt;&lt;"unsupported-actions"&gt;&gt;) -&gt; 'unsupported-actions';</font>
+<font color=red>     0..|  from_bin_(&lt;&lt;"unsupported-conditions"&gt;&gt;) -&gt; 'unsupported-conditions'.</font>
+</pre>
+</body>
+</html>

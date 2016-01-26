@@ -1,0 +1,67 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<title>Test revproxy_SUITE:http_upstream result</title>
+<meta http-equiv="cache-control" content="no-cache">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<link rel="stylesheet" href="../../ct_default.css" type="text/css">
+<script type="text/javascript" src="../../jquery-latest.js"></script>
+<script type="text/javascript" src="../../jquery.tablesorter.min.js"></script>
+</head>
+<body>
+
+<a name="top"></a><pre>
+=== Test case: <a href="revproxy_suite.src.html#http_upstream-1">revproxy_SUITE:http_upstream/1</a> (click for source code)
+
+=== Config value:
+
+    [{watchdog,<0.498.0>},
+     {meck_pid,<0.426.0>},
+     {tc_logfile,"/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.43.19/revproxy_suite.http_upstream.html"},
+     {tc_group_properties,[{name,requests_http},sequence]},
+     {tc_group_path,[]},
+     {data_dir,"/home/travis/build/esl/MongooseIM/apps/ejabberd/test/revproxy_SUITE_data/"},
+     {priv_dir,"/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/apps.ejabberd.revproxy_SUITE.logs/run.2016-01-26_09.43.19/log_private/"}]
+
+=== Current directory is "/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10"
+
+=== Started at 2016-01-26 09:43:20
+
+<br />
+
+<div class="ct_error_notify"><b>*** CT Error Notification 2016-01-26 09:43:20.333 ***</b>
+revproxy_SUITE:http_upstream failed on line 159
+Reason: {badmatch,false}
+
+<a href="#end">Full error description and stacktrace</a>
+</div>
+<a name="end"></a>
+
+
+=== Ended at 2016-01-26 09:43:20
+=== location [{revproxy_SUITE,http_upstream,<a href="revproxy_suite.src.html#159">159</a>},
+              {test_server,ts_tc,1429},
+              {test_server,run_test_case_eval1,1026},
+              {test_server,run_test_case_eval,968}]
+=== reason = no match of right hand side value false
+  in function  revproxy_SUITE:http_upstream/1 (revproxy_SUITE.erl, line 159)
+  in call from test_server:ts_tc/3 (test_server.erl, line 1429)
+  in call from test_server:run_test_case_eval1/6 (test_server.erl, line 1026)
+  in call from test_server:run_test_case_eval/9 (test_server.erl, line 968)
+=== 
+*** http_upstream failed.
+    Skipping all other cases in sequence.
+</pre>
+<center>
+<br /><hr /><p>
+<a href="../../../all_runs.html">Test run history
+</a>  |  <a href="../../../index.html">Top level test index
+</a>
+</p>
+<div class="copyright">Copyright &copy; 2016 <a href="http://www.erlang.org">Open Telecom Platform</a><br />
+Updated: <!date>Tue Jan 26 2016 09:43:20<!/date><br />
+</div>
+</center>
+</body>
+</html>

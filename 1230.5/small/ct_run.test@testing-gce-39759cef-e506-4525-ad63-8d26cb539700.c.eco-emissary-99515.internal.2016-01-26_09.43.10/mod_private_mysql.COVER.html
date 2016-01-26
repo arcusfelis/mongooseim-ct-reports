@@ -1,0 +1,69 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/mod_private_mysql.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/mod_private_mysql.erl by COVER 2016-01-26 at 09:43:40
+
+****************************************************************************
+
+        |  %%% NS is namespace or key.
+        |  %%% XML is #xmlel{} or value.
+        |  -module(mod_private_mysql).
+        |  -author('arcusfelis@gmail.com').
+        |  -behaviour(mod_private).
+        |  
+        |  -export([init/2,
+        |           multi_set_data/3,
+        |           multi_get_data/3,
+        |           remove_user/2]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  -include("jlib.hrl").
+        |  
+        |  init(_Host, _Opts) -&gt;
+<font color=red>     0..|      ok.</font>
+        |  
+        |  multi_set_data(LUser, LServer, NS2XML) -&gt;
+<font color=red>     0..|      SLUser = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      Rows = [sql_row(NS, XML) || {NS, XML} &lt;- NS2XML],</font>
+<font color=red>     0..|      replace_like_insert_result(</font>
+        |          odbc_queries:multi_set_private_data(LServer, SLUser, Rows)).
+        |  
+<font color=red>     0..|  replace_like_insert_result({updated, _})        -&gt; ok;</font>
+<font color=red>     0..|  replace_like_insert_result({error, Reason})     -&gt; {error, Reason};</font>
+<font color=red>     0..|  replace_like_insert_result({aborted, Reason})   -&gt; {aborted, Reason}.</font>
+        |  
+        |  sql_row(NS, XML) -&gt;
+<font color=red>     0..|      SNS = ejabberd_odbc:escape(NS),</font>
+<font color=red>     0..|      SData = ejabberd_odbc:escape(exml:to_binary(XML)),</font>
+<font color=red>     0..|      {SNS, SData}.</font>
+        |  
+        |  multi_get_data(LUser, LServer, NS2Def) -&gt;
+<font color=red>     0..|      SLUser = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      SNSs = [ejabberd_odbc:escape(NS) || {NS, _Def} &lt;- NS2Def],</font>
+<font color=red>     0..|      case odbc_queries:multi_get_private_data(LServer, SLUser, SNSs) of</font>
+        |          {selected, [&lt;&lt;"namespace"&gt;&gt;, &lt;&lt;"data"&gt;&gt;], Rows} -&gt;
+<font color=red>     0..|              RowsDict = dict:from_list(Rows),</font>
+<font color=red>     0..|              [select_value(NSDef, RowsDict) || NSDef &lt;- NS2Def];</font>
+        |          _ -&gt;
+<font color=red>     0..|              [Def || {_NS, Def} &lt;- NS2Def]</font>
+        |      end.
+        |  
+        |  select_value({NS, Def}, RowsDict) -&gt;
+<font color=red>     0..|      case dict:find(NS, RowsDict) of</font>
+        |          {ok, SData} -&gt;
+<font color=red>     0..|  	    {ok, Elem} = exml:parse(SData),</font>
+<font color=red>     0..|  	    Elem;</font>
+        |          error -&gt;
+<font color=red>     0..|              Def</font>
+        |      end.
+        |  
+        |  remove_user(LUser, LServer) -&gt;
+<font color=red>     0..|      SLUser = ejabberd_odbc:escape(LUser),</font>
+<font color=red>     0..|      odbc_queries:del_user_private_storage(LServer, SLUser).</font>
+</pre>
+</body>
+</html>

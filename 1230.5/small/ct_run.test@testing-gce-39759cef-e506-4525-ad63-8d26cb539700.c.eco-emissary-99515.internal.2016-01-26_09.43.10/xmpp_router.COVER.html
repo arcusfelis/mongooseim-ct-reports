@@ -1,0 +1,35 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>/home/travis/build/esl/MongooseIM/apps/ejabberd/logs/ct_run.test@testing-gce-39759cef-e506-4525-ad63-8d26cb539700.c.eco-emissary-99515.internal.2016-01-26_09.43.10/xmpp_router.COVER.html</title>
+</head><body style='background-color: white; color: black'>
+<pre>
+File generated from /home/travis/build/esl/MongooseIM/apps/ejabberd/ebin/../src/xmpp_router.erl by COVER 2016-01-26 at 09:43:37
+
+****************************************************************************
+
+        |  -module(xmpp_router).
+        |  -export([route/4]).
+        |  
+        |  -include("ejabberd.hrl").
+        |  
+        |  
+        |  -callback do_route(From :: ejabberd:jid(), To :: ejabberd:jid(),
+        |                     Packet :: jlib:xmlel()) -&gt; ok.
+        |  
+        |  -spec route(Module :: module(), From :: ejabberd:jid(), To :: ejabberd:jid(),
+        |              Packet :: jlib:xmlel()) -&gt; ok.
+        |  route(Module,From,To,Packet) -&gt;
+<font color=red>     0..|      case (catch Module:do_route(From,To,Packet)) of</font>
+        |          {'EXIT', Reason} -&gt;
+<font color=red>     0..|              ?ERROR_MSG("error when routing from=~ts to=~ts in module=~p, reason=~p, packet=~ts, stack_trace=~p",</font>
+        |                         [jid:to_binary(From), jid:to_binary(To),
+        |                          Module, Reason, exml:to_binary(Packet),
+        |                          erlang:get_stacktrace()]);
+<font color=red>     0..|          _ -&gt; ok</font>
+        |      end.
+        |  
+</pre>
+</body>
+</html>
