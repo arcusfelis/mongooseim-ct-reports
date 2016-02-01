@@ -1,0 +1,215 @@
+=== Suite started at 2016-02-01 16:07:59
+=== Starting test, 15 test cases
+=cases         15
+=user          travis
+=host          testing-gce-38b0369a-da95-4bc6-b52b-ed1300070243
+=hosts         testing-gce-38b0369a-da95-4bc6-b52b-ed1300070243 
+=emulator_vsn  6.4
+=emulator      beam
+=otp_release   17
+=started       2016-02-01 16:07:59
+=case          presence_SUITE:init_per_suite
+=logfile       presence_suite.init_per_suite.html
+=started       2016-02-01 16:07:59
+=ended         2016-02-01 16:07:59
+=result        ok
+=elapsed       0.004969
+=case          presence_SUITE:init_per_group
+=logfile       presence_suite.init_per_group.html
+=group_props   [{name,presence},sequence]
+=started       2016-02-01 16:07:59
+=ended         2016-02-01 16:07:59
+=result        ok
+=elapsed       0.508187
+=case          presence_SUITE:available
+=logfile       presence_suite.available.html
+=started       2016-02-01 16:07:59
+=ended         2016-02-01 16:08:00
+=result        ok
+=elapsed       0.913371
+=case          presence_SUITE:available_direct
+=logfile       presence_suite.available_direct.html
+=started       2016-02-01 16:08:00
+=ended         2016-02-01 16:08:01
+=result        ok
+=elapsed       0.917917
+=case          presence_SUITE:additions
+=logfile       presence_suite.additions.html
+=started       2016-02-01 16:08:01
+=ended         2016-02-01 16:08:02
+=result        ok
+=elapsed       0.913149
+=case          presence_SUITE:invisible_presence
+=logfile       presence_suite.invisible_presence.html
+=started       2016-02-01 16:08:02
+=ended         2016-02-01 16:08:03
+=result        ok
+=elapsed       1.148046
+=case          presence_SUITE:end_per_group
+=logfile       presence_suite.end_per_group.html
+=group_props   [{name,presence},sequence]
+=started       2016-02-01 16:08:03
+=ended         2016-02-01 16:08:04
+=result        ok
+=elapsed       0.921314
+=group_time    4.532s
+=case          presence_SUITE:init_per_group
+=logfile       presence_suite.init_per_group.342884.749.html
+=group_props   [{name,presence_priority},sequence]
+=started       2016-02-01 16:08:04
+=ended         2016-02-01 16:08:05
+=result        ok
+=elapsed       0.513862
+=case          presence_SUITE:negative_priority_presence
+=logfile       presence_suite.negative_priority_presence.html
+=started       2016-02-01 16:08:05
+=ended         2016-02-01 16:08:07
+=result        ok
+=elapsed       2.371964
+=case          presence_SUITE:end_per_group
+=logfile       presence_suite.end_per_group.342887.685.html
+=group_props   [{name,presence_priority},sequence]
+=started       2016-02-01 16:08:07
+=ended         2016-02-01 16:08:08
+=result        ok
+=elapsed       0.922245
+=group_time    2.936s
+=case          presence_SUITE:init_per_group
+=logfile       presence_suite.init_per_group.342888.632.html
+=group_props   [{name,roster},sequence]
+=started       2016-02-01 16:08:08
+=ended         2016-02-01 16:08:09
+=result        ok
+=elapsed       0.505941
+=case          presence_SUITE:get_roster
+=logfile       presence_suite.get_roster.html
+=started       2016-02-01 16:08:09
+=ended         2016-02-01 16:08:10
+=result        ok
+=elapsed       0.912288
+=case          presence_SUITE:add_contact
+=logfile       presence_suite.add_contact.html
+=started       2016-02-01 16:08:10
+=ended         2016-02-01 16:08:11
+=result        ok
+=elapsed       0.955207
+=case          presence_SUITE:remove_contact
+=logfile       presence_suite.remove_contact.html
+=started       2016-02-01 16:08:11
+=ended         2016-02-01 16:08:12
+=result        ok
+=elapsed       1.190357
+=case          presence_SUITE:end_per_group
+=logfile       presence_suite.end_per_group.342892.310.html
+=group_props   [{name,roster},sequence]
+=started       2016-02-01 16:08:12
+=ended         2016-02-01 16:08:13
+=result        ok
+=elapsed       0.92258
+=group_time    3.678s
+=case          presence_SUITE:init_per_group
+=logfile       presence_suite.init_per_group.342893.258.html
+=group_props   [{name,roster_versioning},sequence]
+=started       2016-02-01 16:08:13
+=ended         2016-02-01 16:08:13
+=result        ok
+=elapsed       0.508953
+=case          presence_SUITE:versioning
+=logfile       presence_suite.versioning.html
+=started       2016-02-01 16:08:13
+=== WARNING: end_per_testcase crashed!
+Reason: noproc
+Line: [{gen,do_call,221},
+              {gen_event,rpc,189},
+              {escalus_event,stop,73},
+              {escalus,end_per_testcase,77},
+              {test_server,do_end_per_testcase,1299},
+              {test_server,run_test_case_eval1,1054},
+              {test_server,run_test_case_eval,968}]
+
+=ended         2016-02-01 16:08:15
+=result        ok
+=elapsed       1.207687
+=case          presence_SUITE:versioning_no_store
+=logfile       presence_suite.versioning_no_store.html
+=started       2016-02-01 16:08:15
+=== WARNING: end_per_testcase crashed!
+Reason: noproc
+Line: [{gen,do_call,221},
+              {gen_event,rpc,189},
+              {escalus_event,stop,73},
+              {escalus,end_per_testcase,77},
+              {test_server,do_end_per_testcase,1299},
+              {test_server,run_test_case_eval1,1054},
+              {test_server,run_test_case_eval,968}]
+
+=ended         2016-02-01 16:08:16
+=result        ok
+=elapsed       1.210317
+=case          presence_SUITE:end_per_group
+=logfile       presence_suite.end_per_group.342896.271.html
+=group_props   [{name,roster_versioning},sequence]
+=started       2016-02-01 16:08:16
+=ended         2016-02-01 16:08:17
+=result        ok
+=elapsed       0.921891
+=group_time    3.013s
+=case          presence_SUITE:init_per_group
+=logfile       presence_suite.init_per_group.342897.219.html
+=group_props   [{name,subscribe_group},sequence]
+=started       2016-02-01 16:08:17
+=ended         2016-02-01 16:08:17
+=result        ok
+=elapsed       0.508161
+=case          presence_SUITE:subscribe
+=logfile       presence_suite.subscribe.html
+=started       2016-02-01 16:08:17
+=ended         2016-02-01 16:08:18
+=result        ok
+=elapsed       1.119838
+=case          presence_SUITE:subscribe_decline
+=logfile       presence_suite.subscribe_decline.html
+=started       2016-02-01 16:08:18
+=ended         2016-02-01 16:08:19
+=result        ok
+=elapsed       0.957734
+=case          presence_SUITE:subscribe_relog
+=logfile       presence_suite.subscribe_relog.html
+=started       2016-02-01 16:08:19
+=ended         2016-02-01 16:08:21
+=result        ok
+=elapsed       1.413028
+=case          presence_SUITE:unsubscribe
+=logfile       presence_suite.unsubscribe.html
+=started       2016-02-01 16:08:21
+=ended         2016-02-01 16:08:22
+=result        ok
+=elapsed       1.062449
+=case          presence_SUITE:remove_unsubscribe
+=logfile       presence_suite.remove_unsubscribe.html
+=started       2016-02-01 16:08:22
+=ended         2016-02-01 16:08:23
+=result        ok
+=elapsed       1.064377
+=case          presence_SUITE:end_per_group
+=logfile       presence_suite.end_per_group.342903.515.html
+=group_props   [{name,subscribe_group},sequence]
+=started       2016-02-01 16:08:23
+=ended         2016-02-01 16:08:24
+=result        ok
+=elapsed       0.928825
+=group_time    6.296s
+=case          presence_SUITE:end_per_suite
+=logfile       presence_suite.end_per_suite.html
+=started       2016-02-01 16:08:24
+=ended         2016-02-01 16:08:24
+=result        ok
+=elapsed       0.001737
+=group_time    25.271s
+=== TEST COMPLETE, 15 ok, 0 failed of 15 test cases
+
+=finished      2016-02-01 16:08:24
+=failed        0
+=successful    15
+=user_skipped  0
+=auto_skipped  0
